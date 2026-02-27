@@ -1741,6 +1741,40 @@ pub fn from_json_bits(json_bits: BitArray) -> Result(Jwk, gose.GoseError) {
   from_dynamic(dyn)
 }
 
+/// Return a decoder for JWK values.
+///
+/// This lets you compose JWK decoding inside larger decode pipelines, for
+/// example with `decode.field`, `decode.list`, or `json.parse`.
+///
+/// ## Returns
+///
+/// A `Decoder(Jwk)` that succeeds on valid JWK JSON objects and fails on
+/// anything else.
+///
+/// ## Example
+///
+/// ```gleam
+/// // Parse a JWK directly from a JSON string
+/// let assert Ok(key) = json.parse(json_string, jwk.decoder())
+///
+/// // Use inside a larger decoder
+/// use key <- decode.field("signing_key", jwk.decoder())
+/// ```
+pub fn decoder() -> decode.Decoder(Jwk) {
+  let placeholder =
+    Jwk(
+      material: OctetKey(secret: <<>>),
+      kid: None,
+      key_use: None,
+      key_ops: None,
+      alg: None,
+    )
+  decode.new_primitive_decoder("Jwk", fn(dyn) {
+    from_dynamic(dyn)
+    |> result.replace_error(placeholder)
+  })
+}
+
 fn key_op_from_string(s: String) -> Result(KeyOp, gose.GoseError) {
   case s {
     "sign" -> Ok(Sign)

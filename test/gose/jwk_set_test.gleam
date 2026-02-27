@@ -1,5 +1,6 @@
 import birdie
 import gleam/bit_array
+import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import gose
@@ -621,4 +622,101 @@ pub fn from_json_strict_bits_roundtrip_test() {
       assert list.length(jwk_set.to_list(parsed)) == list.length(keys)
     },
   )
+}
+
+pub fn decoder_skips_invalid_keys_test() {
+  let json_str =
+    json.object([
+      #(
+        "keys",
+        json.preprocessed_array([
+          json.object([
+            #("kty", json.string("oct")),
+            #("k", json.string("dGVzdA")),
+          ]),
+          json.object([#("kty", json.string("invalid"))]),
+        ]),
+      ),
+    ])
+    |> json.to_string
+  let assert Ok(dyn) = json.parse(json_str, decode.dynamic)
+  let assert Ok(set) = decode.run(dyn, jwk_set.decoder())
+  assert list.length(jwk_set.to_list(set)) == 1
+}
+
+pub fn decoder_all_valid_test() {
+  let key1 = jwk.generate_hmac_key(jwa.HmacSha256)
+  let key2 = jwk.generate_ec(ec.P256)
+  let set = jwk_set.from_list([key1, key2])
+  let json_str = jwk_set.to_json(set) |> json.to_string
+  let assert Ok(parsed) = json.parse(json_str, jwk_set.decoder())
+  assert list.length(jwk_set.to_list(parsed)) == 2
+}
+
+pub fn strict_decoder_test() {
+  let key1 = jwk.generate_hmac_key(jwa.HmacSha256)
+  let key2 = jwk.generate_ec(ec.P256)
+  let set = jwk_set.from_list([key1, key2])
+  let json_str = jwk_set.to_json(set) |> json.to_string
+  let assert Ok(parsed) = json.parse(json_str, jwk_set.strict_decoder())
+  assert list.length(jwk_set.to_list(parsed)) == 2
+}
+
+pub fn strict_decoder_invalid_key_test() {
+  let json_str =
+    json.object([
+      #(
+        "keys",
+        json.preprocessed_array([
+          json.object([
+            #("kty", json.string("oct")),
+            #("k", json.string("dGVzdA")),
+          ]),
+          json.object([#("kty", json.string("invalid"))]),
+        ]),
+      ),
+    ])
+    |> json.to_string
+  let assert Error(json.UnableToDecode([
+    decode.DecodeError(expected: "Jwk", found: _, path: ["keys", "1"]),
+  ])) = json.parse(json_str, jwk_set.strict_decoder())
+}
+
+pub fn decoder_missing_keys_field_test() {
+  let json_str = json.object([]) |> json.to_string
+  let assert Error(json.UnableToDecode([
+    decode.DecodeError(expected: "Field", found: "Nothing", path: ["keys"]),
+  ])) = json.parse(json_str, jwk_set.decoder())
+}
+
+pub fn decoder_keys_not_array_test() {
+  let json_str =
+    json.object([#("keys", json.string("not-an-array"))]) |> json.to_string
+  let assert Error(json.UnableToDecode([
+    decode.DecodeError(expected: "List", found: _, path: ["keys"]),
+  ])) = json.parse(json_str, jwk_set.decoder())
+}
+
+pub fn strict_decoder_missing_keys_field_test() {
+  let json_str = json.object([]) |> json.to_string
+  let assert Error(json.UnableToDecode([
+    decode.DecodeError(expected: "Field", found: "Nothing", path: ["keys"]),
+  ])) = json.parse(json_str, jwk_set.strict_decoder())
+}
+
+pub fn strict_decoder_keys_not_array_test() {
+  let json_str =
+    json.object([#("keys", json.string("not-an-array"))]) |> json.to_string
+  let assert Error(json.UnableToDecode([
+    decode.DecodeError(expected: "List", found: _, path: ["keys"]),
+  ])) = json.parse(json_str, jwk_set.strict_decoder())
+}
+
+pub fn decoder_with_json_parse_test() {
+  let key = jwk.generate_hmac_key(jwa.HmacSha256) |> jwk.with_kid("test-key")
+  let set = jwk_set.from_list([key])
+  let json_str = jwk_set.to_json(set) |> json.to_string
+  let assert Ok(parsed) = json.parse(json_str, jwk_set.decoder())
+  let assert Ok(found) = jwk_set.first(parsed)
+  assert jwk.kid(found) == Ok("test-key")
 }

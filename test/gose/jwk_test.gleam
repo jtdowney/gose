@@ -1315,3 +1315,53 @@ pub fn from_dynamic_test() {
   let assert Ok(parsed) = jwk.from_dynamic(dyn)
   assert jwk.key_type(parsed) == jwk.OctKeyType
 }
+
+pub fn decoder_with_decode_run_test() {
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let json_str = jwk.to_json(key) |> json.to_string
+  let assert Ok(dyn) = json.parse(json_str, decode.dynamic)
+  let assert Ok(parsed) = decode.run(dyn, jwk.decoder())
+  assert jwk.key_type(parsed) == jwk.OctKeyType
+}
+
+pub fn decoder_with_json_parse_test() {
+  let key =
+    jwk.generate_ec(ec.P256)
+    |> jwk.with_kid("ec-key")
+  let json_str = jwk.to_json(key) |> json.to_string
+  let assert Ok(parsed) = json.parse(json_str, jwk.decoder())
+  assert jwk.key_type(parsed) == jwk.EcKeyType
+  assert jwk.kid(parsed) == Ok("ec-key")
+}
+
+pub fn decoder_in_nested_field_test() {
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let inner_json = jwk.to_json(key)
+  let wrapper =
+    json.object([#("signing_key", inner_json)])
+    |> json.to_string
+  let wrapper_decoder = {
+    use k <- decode.field("signing_key", jwk.decoder())
+    decode.success(k)
+  }
+  let assert Ok(dyn) = json.parse(wrapper, decode.dynamic)
+  let assert Ok(parsed) = decode.run(dyn, wrapper_decoder)
+  assert jwk.key_type(parsed) == jwk.OctKeyType
+}
+
+pub fn decoder_list_test() {
+  let key1 = jwk.generate_hmac_key(jwa.HmacSha256)
+  let key2 = jwk.generate_ec(ec.P256)
+  let json_str =
+    json.preprocessed_array([jwk.to_json(key1), jwk.to_json(key2)])
+    |> json.to_string
+  let assert Ok(keys) = json.parse(json_str, decode.list(jwk.decoder()))
+  assert list.length(keys) == 2
+}
+
+pub fn decoder_invalid_input_test() {
+  let json_str =
+    json.object([#("not", json.string("a-jwk"))])
+    |> json.to_string
+  let assert Error(_) = json.parse(json_str, jwk.decoder())
+}

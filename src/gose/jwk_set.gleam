@@ -126,7 +126,10 @@ pub fn from_json_bits(json_bits: BitArray) -> Result(JwkSet, gose.GoseError) {
 /// returns an error if any key in the array fails to parse. The error
 /// message includes the index of the invalid key.
 ///
-/// Use this for strict validation where all keys must be valid.
+/// Note that RFC 7517 Section 5 says implementations SHOULD ignore JWKs
+/// with unrecognised key types, missing required members, or unsupported
+/// parameter values. Prefer `from_json` unless you need to guarantee
+/// every key in the set is valid.
 ///
 /// ## Parameters
 ///
@@ -148,6 +151,11 @@ pub fn from_json_strict(json_str: String) -> Result(JwkSet, gose.GoseError) {
 /// returns an error if any key in the array fails to parse. The error
 /// message includes the index of the invalid key.
 ///
+/// Note that RFC 7517 Section 5 says implementations SHOULD ignore JWKs
+/// with unrecognised key types, missing required members, or unsupported
+/// parameter values. Prefer `from_json_bits` unless you need to guarantee
+/// every key in the set is valid.
+///
 /// ## Parameters
 ///
 /// - `json_bits` - The JSON BitArray containing a JWK Set object.
@@ -162,6 +170,49 @@ pub fn from_json_strict_bits(
   parse_keys_array(json.parse_bits(json_bits, _))
   |> result.try(parse_keys_strict)
   |> result.map(JwkSet)
+}
+
+/// Return a lenient decoder for JWK Set values.
+///
+/// Invalid keys are silently skipped, matching `from_json` behavior.
+///
+/// ## Returns
+///
+/// A `Decoder(JwkSet)` that parses the `keys` array, skipping any
+/// individual key that fails to parse.
+///
+/// ## Example
+///
+/// ```gleam
+/// let assert Ok(set) = json.parse(json_string, jwk_set.decoder())
+/// ```
+pub fn decoder() -> decode.Decoder(JwkSet) {
+  use keys_dyn <- decode.field("keys", decode.list(decode.dynamic))
+  decode.success(parse_keys_lenient(keys_dyn))
+}
+
+/// Return a strict decoder for JWK Set values.
+///
+/// Unlike `decoder()`, this fails if any key in the set is invalid.
+///
+/// Note that RFC 7517 Section 5 says implementations SHOULD ignore JWKs
+/// with unrecognised key types, missing required members, or unsupported
+/// parameter values. Prefer `decoder()` unless you need to guarantee
+/// every key in the set is valid.
+///
+/// ## Returns
+///
+/// A `Decoder(JwkSet)` that parses the `keys` array and fails if any
+/// individual key is invalid.
+///
+/// ## Example
+///
+/// ```gleam
+/// let assert Ok(set) = json.parse(json_string, jwk_set.strict_decoder())
+/// ```
+pub fn strict_decoder() -> decode.Decoder(JwkSet) {
+  use keys <- decode.field("keys", decode.list(jwk.decoder()))
+  decode.success(JwkSet(keys:))
 }
 
 fn parse_keys_array(
