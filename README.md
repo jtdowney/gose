@@ -17,6 +17,10 @@ A Gleam implementation of JOSE (JSON Object Signing and Encryption) standards:
 - Algorithm Pinning - JWT/JWS/JWE require explicit algorithm declaration, preventing algorithm confusion attacks common in other JOSE libraries. It trades off verbosity for security.
 - Invalid States Are Unconstructable - Keys and tokens are validated at construction time. If you have a `Jwk`, it's valid.
 
+## Should you use this?
+
+My professional opinion as a long-time security engineering practitioner is that you should basically never use JWT, JWS, or JWE in a greenfield system. This library was created for the purpose of integrting with existing systems that already use these standards (like ACME). I wouldn't recommend it if you were starting something new where you control the environment.
+
 ## Installation
 
 ```sh
