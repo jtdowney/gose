@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-27
+
+### Added
+
+- `decoder()` functions for JWK and JWK Set types for use with `gleam_json` dynamic decoding
+
 ## [1.0.0] - 2026-02-27
 
 ### Added
@@ -48,4 +54,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Key-based and password-based (PBES2) JWT encryption
 - Encrypted JWK storage with key-based and password-based protection
 
+[1.1.0]: https://github.com/jtdowney/gose/releases/tag/v1.1.0
 [1.0.0]: https://github.com/jtdowney/gose/releases/tag/v1.0.0
