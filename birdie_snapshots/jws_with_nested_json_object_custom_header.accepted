@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWS with nested JSON object custom header
+file: ./test/gose/jws_test.gleam
+test_name: with_header_complex_json_test
+---
+{"alg":"HS256","custom_object":{"kty":"EC","crv":"P-256","x":"test-x","y":"test-y"}}

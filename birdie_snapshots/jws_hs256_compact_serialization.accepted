@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWS HS256 compact serialization
+file: ./test/gose/jws_test.gleam
+test_name: jws_hs256_compact_snapshot_test
+---
+eyJhbGciOiJIUzI1NiJ9.aGVsbG8gd29ybGQ.r95dmhW53feb041VLVbZD67FzbhpeYfU46p_1r3KLIs

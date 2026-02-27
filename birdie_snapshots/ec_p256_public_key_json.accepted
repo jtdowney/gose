@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: EC P256 public key JSON
+file: ./test/gose/jwk_test.gleam
+test_name: ec_p256_public_key_json_snapshot_test
+---
+{"kty":"EC","crv":"P-256","x":"AY-_8mfJogJVytimpeKavfGTJOK4Ug3KVdaXBVpzf4g","y":"_80KAvD3RxIGB4faAEqXLogIsmZlBEMrPAJENrdi3Ec"}

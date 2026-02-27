@@ -1,0 +1,10 @@
+---
+version: 1.5.4
+title: Ed25519 private key PEM
+file: ./test/gose/jwk_test.gleam
+test_name: eddsa_ed25519_pem_snapshot_test
+---
+-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VwBCIEICFbuV6YXqSiNAVJUKB5arflo8LuM2KNBvClYVTVExBD
+-----END PRIVATE KEY-----
+

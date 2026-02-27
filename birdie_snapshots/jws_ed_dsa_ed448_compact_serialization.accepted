@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWS EdDSA Ed448 compact serialization
+file: ./test/gose/jws_test.gleam
+test_name: jws_ed448_compact_snapshot_test
+---
+eyJhbGciOiJFZERTQSJ9.aGVsbG8gd29ybGQ.Qry8mON1qTVljX9iPjdWsANkD9CE_6ElgZXwxsCTGwO01iYuHORVk-1glKQYUYy58WO8dHBXsDiA27m1tckiMbfWdaIiI4kc6zcjxIFDGIRJLYQLeRcJOd5tbn39rkbHwoW0ony37A4p4DUkJVVWRCAA

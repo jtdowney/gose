@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWS HS256 JSON flattened serialization
+file: ./test/gose/jws_test.gleam
+test_name: jws_hs256_json_flattened_snapshot_test
+---
+{"payload":"aGVsbG8gd29ybGQ","protected":"eyJhbGciOiJIUzI1NiJ9","signature":"r95dmhW53feb041VLVbZD67FzbhpeYfU46p_1r3KLIs"}

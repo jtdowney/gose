@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: Ed25519 private key JSON
+file: ./test/gose/jwk_test.gleam
+test_name: eddsa_ed25519_private_key_json_snapshot_test
+---
+{"kty":"OKP","crv":"Ed25519","x":"wDsCdy5vkHhk4Yxyq17lT1x_RBxj-b4VgUjWwWEef7k","d":"IVu5XphepKI0BUlQoHlqt-Wjwu4zYo0G8KVhVNUTEEM"}

@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWS with single custom header
+file: ./test/gose/jws_test.gleam
+test_name: with_header_single_test
+---
+{"alg":"HS256","nonce":"abc123"}

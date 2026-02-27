@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWS with ACME-style custom headers
+file: ./test/gose/jws_test.gleam
+test_name: with_header_acme_style_test
+---
+{"alg":"HS256","nonce":"nonce-value-123","url":"https://acme.example.com/new-order"}

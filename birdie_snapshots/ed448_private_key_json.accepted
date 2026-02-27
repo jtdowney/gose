@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: Ed448 private key JSON
+file: ./test/gose/jwk_test.gleam
+test_name: eddsa_ed448_private_key_json_snapshot_test
+---
+{"kty":"OKP","crv":"Ed448","x":"Uv1LI43iX6ze8LKKy4CNMz3bdJCYkpER54el3OwBe1anUnGXrsA1tc8JUuFMkZVK6RJkSFf-jHSA","d":"o0AKEt_vVOgUbxow2gGYPODHlSBtxUWGgBPT4SfF7Q1cYW4aIWps1_Q8Bh4rZjrjdBaEqSY7seen"}

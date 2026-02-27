@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWK Set with multiple keys
+file: ./test/gose/jwk_set_test.gleam
+test_name: multiple_keys_set_snapshot_test
+---
+{"keys":[{"kty":"oct","k":"c2VjcmV0LW9uZQ","kid":"oct-key"},{"kty":"oct","k":"c2VjcmV0LXR3bw","kid":"oct-key-2"}]}

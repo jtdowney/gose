@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWS EdDSA Ed25519 compact serialization
+file: ./test/gose/jws_test.gleam
+test_name: jws_ed25519_compact_snapshot_test
+---
+eyJhbGciOiJFZERTQSJ9.aGVsbG8gd29ybGQ.Owtjsp4HBYHL6FpSlGgK2oXw77dmRQAZQ4a9kmPEaTz9oLQ1yVH6OG5OYP9hNmnAL0y9KzV9Z2QBfGmjtfH-Dg

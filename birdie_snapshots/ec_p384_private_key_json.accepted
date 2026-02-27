@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: EC P384 private key JSON
+file: ./test/gose/jwk_test.gleam
+test_name: ec_p384_private_key_json_snapshot_test
+---
+{"kty":"EC","crv":"P-384","x":"MATRK4-m4QmbbTAcrgl93wpG6Z63u0nP7NHTJwScrDj_YPmB0ZKwf-ujhh2kbFc7","y":"5IVK8krpDFSzSwD0cBXj4c_FBjbQEb2372nDX-NFlKM9x43Op1qtZoGp9c0aL17X","d":"iYaqRp9rwNY8_3m2WTUlpC1z5uXl_32jdTs59dofrYNLa6_htSGDkYO_Ka6wYnTk"}

@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWS HS256 compact with kid and typ headers
+file: ./test/gose/jws_test.gleam
+test_name: jws_hs256_with_headers_snapshot_test
+---
+eyJhbGciOiJIUzI1NiIsImtpZCI6Im15LWtleS1pZCIsInR5cCI6IkpXVCJ9.aGVsbG8gd29ybGQ.3CM1F3U3jgAvzb4M9h4MbPvnR0Y5PcpLQ_3Nxrwlanw

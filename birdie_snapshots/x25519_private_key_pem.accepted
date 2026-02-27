@@ -1,0 +1,10 @@
+---
+version: 1.5.4
+title: X25519 private key PEM
+file: ./test/gose/jwk_test.gleam
+test_name: xdh_x25519_pem_snapshot_test
+---
+-----BEGIN PRIVATE KEY-----
+MC4CAQAwBQYDK2VuBCIEIEDxR1d3gcdRwj1yB02G/RErXIKx5KDtUe+u49JcNK5M
+-----END PRIVATE KEY-----
+

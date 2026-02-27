@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: X448 private key JSON
+file: ./test/gose/jwk_test.gleam
+test_name: xdh_x448_private_key_json_snapshot_test
+---
+{"kty":"OKP","crv":"X448","x":"MryLvIcQh5QeGyCM_kt49tEhufhw3LEarUXZIiyxj4OYNJ4JJtFI2Xz5Iy8Dqy_UbGzHo5OVCeI","d":"lDYihJSr_ocEiEOn2xdggzCEVFH58clGUPOQWX4EVck1OMmXrUH7QQ-g0hnWM_it6VDHPT9d8Zs"}

@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: empty JWK Set JSON
+file: ./test/gose/jwk_set_test.gleam
+test_name: empty_set_json_snapshot_test
+---
+{"keys":[]}

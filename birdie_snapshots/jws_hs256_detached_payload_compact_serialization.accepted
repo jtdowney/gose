@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWS HS256 detached payload compact serialization
+file: ./test/gose/jws_test.gleam
+test_name: jws_detached_payload_compact_snapshot_test
+---
+eyJhbGciOiJIUzI1NiJ9..MfHZx5eXOUH0NjRpP3INNaYXsIi1HwEGsGhjqElyCok

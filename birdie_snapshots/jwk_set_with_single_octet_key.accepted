@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWK Set with single octet key
+file: ./test/gose/jwk_set_test.gleam
+test_name: single_octet_key_set_snapshot_test
+---
+{"keys":[{"kty":"oct","k":"dGVzdC1zZWNyZXQ","kid":"key-1"}]}

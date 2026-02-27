@@ -1,0 +1,9 @@
+---
+version: 1.5.4
+title: RFC 7515 Appendix A.1 HS256 payload
+file: ./test/gose/jws_test.gleam
+test_name: rfc7515_appendix_a1_hs256_test
+---
+{"iss":"joe",
+ "exp":1300819380,
+ "http://example.com/is_root":true}

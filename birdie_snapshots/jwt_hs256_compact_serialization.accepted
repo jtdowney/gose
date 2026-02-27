@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWT HS256 compact serialization
+file: ./test/gose/jwt_test.gleam
+test_name: jwt_hs256_snapshot_test
+---
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ0ZXN0LWlzc3VlciIsInN1YiI6InVzZXIxMjMiLCJhdWQiOiJ0ZXN0LWF1ZGllbmNlIiwiZXhwIjoxNzAwMDAzNjAwLCJpYXQiOjE3MDAwMDAwMDB9.hNc3NlwwW893cM0r3t1c5e9B99UZZHB9-NtqDnm7TGI

@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: RSA public key JSON
+file: ./test/gose/jwk_test.gleam
+test_name: rsa_public_key_json_snapshot_test
+---
+{"kty":"RSA","n":"lsEaIFZ_OPKKhj7cOkXPEh01DFzri3xbY3yi7P3oUBU9eSPHQgHs0KiWGOulHUkTaTgMLaC_OQY2m4zlEzuiPYOjIT0bE6kkbIBp51ekgOpm1pIEY8pIYb0t3zjuCUds3ULOIOMlBMH5XAVSAxvedDoT1g8hI88-wbFIAJIkvClrHKnww2OrsBNNvgjbbipuhyEt8cVp5yef5vjyiIRVICde2-5_sjTgGvgyTTIb43Dl7DTh5CFYi7V4qpvei_gaW1mPIssjsmeeZh--Ks_Chz8-5YF9c1shjISLJ2YlAx3zpFUbvdG22lYkGmLN1uWxOJfCC6HFdnEC7vSsfjrSJw","e":"AQAB"}

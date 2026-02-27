@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: oct symmetric key JSON
+file: ./test/gose/jwk_test.gleam
+test_name: octet_json_snapshot_test
+---
+{"kty":"oct","k":"dGVzdC1zZWNyZXQta2V5"}

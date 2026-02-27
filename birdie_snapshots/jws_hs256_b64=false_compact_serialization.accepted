@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWS HS256 b64=false compact serialization
+file: ./test/gose/jws_test.gleam
+test_name: jws_b64_false_serialization_snapshot_test
+---
+eyJhbGciOiJIUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19.hello world.093KI8vA4LFVLNGfVQKx_5LyUez4c5FA1qoIMZAW1m8

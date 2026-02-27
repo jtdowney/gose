@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWT HS256 with kid header
+file: ./test/gose/jwt_test.gleam
+test_name: jwt_with_kid_snapshot_test
+---
+eyJhbGciOiJIUzI1NiIsImtpZCI6Im15LWtleS1pZCIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyMTIzIiwiZXhwIjoxNzAwMDAzNjAwfQ.zS54PWSfIJbW2mzL-M8mcF5ARO2CJ7i079bkdTJAwoo

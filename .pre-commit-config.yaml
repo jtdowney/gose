@@ -1,0 +1,28 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+        exclude: ^birdie_snapshots/.*\.accepted$
+      - id: mixed-line-ending
+        exclude: ^birdie_snapshots/.*\.accepted$
+      - id: trailing-whitespace
+        exclude: ^birdie_snapshots/.*\.accepted$
+  - repo: local
+    hooks:
+      - id: gleam-check
+        name: gleam check
+        entry: gleam check
+        language: system
+        files: ^src/.*\.gleam$
+        pass_filenames: false
+      - id: gleam-format
+        name: gleam format --check
+        entry: gleam format --check src test
+        language: system
+        files: ^src/.*\.gleam$
+        pass_filenames: false

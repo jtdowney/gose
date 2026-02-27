@@ -1,0 +1,7 @@
+---
+version: 1.5.4
+title: JWS with multiple custom headers preserves order
+file: ./test/gose/jws_test.gleam
+test_name: with_header_multiple_test
+---
+{"alg":"HS256","first":"1","second":"2","third":"3"}

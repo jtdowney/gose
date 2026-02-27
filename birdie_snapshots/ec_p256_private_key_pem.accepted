@@ -1,0 +1,12 @@
+---
+version: 1.5.4
+title: EC P256 private key PEM
+file: ./test/gose/jwk_test.gleam
+test_name: ec_p256_pem_snapshot_test
+---
+-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgzCl9fk45uPcrzmyS
+JUKqkqWOJuBBTVfdY/5fidixrpehRANCAAQBj7/yZ8miAlXK2Kal4pq98ZMk4rhS
+DcpV1pcFWnN/iP/NCgLw90cSBgeH2gBKly6ICLJmZQRDKzwCRDa3YtxH
+-----END PRIVATE KEY-----
+
