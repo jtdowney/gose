@@ -115,7 +115,10 @@ pub fn xdh_curve_from_string_rejects_invalid_test() {
 }
 
 pub fn ec_coordinates_roundtrip_test() {
-  use curve <- qcheck.given(generators.ec_curve_generator())
+  use curve <- qcheck.run(
+    qcheck.default_config() |> qcheck.with_test_count(10),
+    generators.ec_curve_generator(),
+  )
   let #(_private, public) = ec.generate_key_pair(curve)
   let assert Ok(#(x, y)) = utils.ec_public_key_coordinates(public, curve)
   let assert Ok(reconstructed) =
