@@ -19,181 +19,155 @@ import gose/test_helpers/jwt_helpers
 import qcheck
 
 pub fn encrypt_decrypt_direct_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     qcheck.tuple2(generators.jwe_direct_generator(), qcheck.non_empty_string()),
-    fn(tuple) {
-      let #(generators.JweDirectEncWithKey(enc, key), subject) = tuple
-      let now = jwt_helpers.fixed_timestamp()
-      let exp = timestamp.add(now, duration.hours(1))
-
-      let claims =
-        jwt.claims()
-        |> jwt.with_subject(subject)
-        |> jwt.with_expiration(exp)
-
-      let assert Ok(encrypted) =
-        encrypted_jwt.encrypt_with_key(claims, jwa.JweDirect, enc, key)
-      let token = encrypted_jwt.serialize(encrypted)
-
-      let assert Ok(decryptor) =
-        encrypted_jwt.key_decryptor(
-          jwa.JweDirect,
-          enc,
-          [key],
-          jwt.default_validation(),
-        )
-      let assert Ok(verified) =
-        encrypted_jwt.decrypt_and_validate(decryptor, token, now)
-      let assert Ok(sub) =
-        encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
-      assert sub == subject
-    },
   )
+  let #(generators.JweDirectEncWithKey(enc, key), subject) = tuple
+  let now = jwt_helpers.fixed_timestamp()
+  let exp = timestamp.add(now, duration.hours(1))
+
+  let claims =
+    jwt.claims()
+    |> jwt.with_subject(subject)
+    |> jwt.with_expiration(exp)
+
+  let assert Ok(encrypted) =
+    encrypted_jwt.encrypt_with_key(claims, jwa.JweDirect, enc, key)
+  let token = encrypted_jwt.serialize(encrypted)
+
+  let assert Ok(decryptor) =
+    encrypted_jwt.key_decryptor(
+      jwa.JweDirect,
+      enc,
+      [key],
+      jwt.default_validation(),
+    )
+  let assert Ok(verified) =
+    encrypted_jwt.decrypt_and_validate(decryptor, token, now)
+  let assert Ok(sub) = encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
+  assert sub == subject
 }
 
 pub fn encrypt_decrypt_aes_kw_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     qcheck.tuple2(generators.jwe_aes_kw_generator(), qcheck.non_empty_string()),
-    fn(tuple) {
-      let #(generators.JweAesKwWithKey(alg, enc, key), subject) = tuple
-      let now = jwt_helpers.fixed_timestamp()
-      let exp = timestamp.add(now, duration.hours(1))
-
-      let claims =
-        jwt.claims()
-        |> jwt.with_subject(subject)
-        |> jwt.with_expiration(exp)
-
-      let jwe_alg = jwa.JweAesKeyWrap(jwa.AesKw, alg)
-      let assert Ok(encrypted) =
-        encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
-      let token = encrypted_jwt.serialize(encrypted)
-
-      let assert Ok(decryptor) =
-        encrypted_jwt.key_decryptor(
-          jwe_alg,
-          enc,
-          [key],
-          jwt.default_validation(),
-        )
-      let assert Ok(verified) =
-        encrypted_jwt.decrypt_and_validate(decryptor, token, now)
-      let assert Ok(sub) =
-        encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
-      assert sub == subject
-    },
   )
+  let #(generators.JweAesKwWithKey(alg, enc, key), subject) = tuple
+  let now = jwt_helpers.fixed_timestamp()
+  let exp = timestamp.add(now, duration.hours(1))
+
+  let claims =
+    jwt.claims()
+    |> jwt.with_subject(subject)
+    |> jwt.with_expiration(exp)
+
+  let jwe_alg = jwa.JweAesKeyWrap(jwa.AesKw, alg)
+  let assert Ok(encrypted) =
+    encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
+  let token = encrypted_jwt.serialize(encrypted)
+
+  let assert Ok(decryptor) =
+    encrypted_jwt.key_decryptor(jwe_alg, enc, [key], jwt.default_validation())
+  let assert Ok(verified) =
+    encrypted_jwt.decrypt_and_validate(decryptor, token, now)
+  let assert Ok(sub) = encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
+  assert sub == subject
 }
 
 pub fn encrypt_decrypt_pbes2_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(3),
     qcheck.tuple2(
       generators.jwe_pbes2_alg_generator(),
       qcheck.non_empty_string(),
     ),
-    fn(tuple) {
-      let #(alg, subject) = tuple
-      let enc = jwa.AesGcm(jwa.Aes256)
-      let now = jwt_helpers.fixed_timestamp()
-      let exp = timestamp.add(now, duration.hours(1))
-      let password = "test-password-123"
-
-      let claims =
-        jwt.claims()
-        |> jwt.with_subject(subject)
-        |> jwt.with_expiration(exp)
-
-      let assert Ok(encrypted) =
-        encrypted_jwt.encrypt_with_password(
-          claims,
-          alg,
-          enc,
-          password,
-          kid: None,
-        )
-      let token = encrypted_jwt.serialize(encrypted)
-
-      let decryptor =
-        encrypted_jwt.password_decryptor(
-          alg,
-          enc,
-          password,
-          jwt.default_validation(),
-        )
-      let assert Ok(verified) =
-        encrypted_jwt.decrypt_and_validate(decryptor, token, now)
-      let assert Ok(sub) =
-        encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
-      assert sub == subject
-    },
   )
+  let #(alg, subject) = tuple
+  let enc = jwa.AesGcm(jwa.Aes256)
+  let now = jwt_helpers.fixed_timestamp()
+  let exp = timestamp.add(now, duration.hours(1))
+  let password = "test-password-123"
+
+  let claims =
+    jwt.claims()
+    |> jwt.with_subject(subject)
+    |> jwt.with_expiration(exp)
+
+  let assert Ok(encrypted) =
+    encrypted_jwt.encrypt_with_password(claims, alg, enc, password, kid: None)
+  let token = encrypted_jwt.serialize(encrypted)
+
+  let decryptor =
+    encrypted_jwt.password_decryptor(
+      alg,
+      enc,
+      password,
+      jwt.default_validation(),
+    )
+  let assert Ok(verified) =
+    encrypted_jwt.decrypt_and_validate(decryptor, token, now)
+  let assert Ok(sub) = encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
+  assert sub == subject
 }
 
 pub fn encrypt_decrypt_rsa_roundtrip_test() {
   let rsa_key = fixtures.rsa_private_key()
 
-  qcheck.run(
+  use variant <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(5),
     generators.rsa_variant_generator(),
-    fn(variant) {
-      let generators.RsaVariant(alg, enc) = variant
-      let now = jwt_helpers.fixed_timestamp()
-      let claims = jwt_helpers.default_claims_with_exp()
-
-      let jwe_alg = jwa.JweRsa(alg)
-      let assert Ok(encrypted) =
-        encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, rsa_key)
-      let token = encrypted_jwt.serialize(encrypted)
-
-      let assert Ok(decryptor) =
-        encrypted_jwt.key_decryptor(
-          jwe_alg,
-          enc,
-          [rsa_key],
-          jwt.default_validation(),
-        )
-      let assert Ok(verified) =
-        encrypted_jwt.decrypt_and_validate(decryptor, token, now)
-      let assert Ok(sub) =
-        encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
-      assert sub == "user123"
-    },
   )
+  let generators.RsaVariant(alg, enc) = variant
+  let now = jwt_helpers.fixed_timestamp()
+  let claims = jwt_helpers.default_claims_with_exp()
+
+  let jwe_alg = jwa.JweRsa(alg)
+  let assert Ok(encrypted) =
+    encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, rsa_key)
+  let token = encrypted_jwt.serialize(encrypted)
+
+  let assert Ok(decryptor) =
+    encrypted_jwt.key_decryptor(
+      jwe_alg,
+      enc,
+      [rsa_key],
+      jwt.default_validation(),
+    )
+  let assert Ok(verified) =
+    encrypted_jwt.decrypt_and_validate(decryptor, token, now)
+  let assert Ok(sub) = encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
+  assert sub == "user123"
 }
 
 pub fn encrypt_decrypt_ecdh_ec_roundtrip_test() {
   let ec_key = fixtures.ec_p256_key()
 
-  qcheck.run(
+  use variant <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(5),
     generators.ecdh_variant_generator(),
-    fn(variant) {
-      let generators.EcdhVariant(alg, enc) = variant
-      let now = jwt_helpers.fixed_timestamp()
-      let claims = jwt_helpers.default_claims_with_exp()
-
-      let jwe_alg = jwa.JweEcdhEs(alg)
-      let assert Ok(encrypted) =
-        encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, ec_key)
-      let token = encrypted_jwt.serialize(encrypted)
-
-      let assert Ok(decryptor) =
-        encrypted_jwt.key_decryptor(
-          jwe_alg,
-          enc,
-          [ec_key],
-          jwt.default_validation(),
-        )
-      let assert Ok(verified) =
-        encrypted_jwt.decrypt_and_validate(decryptor, token, now)
-      let assert Ok(sub) =
-        encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
-      assert sub == "user123"
-    },
   )
+  let generators.EcdhVariant(alg, enc) = variant
+  let now = jwt_helpers.fixed_timestamp()
+  let claims = jwt_helpers.default_claims_with_exp()
+
+  let jwe_alg = jwa.JweEcdhEs(alg)
+  let assert Ok(encrypted) =
+    encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, ec_key)
+  let token = encrypted_jwt.serialize(encrypted)
+
+  let assert Ok(decryptor) =
+    encrypted_jwt.key_decryptor(
+      jwe_alg,
+      enc,
+      [ec_key],
+      jwt.default_validation(),
+    )
+  let assert Ok(verified) =
+    encrypted_jwt.decrypt_and_validate(decryptor, token, now)
+  let assert Ok(sub) = encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
+  assert sub == "user123"
 }
 
 pub fn encrypt_decrypt_ecdh_xdh_roundtrip_test() {
@@ -871,41 +845,33 @@ pub fn wrong_key_decryption_fails_test() {
 }
 
 pub fn encrypt_decrypt_aes_gcm_kw_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     qcheck.tuple2(
       generators.jwe_aes_gcm_kw_generator(),
       qcheck.non_empty_string(),
     ),
-    fn(tuple) {
-      let #(generators.JweAesGcmKwWithKey(alg, enc, key), subject) = tuple
-      let now = jwt_helpers.fixed_timestamp()
-      let exp = timestamp.add(now, duration.hours(1))
-
-      let claims =
-        jwt.claims()
-        |> jwt.with_subject(subject)
-        |> jwt.with_expiration(exp)
-
-      let jwe_alg = jwa.JweAesKeyWrap(jwa.AesGcmKw, alg)
-      let assert Ok(encrypted) =
-        encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
-      let token = encrypted_jwt.serialize(encrypted)
-
-      let assert Ok(decryptor) =
-        encrypted_jwt.key_decryptor(
-          jwe_alg,
-          enc,
-          [key],
-          jwt.default_validation(),
-        )
-      let assert Ok(verified) =
-        encrypted_jwt.decrypt_and_validate(decryptor, token, now)
-      let assert Ok(sub) =
-        encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
-      assert sub == subject
-    },
   )
+  let #(generators.JweAesGcmKwWithKey(alg, enc, key), subject) = tuple
+  let now = jwt_helpers.fixed_timestamp()
+  let exp = timestamp.add(now, duration.hours(1))
+
+  let claims =
+    jwt.claims()
+    |> jwt.with_subject(subject)
+    |> jwt.with_expiration(exp)
+
+  let jwe_alg = jwa.JweAesKeyWrap(jwa.AesGcmKw, alg)
+  let assert Ok(encrypted) =
+    encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
+  let token = encrypted_jwt.serialize(encrypted)
+
+  let assert Ok(decryptor) =
+    encrypted_jwt.key_decryptor(jwe_alg, enc, [key], jwt.default_validation())
+  let assert Ok(verified) =
+    encrypted_jwt.decrypt_and_validate(decryptor, token, now)
+  let assert Ok(sub) = encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
+  assert sub == subject
 }
 
 pub fn empty_audience_array_rejected_test() {
@@ -1041,48 +1007,40 @@ pub fn pbes2_rejected_by_encrypt_with_key_test() {
 }
 
 pub fn encrypt_decrypt_chacha20_kw_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     qcheck.tuple2(
       generators.jwe_chacha20_kw_generator(),
       qcheck.non_empty_string(),
     ),
-    fn(tuple) {
-      let #(generators.JweChaCha20KwWithKey(variant, enc, key), subject) = tuple
-      let now = jwt_helpers.fixed_timestamp()
-      let exp = timestamp.add(now, duration.hours(1))
-
-      let claims =
-        jwt.claims()
-        |> jwt.with_subject(subject)
-        |> jwt.with_expiration(exp)
-
-      let jwe_alg = jwa.JweChaCha20KeyWrap(variant)
-      let assert Ok(encrypted) =
-        encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
-      let token = encrypted_jwt.serialize(encrypted)
-
-      let assert Ok(decryptor) =
-        encrypted_jwt.key_decryptor(
-          jwe_alg,
-          enc,
-          [key],
-          jwt.default_validation(),
-        )
-      let assert Ok(verified) =
-        encrypted_jwt.decrypt_and_validate(decryptor, token, now)
-      let assert Ok(sub) =
-        encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
-      assert sub == subject
-    },
   )
+  let #(generators.JweChaCha20KwWithKey(variant, enc, key), subject) = tuple
+  let now = jwt_helpers.fixed_timestamp()
+  let exp = timestamp.add(now, duration.hours(1))
+
+  let claims =
+    jwt.claims()
+    |> jwt.with_subject(subject)
+    |> jwt.with_expiration(exp)
+
+  let jwe_alg = jwa.JweChaCha20KeyWrap(variant)
+  let assert Ok(encrypted) =
+    encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
+  let token = encrypted_jwt.serialize(encrypted)
+
+  let assert Ok(decryptor) =
+    encrypted_jwt.key_decryptor(jwe_alg, enc, [key], jwt.default_validation())
+  let assert Ok(verified) =
+    encrypted_jwt.decrypt_and_validate(decryptor, token, now)
+  let assert Ok(sub) = encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
+  assert sub == subject
 }
 
 pub fn encrypt_decrypt_ecdh_es_chacha20_kw_roundtrip_test() {
   let ec_key = fixtures.ec_p256_key()
   let xdh_key = fixtures.x25519_key()
 
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     qcheck.tuple2(
       qcheck.from_generators(qcheck.return(#(jwa.C20PKw, ec_key)), [
@@ -1092,36 +1050,28 @@ pub fn encrypt_decrypt_ecdh_es_chacha20_kw_roundtrip_test() {
       ]),
       qcheck.non_empty_string(),
     ),
-    fn(tuple) {
-      let #(#(variant, key), subject) = tuple
-      let now = jwt_helpers.fixed_timestamp()
-      let exp = timestamp.add(now, duration.hours(1))
-
-      let claims =
-        jwt.claims()
-        |> jwt.with_subject(subject)
-        |> jwt.with_expiration(exp)
-
-      let jwe_alg = jwa.JweEcdhEs(jwa.EcdhEsChaCha20Kw(variant))
-      let enc = jwa.AesGcm(jwa.Aes256)
-      let assert Ok(encrypted) =
-        encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
-      let token = encrypted_jwt.serialize(encrypted)
-
-      let assert Ok(decryptor) =
-        encrypted_jwt.key_decryptor(
-          jwe_alg,
-          enc,
-          [key],
-          jwt.default_validation(),
-        )
-      let assert Ok(verified) =
-        encrypted_jwt.decrypt_and_validate(decryptor, token, now)
-      let assert Ok(sub) =
-        encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
-      assert sub == subject
-    },
   )
+  let #(#(variant, key), subject) = tuple
+  let now = jwt_helpers.fixed_timestamp()
+  let exp = timestamp.add(now, duration.hours(1))
+
+  let claims =
+    jwt.claims()
+    |> jwt.with_subject(subject)
+    |> jwt.with_expiration(exp)
+
+  let jwe_alg = jwa.JweEcdhEs(jwa.EcdhEsChaCha20Kw(variant))
+  let enc = jwa.AesGcm(jwa.Aes256)
+  let assert Ok(encrypted) =
+    encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
+  let token = encrypted_jwt.serialize(encrypted)
+
+  let assert Ok(decryptor) =
+    encrypted_jwt.key_decryptor(jwe_alg, enc, [key], jwt.default_validation())
+  let assert Ok(verified) =
+    encrypted_jwt.decrypt_and_validate(decryptor, token, now)
+  let assert Ok(sub) = encrypted_jwt.decode(verified, jwt_helpers.sub_decoder())
+  assert sub == subject
 }
 
 pub fn clock_skew_tolerance_test() {

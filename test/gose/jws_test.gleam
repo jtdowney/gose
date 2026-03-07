@@ -55,188 +55,163 @@ fn make_compact_token(header_fields: List(#(String, json.Json))) -> String {
 
 pub fn sign_verify_roundtrip_test() {
   let hmac_keys = generators.generate_hmac_keys()
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jws_alg_generator(hmac_keys),
       qcheck.non_empty_byte_aligned_bit_array(),
     ),
-    fn(tuple) {
-      let #(generators.JwsAlgWithKey(alg, key), payload) = tuple
-      let assert Ok(signed) =
-        jws.new(alg)
-        |> jws.sign(key, payload)
-      let assert Ok(verifier) = jws.verifier(alg, [key])
-      assert jws.verify(verifier, signed) == Ok(True)
-      Nil
-    },
   )
+  let #(generators.JwsAlgWithKey(alg, key), payload) = tuple
+  let assert Ok(signed) =
+    jws.new(alg)
+    |> jws.sign(key, payload)
+  let assert Ok(verifier) = jws.verifier(alg, [key])
+  assert jws.verify(verifier, signed) == Ok(True)
 }
 
 pub fn sign_verify_with_public_key_test() {
-  qcheck.run(
+  use alg_key <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.from_generators(generators.jws_rsa_alg_generator(), [
       generators.jws_ecdsa_alg_generator(),
       generators.jws_eddsa_alg_generator(),
     ]),
-    fn(alg_key) {
-      let generators.JwsAlgWithKey(alg, key) = alg_key
-      let payload = <<"test":utf8>>
-      let assert Ok(signed) =
-        jws.new(alg)
-        |> jws.sign(key, payload)
-      let assert Ok(public_key) = jwk.public_key(key)
-      let assert Ok(verifier) = jws.verifier(alg, [public_key])
-      assert jws.verify(verifier, signed) == Ok(True)
-      Nil
-    },
   )
+  let generators.JwsAlgWithKey(alg, key) = alg_key
+  let payload = <<"test":utf8>>
+  let assert Ok(signed) =
+    jws.new(alg)
+    |> jws.sign(key, payload)
+  let assert Ok(public_key) = jwk.public_key(key)
+  let assert Ok(verifier) = jws.verifier(alg, [public_key])
+  assert jws.verify(verifier, signed) == Ok(True)
 }
 
 pub fn compact_serialization_roundtrip_test() {
   let hmac_keys = generators.generate_hmac_keys()
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jws_alg_generator(hmac_keys),
       qcheck.non_empty_byte_aligned_bit_array(),
     ),
-    fn(tuple) {
-      let #(generators.JwsAlgWithKey(alg, key), payload) = tuple
-      let assert Ok(signed) =
-        jws.new(alg)
-        |> jws.sign(key, payload)
-      let assert Ok(token) = jws.serialize_compact(signed)
-
-      let parts = string.split(token, ".")
-      assert list.length(parts) == 3
-
-      let assert Ok(parsed) = jws.parse_compact(token)
-      assert jws.payload(parsed) == payload
-      let assert Ok(verifier) = jws.verifier(alg, [key])
-      assert jws.verify(verifier, parsed) == Ok(True)
-      Nil
-    },
   )
+  let #(generators.JwsAlgWithKey(alg, key), payload) = tuple
+  let assert Ok(signed) =
+    jws.new(alg)
+    |> jws.sign(key, payload)
+  let assert Ok(token) = jws.serialize_compact(signed)
+
+  let parts = string.split(token, ".")
+  assert list.length(parts) == 3
+
+  let assert Ok(parsed) = jws.parse_compact(token)
+  assert jws.payload(parsed) == payload
+  let assert Ok(verifier) = jws.verifier(alg, [key])
+  assert jws.verify(verifier, parsed) == Ok(True)
 }
 
 pub fn json_flattened_roundtrip_test() {
   let hmac_keys = generators.generate_hmac_keys()
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jws_alg_generator(hmac_keys),
       qcheck.non_empty_byte_aligned_bit_array(),
     ),
-    fn(tuple) {
-      let #(generators.JwsAlgWithKey(alg, key), payload) = tuple
-      let assert Ok(signed) =
-        jws.new(alg)
-        |> jws.sign(key, payload)
-      let json_str = jws.serialize_json_flattened(signed) |> json.to_string
-      let assert Ok(keys) = json.parse(json_str, json_object_keys_decoder())
-      assert list.contains(keys, "protected")
-      assert list.contains(keys, "payload")
-      assert list.contains(keys, "signature")
-
-      let assert Ok(parsed) = jws.parse_json(json_str)
-      assert jws.payload(parsed) == payload
-      let assert Ok(verifier) = jws.verifier(alg, [key])
-      assert jws.verify(verifier, parsed) == Ok(True)
-      Nil
-    },
   )
+  let #(generators.JwsAlgWithKey(alg, key), payload) = tuple
+  let assert Ok(signed) =
+    jws.new(alg)
+    |> jws.sign(key, payload)
+  let json_str = jws.serialize_json_flattened(signed) |> json.to_string
+  let assert Ok(keys) = json.parse(json_str, json_object_keys_decoder())
+  assert list.contains(keys, "protected")
+  assert list.contains(keys, "payload")
+  assert list.contains(keys, "signature")
+
+  let assert Ok(parsed) = jws.parse_json(json_str)
+  assert jws.payload(parsed) == payload
+  let assert Ok(verifier) = jws.verifier(alg, [key])
+  assert jws.verify(verifier, parsed) == Ok(True)
 }
 
 pub fn json_general_roundtrip_test() {
   let hmac_keys = generators.generate_hmac_keys()
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jws_alg_generator(hmac_keys),
       qcheck.non_empty_byte_aligned_bit_array(),
     ),
-    fn(tuple) {
-      let #(generators.JwsAlgWithKey(alg, key), payload) = tuple
-      let assert Ok(signed) =
-        jws.new(alg)
-        |> jws.sign(key, payload)
-      let json_str = jws.serialize_json_general(signed) |> json.to_string
-      let assert Ok(keys) = json.parse(json_str, json_object_keys_decoder())
-      assert list.contains(keys, "signatures")
-
-      let assert Ok(parsed) = jws.parse_json(json_str)
-      assert jws.payload(parsed) == payload
-      let assert Ok(verifier) = jws.verifier(alg, [key])
-      assert jws.verify(verifier, parsed) == Ok(True)
-      Nil
-    },
   )
+  let #(generators.JwsAlgWithKey(alg, key), payload) = tuple
+  let assert Ok(signed) =
+    jws.new(alg)
+    |> jws.sign(key, payload)
+  let json_str = jws.serialize_json_general(signed) |> json.to_string
+  let assert Ok(keys) = json.parse(json_str, json_object_keys_decoder())
+  assert list.contains(keys, "signatures")
+
+  let assert Ok(parsed) = jws.parse_json(json_str)
+  assert jws.payload(parsed) == payload
+  let assert Ok(verifier) = jws.verifier(alg, [key])
+  assert jws.verify(verifier, parsed) == Ok(True)
 }
 
 pub fn header_kid_roundtrip_test() {
-  qcheck.run(qcheck.default_config(), qcheck.non_empty_string(), fn(kid) {
-    let key = jwk.generate_hmac_key(jwa.HmacSha256)
-    let unsigned =
-      jws.new(jwa.JwsHmac(jwa.HmacSha256))
-      |> jws.with_kid(kid)
+  use kid <- qcheck.given(qcheck.non_empty_string())
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let unsigned =
+    jws.new(jwa.JwsHmac(jwa.HmacSha256))
+    |> jws.with_kid(kid)
 
-    let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
-    let assert Ok(token) = jws.serialize_compact(signed)
-    let assert Ok(parsed) = jws.parse_compact(token)
-    assert jws.kid(parsed) == Ok(kid)
-    Nil
-  })
+  let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
+  let assert Ok(token) = jws.serialize_compact(signed)
+  let assert Ok(parsed) = jws.parse_compact(token)
+  assert jws.kid(parsed) == Ok(kid)
 }
 
 pub fn header_typ_roundtrip_test() {
-  qcheck.run(qcheck.default_config(), qcheck.non_empty_string(), fn(typ) {
-    let key = jwk.generate_hmac_key(jwa.HmacSha256)
-    let unsigned =
-      jws.new(jwa.JwsHmac(jwa.HmacSha256))
-      |> jws.with_typ(typ)
+  use typ <- qcheck.given(qcheck.non_empty_string())
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let unsigned =
+    jws.new(jwa.JwsHmac(jwa.HmacSha256))
+    |> jws.with_typ(typ)
 
-    let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
-    let assert Ok(token) = jws.serialize_compact(signed)
-    let assert Ok(parsed) = jws.parse_compact(token)
-    assert jws.typ(parsed) == Ok(typ)
-    Nil
-  })
+  let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
+  let assert Ok(token) = jws.serialize_compact(signed)
+  let assert Ok(parsed) = jws.parse_compact(token)
+  assert jws.typ(parsed) == Ok(typ)
 }
 
 pub fn header_cty_roundtrip_test() {
-  qcheck.run(qcheck.default_config(), qcheck.non_empty_string(), fn(cty) {
-    let key = jwk.generate_hmac_key(jwa.HmacSha256)
-    let unsigned =
-      jws.new(jwa.JwsHmac(jwa.HmacSha256))
-      |> jws.with_cty(cty)
+  use cty <- qcheck.given(qcheck.non_empty_string())
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let unsigned =
+    jws.new(jwa.JwsHmac(jwa.HmacSha256))
+    |> jws.with_cty(cty)
 
-    let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
-    let assert Ok(token) = jws.serialize_compact(signed)
-    let assert Ok(parsed) = jws.parse_compact(token)
-    assert jws.cty(parsed) == Ok(cty)
-    Nil
-  })
+  let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
+  let assert Ok(token) = jws.serialize_compact(signed)
+  let assert Ok(parsed) = jws.parse_compact(token)
+  assert jws.cty(parsed) == Ok(cty)
 }
 
 pub fn wrong_key_fails_verification_test() {
-  qcheck.run(
+  use payload <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.non_empty_byte_aligned_bit_array(),
-    fn(payload) {
-      let key1 = jwk.generate_hmac_key(jwa.HmacSha256)
-      let key2 = jwk.generate_hmac_key(jwa.HmacSha256)
-
-      let assert Ok(signed) =
-        jws.new(jwa.JwsHmac(jwa.HmacSha256))
-        |> jws.sign(key1, payload)
-      let assert Ok(verifier) =
-        jws.verifier(jwa.JwsHmac(jwa.HmacSha256), [key2])
-      assert jws.verify(verifier, signed) == Ok(False)
-      Nil
-    },
   )
+  let key1 = jwk.generate_hmac_key(jwa.HmacSha256)
+  let key2 = jwk.generate_hmac_key(jwa.HmacSha256)
+
+  let assert Ok(signed) =
+    jws.new(jwa.JwsHmac(jwa.HmacSha256))
+    |> jws.sign(key1, payload)
+  let assert Ok(verifier) = jws.verifier(jwa.JwsHmac(jwa.HmacSha256), [key2])
+  assert jws.verify(verifier, signed) == Ok(False)
 }
 
 pub fn jws_hs256_compact_snapshot_test() {
@@ -500,41 +475,29 @@ pub fn jws_b64_requires_crit_test() {
 }
 
 pub fn parse_compact_detached_roundtrip_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    qcheck.non_empty_byte_aligned_bit_array(),
-    fn(payload) {
-      let key = jwk.generate_hmac_key(jwa.HmacSha256)
-      let assert Ok(signed) =
-        jws.new(jwa.JwsHmac(jwa.HmacSha256))
-        |> jws.with_detached
-        |> jws.sign(key, payload)
-      let assert Ok(token) = jws.serialize_compact(signed)
-      let assert Ok(parsed) = jws.parse_compact(token)
-      let assert Ok(verifier) = jws.verifier(jwa.JwsHmac(jwa.HmacSha256), [key])
-      assert jws.verify_detached(verifier, parsed, payload) == Ok(True)
-      Nil
-    },
-  )
+  use payload <- qcheck.given(qcheck.non_empty_byte_aligned_bit_array())
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let assert Ok(signed) =
+    jws.new(jwa.JwsHmac(jwa.HmacSha256))
+    |> jws.with_detached
+    |> jws.sign(key, payload)
+  let assert Ok(token) = jws.serialize_compact(signed)
+  let assert Ok(parsed) = jws.parse_compact(token)
+  let assert Ok(verifier) = jws.verifier(jwa.JwsHmac(jwa.HmacSha256), [key])
+  assert jws.verify_detached(verifier, parsed, payload) == Ok(True)
 }
 
 pub fn parse_json_detached_flattened_roundtrip_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    qcheck.non_empty_byte_aligned_bit_array(),
-    fn(payload) {
-      let key = jwk.generate_hmac_key(jwa.HmacSha256)
-      let assert Ok(signed) =
-        jws.new(jwa.JwsHmac(jwa.HmacSha256))
-        |> jws.with_detached
-        |> jws.sign(key, payload)
-      let json_str = jws.serialize_json_flattened(signed) |> json.to_string
-      let assert Ok(parsed) = jws.parse_json(json_str)
-      let assert Ok(verifier) = jws.verifier(jwa.JwsHmac(jwa.HmacSha256), [key])
-      assert jws.verify_detached(verifier, parsed, payload) == Ok(True)
-      Nil
-    },
-  )
+  use payload <- qcheck.given(qcheck.non_empty_byte_aligned_bit_array())
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let assert Ok(signed) =
+    jws.new(jwa.JwsHmac(jwa.HmacSha256))
+    |> jws.with_detached
+    |> jws.sign(key, payload)
+  let json_str = jws.serialize_json_flattened(signed) |> json.to_string
+  let assert Ok(parsed) = jws.parse_json(json_str)
+  let assert Ok(verifier) = jws.verifier(jwa.JwsHmac(jwa.HmacSha256), [key])
+  assert jws.verify_detached(verifier, parsed, payload) == Ok(True)
 }
 
 pub fn jws_json_general_rejects_multiple_signatures_test() {
@@ -719,32 +682,29 @@ pub fn with_header_acme_style_test() {
 
 pub fn jws_b64_false_payload_roundtrip_test() {
   let hmac_keys = generators.generate_hmac_keys()
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jws_hmac_alg_generator(hmac_keys),
       qcheck.non_empty_string(),
     ),
-    fn(tuple) {
-      let #(generators.JwsAlgWithKey(alg, key), payload_str) = tuple
-      // RFC 7797: period characters MUST NOT be used in unencoded payloads
-      // with compact serialization (they conflict with the segment separator)
-      let payload = <<string.replace(payload_str, ".", "_"):utf8>>
-      let unsigned =
-        jws.new(alg)
-        |> jws.with_unencoded()
-
-      let assert Ok(signed) = jws.sign(unsigned, key, payload)
-      let assert Ok(token) = jws.serialize_compact(signed)
-
-      let assert Ok(parsed) = jws.parse_compact(token)
-      assert jws.payload(parsed) == payload
-      assert jws.has_unencoded_payload(parsed)
-      let assert Ok(verifier) = jws.verifier(alg, [key])
-      assert jws.verify(verifier, parsed) == Ok(True)
-      Nil
-    },
   )
+  let #(generators.JwsAlgWithKey(alg, key), payload_str) = tuple
+  // RFC 7797: period characters MUST NOT be used in unencoded payloads
+  // with compact serialization (they conflict with the segment separator)
+  let payload = <<string.replace(payload_str, ".", "_"):utf8>>
+  let unsigned =
+    jws.new(alg)
+    |> jws.with_unencoded()
+
+  let assert Ok(signed) = jws.sign(unsigned, key, payload)
+  let assert Ok(token) = jws.serialize_compact(signed)
+
+  let assert Ok(parsed) = jws.parse_compact(token)
+  assert jws.payload(parsed) == payload
+  assert jws.has_unencoded_payload(parsed)
+  let assert Ok(verifier) = jws.verifier(alg, [key])
+  assert jws.verify(verifier, parsed) == Ok(True)
 }
 
 pub fn jws_b64_false_serialization_snapshot_test() {
@@ -1292,22 +1252,16 @@ pub fn b64_in_crit_but_absent_from_header_test() {
 }
 
 pub fn parse_json_detached_general_roundtrip_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    qcheck.non_empty_byte_aligned_bit_array(),
-    fn(payload) {
-      let key = jwk.generate_hmac_key(jwa.HmacSha256)
-      let assert Ok(signed) =
-        jws.new(jwa.JwsHmac(jwa.HmacSha256))
-        |> jws.with_detached
-        |> jws.sign(key, payload)
-      let json_str = jws.serialize_json_general(signed) |> json.to_string
-      let assert Ok(parsed) = jws.parse_json(json_str)
-      let assert Ok(verifier) = jws.verifier(jwa.JwsHmac(jwa.HmacSha256), [key])
-      assert jws.verify_detached(verifier, parsed, payload) == Ok(True)
-      Nil
-    },
-  )
+  use payload <- qcheck.given(qcheck.non_empty_byte_aligned_bit_array())
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let assert Ok(signed) =
+    jws.new(jwa.JwsHmac(jwa.HmacSha256))
+    |> jws.with_detached
+    |> jws.sign(key, payload)
+  let json_str = jws.serialize_json_general(signed) |> json.to_string
+  let assert Ok(parsed) = jws.parse_json(json_str)
+  let assert Ok(verifier) = jws.verifier(jwa.JwsHmac(jwa.HmacSha256), [key])
+  assert jws.verify_detached(verifier, parsed, payload) == Ok(True)
 }
 
 pub fn es256k_sign_verify_roundtrip_test() {

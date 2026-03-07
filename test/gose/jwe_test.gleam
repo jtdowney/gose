@@ -15,103 +15,95 @@ import kryptos/crypto
 import qcheck
 
 pub fn dir_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jwe_direct_generator(),
       qcheck.non_empty_byte_aligned_bit_array(),
     ),
-    fn(tuple) {
-      let #(generators.JweDirectEncWithKey(enc, key), payload) = tuple
-
-      let assert Ok(encrypted) =
-        jwe.new_direct(enc)
-        |> jwe.encrypt(key, payload)
-
-      let assert Ok(token) = jwe.serialize_compact(encrypted)
-      let assert Ok(parsed) = jwe.parse_compact(token)
-      let assert Ok(decryptor) = jwe.key_decryptor(jwa.JweDirect, enc, [key])
-      let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
-
-      assert decrypted == payload
-    },
   )
+  let #(generators.JweDirectEncWithKey(enc, key), payload) = tuple
+
+  let assert Ok(encrypted) =
+    jwe.new_direct(enc)
+    |> jwe.encrypt(key, payload)
+
+  let assert Ok(token) = jwe.serialize_compact(encrypted)
+  let assert Ok(parsed) = jwe.parse_compact(token)
+  let assert Ok(decryptor) = jwe.key_decryptor(jwa.JweDirect, enc, [key])
+  let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
+
+  assert decrypted == payload
 }
 
 pub fn aes_kw_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jwe_aes_kw_generator(),
       qcheck.non_empty_byte_aligned_bit_array(),
     ),
-    fn(tuple) {
-      let #(generators.JweAesKwWithKey(alg, enc, key), payload) = tuple
-
-      let assert Ok(encrypted) =
-        jwe.new_aes_kw(alg, enc)
-        |> jwe.encrypt(key, payload)
-
-      let assert Ok(token) = jwe.serialize_compact(encrypted)
-      let assert Ok(parsed) = jwe.parse_compact(token)
-      let assert Ok(decryptor) =
-        jwe.key_decryptor(jwa.JweAesKeyWrap(jwa.AesKw, alg), enc, [key])
-      let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
-
-      assert decrypted == payload
-    },
   )
+  let #(generators.JweAesKwWithKey(alg, enc, key), payload) = tuple
+
+  let assert Ok(encrypted) =
+    jwe.new_aes_kw(alg, enc)
+    |> jwe.encrypt(key, payload)
+
+  let assert Ok(token) = jwe.serialize_compact(encrypted)
+  let assert Ok(parsed) = jwe.parse_compact(token)
+  let assert Ok(decryptor) =
+    jwe.key_decryptor(jwa.JweAesKeyWrap(jwa.AesKw, alg), enc, [key])
+  let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
+
+  assert decrypted == payload
 }
 
 pub fn aes_gcm_kw_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jwe_aes_gcm_kw_generator(),
       qcheck.non_empty_byte_aligned_bit_array(),
     ),
-    fn(tuple) {
-      let #(generators.JweAesGcmKwWithKey(alg, enc, key), payload) = tuple
-
-      let assert Ok(encrypted) =
-        jwe.new_aes_gcm_kw(alg, enc)
-        |> jwe.encrypt(key, payload)
-
-      let assert Ok(token) = jwe.serialize_compact(encrypted)
-      let assert Ok(parsed) = jwe.parse_compact(token)
-      let assert Ok(decryptor) =
-        jwe.key_decryptor(jwa.JweAesKeyWrap(jwa.AesGcmKw, alg), enc, [key])
-      let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
-
-      assert decrypted == payload
-    },
   )
+  let #(generators.JweAesGcmKwWithKey(alg, enc, key), payload) = tuple
+
+  let assert Ok(encrypted) =
+    jwe.new_aes_gcm_kw(alg, enc)
+    |> jwe.encrypt(key, payload)
+
+  let assert Ok(token) = jwe.serialize_compact(encrypted)
+  let assert Ok(parsed) = jwe.parse_compact(token)
+  let assert Ok(decryptor) =
+    jwe.key_decryptor(jwa.JweAesKeyWrap(jwa.AesGcmKw, alg), enc, [key])
+  let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
+
+  assert decrypted == payload
 }
 
 pub fn rsa_roundtrip_test() {
   let key = fixtures.rsa_private_key()
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jwe_rsa_alg_generator(),
       generators.jwe_enc_generator(),
     ),
-    fn(tuple) {
-      let #(alg, enc) = tuple
-      let payload = <<"test payload for RSA":utf8>>
-
-      let assert Ok(encrypted) =
-        jwe.new_rsa(alg, enc)
-        |> jwe.encrypt(key, payload)
-
-      let assert Ok(token) = jwe.serialize_compact(encrypted)
-      let assert Ok(parsed) = jwe.parse_compact(token)
-      let assert Ok(decryptor) = jwe.key_decryptor(jwa.JweRsa(alg), enc, [key])
-      let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
-
-      assert decrypted == payload
-    },
   )
+  let #(alg, enc) = tuple
+  let payload = <<"test payload for RSA":utf8>>
+
+  let assert Ok(encrypted) =
+    jwe.new_rsa(alg, enc)
+    |> jwe.encrypt(key, payload)
+
+  let assert Ok(token) = jwe.serialize_compact(encrypted)
+  let assert Ok(parsed) = jwe.parse_compact(token)
+  let assert Ok(decryptor) = jwe.key_decryptor(jwa.JweRsa(alg), enc, [key])
+  let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
+
+  assert decrypted == payload
 }
 
 pub fn ecdh_es_roundtrip_test() {
@@ -120,7 +112,7 @@ pub fn ecdh_es_roundtrip_test() {
   let ec_p521_key = fixtures.ec_p521_key()
   let x25519_key = fixtures.x25519_key()
   let x448_key = fixtures.x448_key()
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jwe_ecdh_es_generator(
@@ -132,51 +124,46 @@ pub fn ecdh_es_roundtrip_test() {
       ),
       generators.jwe_enc_generator(),
     ),
-    fn(tuple) {
-      let #(generators.JweEcdhEsWithKey(alg, key), enc) = tuple
-      let payload = <<"ECDH-ES test payload":utf8>>
-
-      let assert Ok(encrypted) =
-        jwe.new_ecdh_es(alg, enc)
-        |> jwe.encrypt(key, payload)
-
-      let assert Ok(token) = jwe.serialize_compact(encrypted)
-      let assert Ok(parsed) = jwe.parse_compact(token)
-      let assert Ok(decryptor) =
-        jwe.key_decryptor(jwa.JweEcdhEs(alg), enc, [key])
-      let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
-
-      assert decrypted == payload
-    },
   )
+  let #(generators.JweEcdhEsWithKey(alg, key), enc) = tuple
+  let payload = <<"ECDH-ES test payload":utf8>>
+
+  let assert Ok(encrypted) =
+    jwe.new_ecdh_es(alg, enc)
+    |> jwe.encrypt(key, payload)
+
+  let assert Ok(token) = jwe.serialize_compact(encrypted)
+  let assert Ok(parsed) = jwe.parse_compact(token)
+  let assert Ok(decryptor) = jwe.key_decryptor(jwa.JweEcdhEs(alg), enc, [key])
+  let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
+
+  assert decrypted == payload
 }
 
 pub fn pbes2_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jwe_pbes2_alg_generator(),
       generators.jwe_enc_generator(),
     ),
-    fn(tuple) {
-      let #(alg, enc) = tuple
-      let password = "too many secrets"
-      let payload = <<"PBES2 test payload":utf8>>
-
-      let assert Ok(unsigned) =
-        jwe.new_pbes2(alg, enc)
-        |> jwe.with_p2c(1000)
-
-      let assert Ok(encrypted) =
-        jwe.encrypt_with_password(unsigned, password, payload)
-      let assert Ok(token) = jwe.serialize_compact(encrypted)
-      let assert Ok(parsed) = jwe.parse_compact(token)
-      let decryptor = jwe.password_decryptor(alg, enc, password)
-      let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
-
-      assert decrypted == payload
-    },
   )
+  let #(alg, enc) = tuple
+  let password = "too many secrets"
+  let payload = <<"PBES2 test payload":utf8>>
+
+  let assert Ok(unsigned) =
+    jwe.new_pbes2(alg, enc)
+    |> jwe.with_p2c(1000)
+
+  let assert Ok(encrypted) =
+    jwe.encrypt_with_password(unsigned, password, payload)
+  let assert Ok(token) = jwe.serialize_compact(encrypted)
+  let assert Ok(parsed) = jwe.parse_compact(token)
+  let decryptor = jwe.password_decryptor(alg, enc, password)
+  let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
+
+  assert decrypted == payload
 }
 
 pub fn pbes2_default_p2c_roundtrip_test() {
@@ -284,32 +271,30 @@ pub fn json_roundtrip_test() {
 }
 
 pub fn aad_json_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple3(
       generators.jwe_direct_generator(),
       qcheck.non_empty_byte_aligned_bit_array(),
       qcheck.byte_aligned_bit_array(),
     ),
-    fn(tuple) {
-      let #(generators.JweDirectEncWithKey(enc, key), plaintext, aad) = tuple
-
-      let assert Ok(encrypted) =
-        jwe.new_direct(enc)
-        |> jwe.with_aad(aad)
-        |> jwe.encrypt(key, plaintext)
-
-      let json_str =
-        jwe.serialize_json_flattened(encrypted)
-        |> json.to_string
-      let assert Ok(parsed) = jwe.parse_json(json_str)
-      let assert Ok(decryptor) = jwe.key_decryptor(jwa.JweDirect, enc, [key])
-      let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
-
-      assert decrypted == plaintext
-      assert jwe.aad(parsed) == Ok(aad)
-    },
   )
+  let #(generators.JweDirectEncWithKey(enc, key), plaintext, aad) = tuple
+
+  let assert Ok(encrypted) =
+    jwe.new_direct(enc)
+    |> jwe.with_aad(aad)
+    |> jwe.encrypt(key, plaintext)
+
+  let json_str =
+    jwe.serialize_json_flattened(encrypted)
+    |> json.to_string
+  let assert Ok(parsed) = jwe.parse_json(json_str)
+  let assert Ok(decryptor) = jwe.key_decryptor(jwa.JweDirect, enc, [key])
+  let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
+
+  assert decrypted == plaintext
+  assert jwe.aad(parsed) == Ok(aad)
 }
 
 pub fn aad_compact_rejection_test() {
@@ -884,44 +869,42 @@ pub fn rsa_pkcs1v15_valid_decryption_still_works_test() {
 pub fn rsa_pkcs1v15_random_encrypted_key_produces_uniform_aead_failure_test() {
   let key = fixtures.rsa_private_key()
 
-  qcheck.run(
+  use enc <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(20),
     generators.jwe_enc_generator(),
-    fn(enc) {
-      let random_bytes = crypto.random_bytes(256)
-      let payload = <<"test":utf8>>
-
-      let assert Ok(encrypted) =
-        jwe.new_rsa(jwa.RsaPkcs1v15, enc)
-        |> jwe.encrypt(key, payload)
-
-      let assert Ok(token) = jwe.serialize_compact(encrypted)
-      let parts = split_compact_jwe(token)
-      let garbage_key = bit_array.base64_url_encode(random_bytes, False)
-      let garbage_token =
-        parts.protected
-        <> "."
-        <> garbage_key
-        <> "."
-        <> parts.iv
-        <> "."
-        <> parts.ciphertext
-        <> "."
-        <> parts.tag
-
-      let assert Ok(parsed) = jwe.parse_compact(garbage_token)
-
-      let assert Ok(decryptor) =
-        jwe.key_decryptor(jwa.JweRsa(jwa.RsaPkcs1v15), enc, [key])
-      case jwe.decrypt(decryptor, parsed) {
-        Error(gose.CryptoError(msg)) -> {
-          assert msg != "RSA PKCS1v15 decryption failed"
-        }
-        Ok(_) -> panic as "Should not decrypt with garbage key"
-        Error(_) -> panic as "Expected CryptoError"
-      }
-    },
   )
+  let random_bytes = crypto.random_bytes(256)
+  let payload = <<"test":utf8>>
+
+  let assert Ok(encrypted) =
+    jwe.new_rsa(jwa.RsaPkcs1v15, enc)
+    |> jwe.encrypt(key, payload)
+
+  let assert Ok(token) = jwe.serialize_compact(encrypted)
+  let parts = split_compact_jwe(token)
+  let garbage_key = bit_array.base64_url_encode(random_bytes, False)
+  let garbage_token =
+    parts.protected
+    <> "."
+    <> garbage_key
+    <> "."
+    <> parts.iv
+    <> "."
+    <> parts.ciphertext
+    <> "."
+    <> parts.tag
+
+  let assert Ok(parsed) = jwe.parse_compact(garbage_token)
+
+  let assert Ok(decryptor) =
+    jwe.key_decryptor(jwa.JweRsa(jwa.RsaPkcs1v15), enc, [key])
+  case jwe.decrypt(decryptor, parsed) {
+    Error(gose.CryptoError(msg)) -> {
+      assert msg != "RSA PKCS1v15 decryption failed"
+    }
+    Ok(_) -> panic as "Should not decrypt with garbage key"
+    Error(_) -> panic as "Expected CryptoError"
+  }
 }
 
 pub fn rsa_pkcs1v15_tampered_header_enc_produces_aead_error_test() {
@@ -1727,28 +1710,26 @@ pub fn decrypt_rejects_empty_key_list_test() {
 }
 
 pub fn chacha20_kw_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jwe_chacha20_kw_generator(),
       qcheck.non_empty_byte_aligned_bit_array(),
     ),
-    fn(tuple) {
-      let #(generators.JweChaCha20KwWithKey(variant, enc, key), payload) = tuple
-
-      let assert Ok(encrypted) =
-        jwe.new_chacha20_kw(variant, enc)
-        |> jwe.encrypt(key, payload)
-
-      let assert Ok(token) = jwe.serialize_compact(encrypted)
-      let assert Ok(parsed) = jwe.parse_compact(token)
-      let assert Ok(decryptor) =
-        jwe.key_decryptor(jwa.JweChaCha20KeyWrap(variant), enc, [key])
-      let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
-
-      assert decrypted == payload
-    },
   )
+  let #(generators.JweChaCha20KwWithKey(variant, enc, key), payload) = tuple
+
+  let assert Ok(encrypted) =
+    jwe.new_chacha20_kw(variant, enc)
+    |> jwe.encrypt(key, payload)
+
+  let assert Ok(token) = jwe.serialize_compact(encrypted)
+  let assert Ok(parsed) = jwe.parse_compact(token)
+  let assert Ok(decryptor) =
+    jwe.key_decryptor(jwa.JweChaCha20KeyWrap(variant), enc, [key])
+  let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
+
+  assert decrypted == payload
 }
 
 pub fn chacha20_kw_missing_iv_test() {
@@ -1834,34 +1815,32 @@ pub fn chacha20_kw_missing_tag_test() {
 }
 
 pub fn encrypt_to_compact_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jwe_key_alg_enc_generator(),
       qcheck.non_empty_byte_aligned_bit_array(),
     ),
-    fn(tuple) {
-      let #(generators.JweAlgEncWithKey(alg, enc, key), payload) = tuple
-
-      let assert Ok(#(token, returned_alg)) =
-        jwe.encrypt_to_compact(
-          alg,
-          enc,
-          payload,
-          key,
-          option.None,
-          option.None,
-          option.None,
-        )
-
-      assert returned_alg == alg
-
-      let assert Ok(parsed) = jwe.parse_compact(token)
-      let assert Ok(decryptor) = jwe.key_decryptor(alg, enc, [key])
-      let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
-      assert decrypted == payload
-    },
   )
+  let #(generators.JweAlgEncWithKey(alg, enc, key), payload) = tuple
+
+  let assert Ok(#(token, returned_alg)) =
+    jwe.encrypt_to_compact(
+      alg,
+      enc,
+      payload,
+      key,
+      option.None,
+      option.None,
+      option.None,
+    )
+
+  assert returned_alg == alg
+
+  let assert Ok(parsed) = jwe.parse_compact(token)
+  let assert Ok(decryptor) = jwe.key_decryptor(alg, enc, [key])
+  let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
+  assert decrypted == payload
 }
 
 pub fn encrypt_to_compact_rejects_pbes2_test() {

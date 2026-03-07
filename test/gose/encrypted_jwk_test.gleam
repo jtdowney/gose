@@ -33,23 +33,21 @@ fn key_generator() {
 }
 
 pub fn pbes2_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(3),
     qcheck.tuple2(generators.pbes2_variant_generator(), key_generator()),
-    fn(tuple) {
-      let #(generators.Pbes2Variant(alg, enc), key) = tuple
-
-      let assert Ok(encrypted) =
-        encrypted_jwk.encrypt_with_password(key, alg, enc, "test-password")
-
-      let decryptor = jwe.password_decryptor(alg, enc, "test-password")
-      let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
-
-      let assert Ok(original_kid) = jwk.kid(key)
-      let assert Ok(recovered_kid) = jwk.kid(recovered)
-      assert recovered_kid == original_kid
-    },
   )
+  let #(generators.Pbes2Variant(alg, enc), key) = tuple
+
+  let assert Ok(encrypted) =
+    encrypted_jwk.encrypt_with_password(key, alg, enc, "test-password")
+
+  let decryptor = jwe.password_decryptor(alg, enc, "test-password")
+  let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
+
+  let assert Ok(original_kid) = jwk.kid(key)
+  let assert Ok(recovered_kid) = jwk.kid(recovered)
+  assert recovered_kid == original_kid
 }
 
 pub fn pbes2_wrong_password_fails_test() {
@@ -138,82 +136,75 @@ pub fn direct_symmetric_wrong_key_fails_test() {
 }
 
 pub fn aes_kw_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     qcheck.tuple2(generators.aes_kw_variant_generator(), key_generator()),
-    fn(tuple) {
-      let #(generators.AesKeyWrapVariant(alg, enc), key) = tuple
-
-      let wrap_key = jwk.generate_aes_kw_key(alg)
-
-      let assert Ok(encrypted) =
-        encrypted_jwk.encrypt_with_key(
-          key,
-          jwa.JweAesKeyWrap(jwa.AesKw, alg),
-          enc,
-          wrap_key,
-        )
-
-      let assert Ok(decryptor) =
-        jwe.key_decryptor(jwa.JweAesKeyWrap(jwa.AesKw, alg), enc, [wrap_key])
-      let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
-
-      let assert Ok(original_kid) = jwk.kid(key)
-      let assert Ok(recovered_kid) = jwk.kid(recovered)
-      assert recovered_kid == original_kid
-    },
   )
+  let #(generators.AesKeyWrapVariant(alg, enc), key) = tuple
+
+  let wrap_key = jwk.generate_aes_kw_key(alg)
+
+  let assert Ok(encrypted) =
+    encrypted_jwk.encrypt_with_key(
+      key,
+      jwa.JweAesKeyWrap(jwa.AesKw, alg),
+      enc,
+      wrap_key,
+    )
+
+  let assert Ok(decryptor) =
+    jwe.key_decryptor(jwa.JweAesKeyWrap(jwa.AesKw, alg), enc, [wrap_key])
+  let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
+
+  let assert Ok(original_kid) = jwk.kid(key)
+  let assert Ok(recovered_kid) = jwk.kid(recovered)
+  assert recovered_kid == original_kid
 }
 
 pub fn aes_gcm_kw_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     qcheck.tuple2(generators.aes_gcm_kw_variant_generator(), key_generator()),
-    fn(tuple) {
-      let #(generators.AesKeyWrapVariant(alg, enc), key) = tuple
-
-      let wrap_key = jwk.generate_aes_kw_key(alg)
-
-      let assert Ok(encrypted) =
-        encrypted_jwk.encrypt_with_key(
-          key,
-          jwa.JweAesKeyWrap(jwa.AesGcmKw, alg),
-          enc,
-          wrap_key,
-        )
-
-      let assert Ok(decryptor) =
-        jwe.key_decryptor(jwa.JweAesKeyWrap(jwa.AesGcmKw, alg), enc, [wrap_key])
-      let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
-
-      let assert Ok(original_kid) = jwk.kid(key)
-      let assert Ok(recovered_kid) = jwk.kid(recovered)
-      assert recovered_kid == original_kid
-    },
   )
+  let #(generators.AesKeyWrapVariant(alg, enc), key) = tuple
+
+  let wrap_key = jwk.generate_aes_kw_key(alg)
+
+  let assert Ok(encrypted) =
+    encrypted_jwk.encrypt_with_key(
+      key,
+      jwa.JweAesKeyWrap(jwa.AesGcmKw, alg),
+      enc,
+      wrap_key,
+    )
+
+  let assert Ok(decryptor) =
+    jwe.key_decryptor(jwa.JweAesKeyWrap(jwa.AesGcmKw, alg), enc, [wrap_key])
+  let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
+
+  let assert Ok(original_kid) = jwk.kid(key)
+  let assert Ok(recovered_kid) = jwk.kid(recovered)
+  assert recovered_kid == original_kid
 }
 
 pub fn rsa_roundtrip_test() {
   let rsa_key = fixtures.rsa_private_key()
 
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     qcheck.tuple2(generators.rsa_variant_generator(), key_generator()),
-    fn(tuple) {
-      let #(generators.RsaVariant(alg, enc), key) = tuple
-
-      let assert Ok(encrypted) =
-        encrypted_jwk.encrypt_with_key(key, jwa.JweRsa(alg), enc, rsa_key)
-
-      let assert Ok(decryptor) =
-        jwe.key_decryptor(jwa.JweRsa(alg), enc, [rsa_key])
-      let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
-
-      let assert Ok(original_kid) = jwk.kid(key)
-      let assert Ok(recovered_kid) = jwk.kid(recovered)
-      assert recovered_kid == original_kid
-    },
   )
+  let #(generators.RsaVariant(alg, enc), key) = tuple
+
+  let assert Ok(encrypted) =
+    encrypted_jwk.encrypt_with_key(key, jwa.JweRsa(alg), enc, rsa_key)
+
+  let assert Ok(decryptor) = jwe.key_decryptor(jwa.JweRsa(alg), enc, [rsa_key])
+  let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
+
+  let assert Ok(original_kid) = jwk.kid(key)
+  let assert Ok(recovered_kid) = jwk.kid(recovered)
+  assert recovered_kid == original_kid
 }
 
 pub fn rsa_oaep_wrong_key_fails_test() {
@@ -243,7 +234,7 @@ pub fn ecdh_es_roundtrip_test() {
   let ec_p384_key = fixtures.ec_p384_key()
   let xdh_key = fixtures.x25519_key()
 
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     qcheck.tuple3(
       generators.ecdh_variant_generator(),
@@ -253,26 +244,19 @@ pub fn ecdh_es_roundtrip_test() {
       ]),
       key_generator(),
     ),
-    fn(tuple) {
-      let #(generators.EcdhVariant(alg, enc), encryption_key, key) = tuple
-
-      let assert Ok(encrypted) =
-        encrypted_jwk.encrypt_with_key(
-          key,
-          jwa.JweEcdhEs(alg),
-          enc,
-          encryption_key,
-        )
-
-      let assert Ok(decryptor) =
-        jwe.key_decryptor(jwa.JweEcdhEs(alg), enc, [encryption_key])
-      let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
-
-      let assert Ok(original_kid) = jwk.kid(key)
-      let assert Ok(recovered_kid) = jwk.kid(recovered)
-      assert recovered_kid == original_kid
-    },
   )
+  let #(generators.EcdhVariant(alg, enc), encryption_key, key) = tuple
+
+  let assert Ok(encrypted) =
+    encrypted_jwk.encrypt_with_key(key, jwa.JweEcdhEs(alg), enc, encryption_key)
+
+  let assert Ok(decryptor) =
+    jwe.key_decryptor(jwa.JweEcdhEs(alg), enc, [encryption_key])
+  let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
+
+  let assert Ok(original_kid) = jwk.kid(key)
+  let assert Ok(recovered_kid) = jwk.kid(recovered)
+  assert recovered_kid == original_kid
 }
 
 pub fn ecdh_es_wrong_key_fails_test() {
@@ -378,30 +362,27 @@ pub fn pbes2_rejected_by_encrypt_with_key_test() {
 }
 
 pub fn chacha20_kw_roundtrip_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     qcheck.tuple2(generators.jwe_chacha20_kw_generator(), key_generator()),
-    fn(tuple) {
-      let #(generators.JweChaCha20KwWithKey(variant, enc, wrap_key), key) =
-        tuple
-
-      let assert Ok(encrypted) =
-        encrypted_jwk.encrypt_with_key(
-          key,
-          jwa.JweChaCha20KeyWrap(variant),
-          enc,
-          wrap_key,
-        )
-
-      let assert Ok(decryptor) =
-        jwe.key_decryptor(jwa.JweChaCha20KeyWrap(variant), enc, [wrap_key])
-      let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
-
-      let assert Ok(original_kid) = jwk.kid(key)
-      let assert Ok(recovered_kid) = jwk.kid(recovered)
-      assert recovered_kid == original_kid
-    },
   )
+  let #(generators.JweChaCha20KwWithKey(variant, enc, wrap_key), key) = tuple
+
+  let assert Ok(encrypted) =
+    encrypted_jwk.encrypt_with_key(
+      key,
+      jwa.JweChaCha20KeyWrap(variant),
+      enc,
+      wrap_key,
+    )
+
+  let assert Ok(decryptor) =
+    jwe.key_decryptor(jwa.JweChaCha20KeyWrap(variant), enc, [wrap_key])
+  let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
+
+  let assert Ok(original_kid) = jwk.kid(key)
+  let assert Ok(recovered_kid) = jwk.kid(recovered)
+  assert recovered_kid == original_kid
 }
 
 pub fn rsa_private_key_encryption_roundtrip_test() {

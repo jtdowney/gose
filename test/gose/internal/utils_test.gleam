@@ -41,11 +41,10 @@ pub fn validate_crit_headers_multiple_valid_extensions_test() {
 }
 
 pub fn decode_base64_url_roundtrip_property_test() {
-  qcheck.run(qcheck.default_config(), qcheck.byte_aligned_bit_array(), fn(data) {
-    let encoded = bit_array.base64_url_encode(data, False)
-    let assert Ok(decoded) = utils.decode_base64_url(encoded, "test")
-    assert decoded == data
-  })
+  use data <- qcheck.given(qcheck.byte_aligned_bit_array())
+  let encoded = bit_array.base64_url_encode(data, False)
+  let assert Ok(decoded) = utils.decode_base64_url(encoded, "test")
+  assert decoded == data
 }
 
 pub fn decode_base64_url_invalid_returns_error_test() {
@@ -55,11 +54,10 @@ pub fn decode_base64_url_invalid_returns_error_test() {
 }
 
 pub fn encode_base64_url_roundtrip_property_test() {
-  qcheck.run(qcheck.default_config(), qcheck.byte_aligned_bit_array(), fn(data) {
-    let encoded = utils.encode_base64_url(data)
-    let assert Ok(decoded) = bit_array.base64_url_decode(encoded)
-    assert decoded == data
-  })
+  use data <- qcheck.given(qcheck.byte_aligned_bit_array())
+  let encoded = utils.encode_base64_url(data)
+  let assert Ok(decoded) = bit_array.base64_url_decode(encoded)
+  assert decoded == data
 }
 
 pub fn strip_leading_zeros_no_zeros_test() {
@@ -83,14 +81,9 @@ pub fn strip_leading_zeros_empty_returns_empty_test() {
 }
 
 pub fn ec_curve_roundtrip_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    generators.ec_curve_generator(),
-    fn(curve) {
-      let s = utils.ec_curve_to_string(curve)
-      assert utils.ec_curve_from_string(s) == Ok(curve)
-    },
-  )
+  use curve <- qcheck.given(generators.ec_curve_generator())
+  let s = utils.ec_curve_to_string(curve)
+  assert utils.ec_curve_from_string(s) == Ok(curve)
 }
 
 pub fn ec_curve_from_string_rejects_invalid_test() {
@@ -99,14 +92,9 @@ pub fn ec_curve_from_string_rejects_invalid_test() {
 }
 
 pub fn eddsa_curve_roundtrip_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    generators.eddsa_curve_generator(),
-    fn(curve) {
-      let s = utils.eddsa_curve_to_string(curve)
-      assert utils.eddsa_curve_from_string(s) == Ok(curve)
-    },
-  )
+  use curve <- qcheck.given(generators.eddsa_curve_generator())
+  let s = utils.eddsa_curve_to_string(curve)
+  assert utils.eddsa_curve_from_string(s) == Ok(curve)
 }
 
 pub fn eddsa_curve_from_string_rejects_invalid_test() {
@@ -116,14 +104,9 @@ pub fn eddsa_curve_from_string_rejects_invalid_test() {
 }
 
 pub fn xdh_curve_roundtrip_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    generators.xdh_curve_generator(),
-    fn(curve) {
-      let s = utils.xdh_curve_to_string(curve)
-      assert utils.xdh_curve_from_string(s) == Ok(curve)
-    },
-  )
+  use curve <- qcheck.given(generators.xdh_curve_generator())
+  let s = utils.xdh_curve_to_string(curve)
+  assert utils.xdh_curve_from_string(s) == Ok(curve)
 }
 
 pub fn xdh_curve_from_string_rejects_invalid_test() {
@@ -132,18 +115,13 @@ pub fn xdh_curve_from_string_rejects_invalid_test() {
 }
 
 pub fn ec_coordinates_roundtrip_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    generators.ec_curve_generator(),
-    fn(curve) {
-      let #(_private, public) = ec.generate_key_pair(curve)
-      let assert Ok(#(x, y)) = utils.ec_public_key_coordinates(public, curve)
-      let assert Ok(reconstructed) =
-        utils.ec_public_key_from_coordinates(curve, x, y)
-      assert ec.public_key_to_raw_point(reconstructed)
-        == ec.public_key_to_raw_point(public)
-    },
-  )
+  use curve <- qcheck.given(generators.ec_curve_generator())
+  let #(_private, public) = ec.generate_key_pair(curve)
+  let assert Ok(#(x, y)) = utils.ec_public_key_coordinates(public, curve)
+  let assert Ok(reconstructed) =
+    utils.ec_public_key_from_coordinates(curve, x, y)
+  assert ec.public_key_to_raw_point(reconstructed)
+    == ec.public_key_to_raw_point(public)
 }
 
 pub fn ec_public_key_from_coordinates_wrong_x_length_test() {

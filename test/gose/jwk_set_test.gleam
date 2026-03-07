@@ -78,16 +78,14 @@ pub fn multiple_key_types_roundtrip_test() {
 }
 
 pub fn property_roundtrip_test() {
-  qcheck.run(
+  use keys <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     generator_jwk_list(),
-    fn(keys) {
-      let set = jwk_set.from_list(keys)
-      let json_val = jwk_set.to_json(set)
-      let assert Ok(parsed) = jwk_set.from_json(json.to_string(json_val))
-      assert list.length(jwk_set.to_list(parsed)) == list.length(keys)
-    },
   )
+  let set = jwk_set.from_list(keys)
+  let json_val = jwk_set.to_json(set)
+  let assert Ok(parsed) = jwk_set.from_json(json.to_string(json_val))
+  assert list.length(jwk_set.to_list(parsed)) == list.length(keys)
 }
 
 pub fn empty_set_json_snapshot_test() {
@@ -226,22 +224,20 @@ pub fn get_from_empty_set_test() {
 }
 
 pub fn property_get_finds_inserted_keys_test() {
-  qcheck.run(
+  use keys <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     generator_jwk_list_with_kids(),
-    fn(keys) {
-      let set = jwk_set.from_list(keys)
-      list.each(keys, fn(key) {
-        case jwk.kid(key) {
-          Ok(kid) -> {
-            let assert Ok(_found) = jwk_set.get(set, kid)
-            Nil
-          }
-          Error(_) -> Nil
-        }
-      })
-    },
   )
+  let set = jwk_set.from_list(keys)
+  list.each(keys, fn(key) {
+    case jwk.kid(key) {
+      Ok(kid) -> {
+        let assert Ok(_found) = jwk_set.get(set, kid)
+        Nil
+      }
+      Error(_) -> Nil
+    }
+  })
 }
 
 pub fn insert_to_empty_set_test() {
@@ -436,16 +432,14 @@ pub fn filter_empty_set_test() {
 }
 
 pub fn from_json_strict_valid_keys_roundtrip_test() {
-  qcheck.run(
+  use keys <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     generator_jwk_list(),
-    fn(keys) {
-      let set = jwk_set.from_list(keys)
-      let json_val = jwk_set.to_json(set)
-      let assert Ok(parsed) = jwk_set.from_json_strict(json.to_string(json_val))
-      assert list.length(jwk_set.to_list(parsed)) == list.length(keys)
-    },
   )
+  let set = jwk_set.from_list(keys)
+  let json_val = jwk_set.to_json(set)
+  let assert Ok(parsed) = jwk_set.from_json_strict(json.to_string(json_val))
+  assert list.length(jwk_set.to_list(parsed)) == list.length(keys)
 }
 
 pub fn from_json_strict_empty_keys_succeeds_test() {
@@ -508,19 +502,17 @@ pub fn from_json_strict_missing_required_field_includes_reason_test() {
 }
 
 pub fn from_json_bits_roundtrip_test() {
-  qcheck.run(
+  use keys <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     generator_jwk_list(),
-    fn(keys) {
-      let set = jwk_set.from_list(keys)
-      let json_bits =
-        jwk_set.to_json(set)
-        |> json.to_string
-        |> bit_array.from_string
-      let assert Ok(parsed) = jwk_set.from_json_bits(json_bits)
-      assert list.length(jwk_set.to_list(parsed)) == list.length(keys)
-    },
   )
+  let set = jwk_set.from_list(keys)
+  let json_bits =
+    jwk_set.to_json(set)
+    |> json.to_string
+    |> bit_array.from_string
+  let assert Ok(parsed) = jwk_set.from_json_bits(json_bits)
+  assert list.length(jwk_set.to_list(parsed)) == list.length(keys)
 }
 
 pub fn from_json_bits_invalid_json_test() {
@@ -609,19 +601,17 @@ pub fn from_json_strict_bits_non_utf8_test() {
 }
 
 pub fn from_json_strict_bits_roundtrip_test() {
-  qcheck.run(
+  use keys <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     generator_jwk_list(),
-    fn(keys) {
-      let set = jwk_set.from_list(keys)
-      let json_bits =
-        jwk_set.to_json(set)
-        |> json.to_string
-        |> bit_array.from_string
-      let assert Ok(parsed) = jwk_set.from_json_strict_bits(json_bits)
-      assert list.length(jwk_set.to_list(parsed)) == list.length(keys)
-    },
   )
+  let set = jwk_set.from_list(keys)
+  let json_bits =
+    jwk_set.to_json(set)
+    |> json.to_string
+    |> bit_array.from_string
+  let assert Ok(parsed) = jwk_set.from_json_strict_bits(json_bits)
+  assert list.length(jwk_set.to_list(parsed)) == list.length(keys)
 }
 
 pub fn decoder_skips_invalid_keys_test() {

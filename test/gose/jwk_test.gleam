@@ -24,11 +24,10 @@ pub fn generate_hmac_key_size_test() {
       qcheck.return(jwa.HmacSha384),
       qcheck.return(jwa.HmacSha512),
     ])
-  qcheck.run(qcheck.default_config(), hmac_alg_gen, fn(alg) {
-    let key = jwk.generate_hmac_key(alg)
-    let expected = jwa.hmac_alg_octet_key_size(alg)
-    assert jwk.octet_key_size(key) == Ok(expected)
-  })
+  use alg <- qcheck.given(hmac_alg_gen)
+  let key = jwk.generate_hmac_key(alg)
+  let expected = jwa.hmac_alg_octet_key_size(alg)
+  assert jwk.octet_key_size(key) == Ok(expected)
 }
 
 pub fn generate_enc_key_size_test() {
@@ -42,11 +41,10 @@ pub fn generate_enc_key_size_test() {
       qcheck.return(jwa.ChaCha20Poly1305),
       qcheck.return(jwa.XChaCha20Poly1305),
     ])
-  qcheck.run(qcheck.default_config(), enc_gen, fn(enc) {
-    let key = jwk.generate_enc_key(enc)
-    let expected = jwa.enc_octet_key_size(enc)
-    assert jwk.octet_key_size(key) == Ok(expected)
-  })
+  use enc <- qcheck.given(enc_gen)
+  let key = jwk.generate_enc_key(enc)
+  let expected = jwa.enc_octet_key_size(enc)
+  assert jwk.octet_key_size(key) == Ok(expected)
 }
 
 pub fn generate_aes_kw_key_size_test() {
@@ -55,11 +53,10 @@ pub fn generate_aes_kw_key_size_test() {
       qcheck.return(jwa.Aes192),
       qcheck.return(jwa.Aes256),
     ])
-  qcheck.run(qcheck.default_config(), aes_size_gen, fn(size) {
-    let key = jwk.generate_aes_kw_key(size)
-    let expected = jwa.aes_key_size_in_bytes(size)
-    assert jwk.octet_key_size(key) == Ok(expected)
-  })
+  use size <- qcheck.given(aes_size_gen)
+  let key = jwk.generate_aes_kw_key(size)
+  let expected = jwa.aes_key_size_in_bytes(size)
+  assert jwk.octet_key_size(key) == Ok(expected)
 }
 
 pub fn generate_chacha20_kw_key_size_test() {
@@ -73,18 +70,12 @@ pub fn octet_from_bits_rejects_empty_test() {
 }
 
 pub fn octet_json_roundtrip_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    qcheck.non_empty_byte_aligned_bit_array(),
-    fn(bytes) {
-      let assert Ok(key) = jwk.from_octet_bits(bytes)
-      let json_val = jwk.to_json(key)
-      let assert Ok(parsed) = jwk.from_json(json.to_string(json_val))
-      let assert Ok(parsed_secret) =
-        jwk.material_octet_secret(jwk.material(parsed))
-      assert parsed_secret == bytes
-    },
-  )
+  use bytes <- qcheck.given(qcheck.non_empty_byte_aligned_bit_array())
+  let assert Ok(key) = jwk.from_octet_bits(bytes)
+  let json_val = jwk.to_json(key)
+  let assert Ok(parsed) = jwk.from_json(json.to_string(json_val))
+  let assert Ok(parsed_secret) = jwk.material_octet_secret(jwk.material(parsed))
+  assert parsed_secret == bytes
 }
 
 pub fn octet_json_snapshot_test() {
@@ -234,17 +225,12 @@ pub fn rsa_thumbprint_private_equals_public_test() {
 }
 
 pub fn ec_generation_all_curves_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    generators.ec_curve_generator(),
-    fn(curve) {
-      let key = jwk.generate_ec(curve)
-      let assert Ok(actual) = jwk.ec_curve(key)
-      assert actual == curve
-      assert jwk.key_type(key) == jwk.EcKeyType
-      assert jwk.is_private_key(key)
-    },
-  )
+  use curve <- qcheck.given(generators.ec_curve_generator())
+  let key = jwk.generate_ec(curve)
+  let assert Ok(actual) = jwk.ec_curve(key)
+  assert actual == curve
+  assert jwk.key_type(key) == jwk.EcKeyType
+  assert jwk.is_private_key(key)
 }
 
 pub fn ec_public_key_extraction_test() {
@@ -256,34 +242,29 @@ pub fn ec_public_key_extraction_test() {
 }
 
 pub fn ec_json_roundtrip_all_curves_test() {
-  qcheck.run(
+  use curve_with_key <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     generators.ec_curve_with_key_generator(),
-    fn(curve_with_key) {
-      let generators.EcCurveWithKey(curve, key) = curve_with_key
-      let json_val = jwk.to_json(key)
-      let assert Ok(parsed) = jwk.from_json(json.to_string(json_val))
-      let assert Ok(parsed_curve) = jwk.ec_curve(parsed)
-      assert parsed_curve == curve
-    },
   )
+  let generators.EcCurveWithKey(curve, key) = curve_with_key
+  let json_val = jwk.to_json(key)
+  let assert Ok(parsed) = jwk.from_json(json.to_string(json_val))
+  let assert Ok(parsed_curve) = jwk.ec_curve(parsed)
+  assert parsed_curve == curve
 }
 
 pub fn ec_coordinates_roundtrip_test() {
-  qcheck.run(
+  use curve_with_key <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     generators.ec_curve_with_key_generator(),
-    fn(curve_with_key) {
-      let generators.EcCurveWithKey(curve, key) = curve_with_key
-      let assert Ok(pub_key) = jwk.public_key(key)
-      let assert Ok(#(x, y)) = jwk.ec_public_key_coordinates(pub_key)
-      let assert Ok(reconstructed) =
-        jwk.ec_public_key_from_coordinates(curve, x, y)
-      let assert Ok(#(x2, y2)) = jwk.ec_public_key_coordinates(reconstructed)
-      assert x == x2
-      assert y == y2
-    },
   )
+  let generators.EcCurveWithKey(curve, key) = curve_with_key
+  let assert Ok(pub_key) = jwk.public_key(key)
+  let assert Ok(#(x, y)) = jwk.ec_public_key_coordinates(pub_key)
+  let assert Ok(reconstructed) = jwk.ec_public_key_from_coordinates(curve, x, y)
+  let assert Ok(#(x2, y2)) = jwk.ec_public_key_coordinates(reconstructed)
+  assert x == x2
+  assert y == y2
 }
 
 pub fn ec_der_roundtrip_test() {
@@ -409,79 +390,70 @@ pub fn ec_rejects_invalid_curve_test() {
 }
 
 pub fn ec_from_json_rejects_short_x_coordinate_test() {
-  qcheck.run(
+  use cwk <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     generators.ec_curve_with_key_generator(),
-    fn(cwk) {
-      let generators.EcCurveWithKey(curve, key) = cwk
-      let coord_size = ec.coordinate_size(curve)
-      let crv = utils.ec_curve_to_string(curve)
-      let assert Ok(ec_key) = jwk.ec_public_key(key)
-      let raw_point = ec.public_key_to_raw_point(ec_key)
-      let assert <<0x04, rest:bits>> = raw_point
-      let assert Ok(x) = bit_array.slice(rest, 0, coord_size)
-      let assert Ok(y) = bit_array.slice(rest, coord_size, coord_size)
-      let assert Ok(short_x) = bit_array.slice(x, 0, coord_size - 1)
-
-      let short_x_json =
-        json.object([
-          #("kty", json.string("EC")),
-          #("crv", json.string(crv)),
-          #("x", json.string(bit_array.base64_url_encode(short_x, False))),
-          #("y", json.string(bit_array.base64_url_encode(y, False))),
-        ])
-        |> json.to_string()
-
-      let expected =
-        "EC x coordinate must be " <> int.to_string(coord_size) <> " bytes"
-      assert jwk.from_json(short_x_json) == Error(gose.ParseError(expected))
-    },
   )
+  let generators.EcCurveWithKey(curve, key) = cwk
+  let coord_size = ec.coordinate_size(curve)
+  let crv = utils.ec_curve_to_string(curve)
+  let assert Ok(ec_key) = jwk.ec_public_key(key)
+  let raw_point = ec.public_key_to_raw_point(ec_key)
+  let assert <<0x04, rest:bits>> = raw_point
+  let assert Ok(x) = bit_array.slice(rest, 0, coord_size)
+  let assert Ok(y) = bit_array.slice(rest, coord_size, coord_size)
+  let assert Ok(short_x) = bit_array.slice(x, 0, coord_size - 1)
+
+  let short_x_json =
+    json.object([
+      #("kty", json.string("EC")),
+      #("crv", json.string(crv)),
+      #("x", json.string(bit_array.base64_url_encode(short_x, False))),
+      #("y", json.string(bit_array.base64_url_encode(y, False))),
+    ])
+    |> json.to_string()
+
+  let expected =
+    "EC x coordinate must be " <> int.to_string(coord_size) <> " bytes"
+  assert jwk.from_json(short_x_json) == Error(gose.ParseError(expected))
 }
 
 pub fn ec_from_json_rejects_short_y_coordinate_test() {
-  qcheck.run(
+  use cwk <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     generators.ec_curve_with_key_generator(),
-    fn(cwk) {
-      let generators.EcCurveWithKey(curve, key) = cwk
-      let coord_size = ec.coordinate_size(curve)
-      let crv = utils.ec_curve_to_string(curve)
-      let assert Ok(ec_key) = jwk.ec_public_key(key)
-      let raw_point = ec.public_key_to_raw_point(ec_key)
-      let assert <<0x04, rest:bits>> = raw_point
-      let assert Ok(x) = bit_array.slice(rest, 0, coord_size)
-      let assert Ok(y) = bit_array.slice(rest, coord_size, coord_size)
-      let assert Ok(short_y) = bit_array.slice(y, 0, coord_size - 1)
-
-      let short_y_json =
-        json.object([
-          #("kty", json.string("EC")),
-          #("crv", json.string(crv)),
-          #("x", json.string(bit_array.base64_url_encode(x, False))),
-          #("y", json.string(bit_array.base64_url_encode(short_y, False))),
-        ])
-        |> json.to_string()
-
-      let expected =
-        "EC y coordinate must be " <> int.to_string(coord_size) <> " bytes"
-      assert jwk.from_json(short_y_json) == Error(gose.ParseError(expected))
-    },
   )
+  let generators.EcCurveWithKey(curve, key) = cwk
+  let coord_size = ec.coordinate_size(curve)
+  let crv = utils.ec_curve_to_string(curve)
+  let assert Ok(ec_key) = jwk.ec_public_key(key)
+  let raw_point = ec.public_key_to_raw_point(ec_key)
+  let assert <<0x04, rest:bits>> = raw_point
+  let assert Ok(x) = bit_array.slice(rest, 0, coord_size)
+  let assert Ok(y) = bit_array.slice(rest, coord_size, coord_size)
+  let assert Ok(short_y) = bit_array.slice(y, 0, coord_size - 1)
+
+  let short_y_json =
+    json.object([
+      #("kty", json.string("EC")),
+      #("crv", json.string(crv)),
+      #("x", json.string(bit_array.base64_url_encode(x, False))),
+      #("y", json.string(bit_array.base64_url_encode(short_y, False))),
+    ])
+    |> json.to_string()
+
+  let expected =
+    "EC y coordinate must be " <> int.to_string(coord_size) <> " bytes"
+  assert jwk.from_json(short_y_json) == Error(gose.ParseError(expected))
 }
 
 pub fn eddsa_generation_all_curves_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    generators.eddsa_curve_generator(),
-    fn(curve) {
-      let key = jwk.generate_eddsa(curve)
-      let assert Ok(actual) = jwk.eddsa_curve(key)
-      assert actual == curve
-      assert jwk.key_type(key) == jwk.OkpKeyType
-      assert jwk.is_private_key(key)
-    },
-  )
+  use curve <- qcheck.given(generators.eddsa_curve_generator())
+  let key = jwk.generate_eddsa(curve)
+  let assert Ok(actual) = jwk.eddsa_curve(key)
+  assert actual == curve
+  assert jwk.key_type(key) == jwk.OkpKeyType
+  assert jwk.is_private_key(key)
 }
 
 pub fn eddsa_public_key_extraction_test() {
@@ -492,17 +464,15 @@ pub fn eddsa_public_key_extraction_test() {
 }
 
 pub fn eddsa_json_roundtrip_test() {
-  qcheck.run(
+  use curve <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     generators.eddsa_curve_generator(),
-    fn(curve) {
-      let key = jwk.generate_eddsa(curve)
-      let json_val = jwk.to_json(key)
-      let assert Ok(parsed) = jwk.from_json(json.to_string(json_val))
-      let assert Ok(curve_out) = jwk.eddsa_curve(parsed)
-      assert curve == curve_out
-    },
   )
+  let key = jwk.generate_eddsa(curve)
+  let json_val = jwk.to_json(key)
+  let assert Ok(parsed) = jwk.from_json(json.to_string(json_val))
+  let assert Ok(curve_out) = jwk.eddsa_curve(parsed)
+  assert curve == curve_out
 }
 
 pub fn eddsa_public_key_json_roundtrip_test() {
@@ -658,17 +628,12 @@ pub fn eddsa_thumbprint_private_equals_public_test() {
 }
 
 pub fn xdh_generation_all_curves_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    generators.xdh_curve_generator(),
-    fn(curve) {
-      let key = jwk.generate_xdh(curve)
-      let assert Ok(actual) = jwk.xdh_curve(key)
-      assert actual == curve
-      assert jwk.key_type(key) == jwk.OkpKeyType
-      assert jwk.is_private_key(key)
-    },
-  )
+  use curve <- qcheck.given(generators.xdh_curve_generator())
+  let key = jwk.generate_xdh(curve)
+  let assert Ok(actual) = jwk.xdh_curve(key)
+  assert actual == curve
+  assert jwk.key_type(key) == jwk.OkpKeyType
+  assert jwk.is_private_key(key)
 }
 
 pub fn xdh_public_key_extraction_test() {
@@ -679,17 +644,15 @@ pub fn xdh_public_key_extraction_test() {
 }
 
 pub fn xdh_json_roundtrip_test() {
-  qcheck.run(
+  use curve <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     generators.xdh_curve_generator(),
-    fn(curve) {
-      let key = jwk.generate_xdh(curve)
-      let json_val = jwk.to_json(key)
-      let assert Ok(parsed) = jwk.from_json(json.to_string(json_val))
-      let assert Ok(curve_out) = jwk.xdh_curve(parsed)
-      assert curve == curve_out
-    },
   )
+  let key = jwk.generate_xdh(curve)
+  let json_val = jwk.to_json(key)
+  let assert Ok(parsed) = jwk.from_json(json.to_string(json_val))
+  let assert Ok(curve_out) = jwk.xdh_curve(parsed)
+  assert curve == curve_out
 }
 
 pub fn xdh_public_key_json_roundtrip_test() {
@@ -801,21 +764,19 @@ pub fn xdh_thumbprint_private_equals_public_test() {
 }
 
 pub fn kid_roundtrip_test() {
-  qcheck.run(qcheck.default_config(), qcheck.non_empty_string(), fn(kid) {
-    let assert Ok(key) = jwk.from_octet_bits(<<"secret":utf8>>)
-    let key = jwk.with_kid(key, kid)
-    assert jwk.kid(key) == Ok(kid)
-  })
+  use kid <- qcheck.given(qcheck.non_empty_string())
+  let assert Ok(key) = jwk.from_octet_bits(<<"secret":utf8>>)
+  let key = jwk.with_kid(key, kid)
+  assert jwk.kid(key) == Ok(kid)
 }
 
 pub fn kid_preserved_through_json_test() {
-  qcheck.run(qcheck.default_config(), qcheck.non_empty_string(), fn(kid) {
-    let key = fixtures.ed25519_key()
-    let key = jwk.with_kid(key, kid)
-    let json_val = jwk.to_json(key)
-    let assert Ok(parsed) = jwk.from_json(json.to_string(json_val))
-    assert jwk.kid(parsed) == Ok(kid)
-  })
+  use kid <- qcheck.given(qcheck.non_empty_string())
+  let key = fixtures.ed25519_key()
+  let key = jwk.with_kid(key, kid)
+  let json_val = jwk.to_json(key)
+  let assert Ok(parsed) = jwk.from_json(json.to_string(json_val))
+  assert jwk.kid(parsed) == Ok(kid)
 }
 
 pub fn key_use_roundtrip_test() {
@@ -854,14 +815,13 @@ pub fn key_ops_json_roundtrip_test() {
   let gen =
     qcheck.generic_list(generators.key_op_generator(), qcheck.bounded_int(1, 8))
     |> qcheck.map(list.unique)
-  qcheck.run(qcheck.default_config(), gen, fn(ops) {
-    let assert Ok(key) =
-      fixtures.ed25519_key()
-      |> jwk.with_key_ops(ops)
-    let json_value = jwk.to_json(key)
-    let assert Ok(parsed) = jwk.from_json(json.to_string(json_value))
-    assert jwk.key_ops(parsed) == Ok(ops)
-  })
+  use ops <- qcheck.given(gen)
+  let assert Ok(key) =
+    fixtures.ed25519_key()
+    |> jwk.with_key_ops(ops)
+  let json_value = jwk.to_json(key)
+  let assert Ok(parsed) = jwk.from_json(json.to_string(json_value))
+  assert jwk.key_ops(parsed) == Ok(ops)
 }
 
 pub fn key_ops_rejects_empty_test() {
@@ -893,20 +853,18 @@ pub fn algorithm_roundtrip_test() {
 }
 
 pub fn algorithm_json_roundtrip_test() {
-  qcheck.run(qcheck.default_config(), generators.alg_generator(), fn(alg) {
-    let key =
-      fixtures.ed25519_key()
-      |> jwk.with_alg(alg)
-    let json_value = jwk.to_json(key)
-    let assert Ok(parsed) = jwk.from_json(json.to_string(json_value))
-    assert jwk.alg(parsed) == Ok(alg)
-  })
+  use alg <- qcheck.given(generators.alg_generator())
+  let key =
+    fixtures.ed25519_key()
+    |> jwk.with_alg(alg)
+  let json_value = jwk.to_json(key)
+  let assert Ok(parsed) = jwk.from_json(json.to_string(json_value))
+  assert jwk.alg(parsed) == Ok(alg)
 }
 
 pub fn alg_from_string_roundtrip_test() {
-  qcheck.run(qcheck.default_config(), generators.alg_generator(), fn(alg) {
-    assert jwk.alg_from_string(jwk.alg_to_string(alg)) == Ok(alg)
-  })
+  use alg <- qcheck.given(generators.alg_generator())
+  assert jwk.alg_from_string(jwk.alg_to_string(alg)) == Ok(alg)
 }
 
 pub fn alg_from_string_rejects_invalid_test() {
@@ -1112,61 +1070,53 @@ pub fn thumbprint_rfc7638_test_vector_test() {
 }
 
 pub fn eddsa_to_octet_bits_roundtrip_test() {
-  qcheck.run(
+  use curve <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     generators.eddsa_curve_generator(),
-    fn(curve) {
-      let key = jwk.generate_eddsa(curve)
-      let assert Ok(bytes) = jwk.to_octet_bits(key)
-      let assert Ok(restored) = jwk.from_eddsa_bits(curve, bytes)
-      let assert Ok(restored_bits) = jwk.to_octet_bits(restored)
-      assert bytes == restored_bits
-    },
   )
+  let key = jwk.generate_eddsa(curve)
+  let assert Ok(bytes) = jwk.to_octet_bits(key)
+  let assert Ok(restored) = jwk.from_eddsa_bits(curve, bytes)
+  let assert Ok(restored_bits) = jwk.to_octet_bits(restored)
+  assert bytes == restored_bits
 }
 
 pub fn eddsa_public_to_octet_bits_roundtrip_test() {
-  qcheck.run(
+  use curve <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     generators.eddsa_curve_generator(),
-    fn(curve) {
-      let key = jwk.generate_eddsa(curve)
-      let assert Ok(pub_key) = jwk.public_key(key)
-      let assert Ok(bytes) = jwk.to_octet_bits(pub_key)
-      let assert Ok(restored) = jwk.from_eddsa_public_bits(curve, bytes)
-      let assert Ok(restored_bits) = jwk.to_octet_bits(restored)
-      assert bytes == restored_bits
-    },
   )
+  let key = jwk.generate_eddsa(curve)
+  let assert Ok(pub_key) = jwk.public_key(key)
+  let assert Ok(bytes) = jwk.to_octet_bits(pub_key)
+  let assert Ok(restored) = jwk.from_eddsa_public_bits(curve, bytes)
+  let assert Ok(restored_bits) = jwk.to_octet_bits(restored)
+  assert bytes == restored_bits
 }
 
 pub fn xdh_to_octet_bits_roundtrip_test() {
-  qcheck.run(
+  use curve <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     generators.xdh_curve_generator(),
-    fn(curve) {
-      let key = jwk.generate_xdh(curve)
-      let assert Ok(bytes) = jwk.to_octet_bits(key)
-      let assert Ok(restored) = jwk.from_xdh_bits(curve, bytes)
-      let assert Ok(restored_bits) = jwk.to_octet_bits(restored)
-      assert bytes == restored_bits
-    },
   )
+  let key = jwk.generate_xdh(curve)
+  let assert Ok(bytes) = jwk.to_octet_bits(key)
+  let assert Ok(restored) = jwk.from_xdh_bits(curve, bytes)
+  let assert Ok(restored_bits) = jwk.to_octet_bits(restored)
+  assert bytes == restored_bits
 }
 
 pub fn xdh_public_to_octet_bits_roundtrip_test() {
-  qcheck.run(
+  use curve <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     generators.xdh_curve_generator(),
-    fn(curve) {
-      let key = jwk.generate_xdh(curve)
-      let assert Ok(pub_key) = jwk.public_key(key)
-      let assert Ok(bytes) = jwk.to_octet_bits(pub_key)
-      let assert Ok(restored) = jwk.from_xdh_public_bits(curve, bytes)
-      let assert Ok(restored_bits) = jwk.to_octet_bits(restored)
-      assert bytes == restored_bits
-    },
   )
+  let key = jwk.generate_xdh(curve)
+  let assert Ok(pub_key) = jwk.public_key(key)
+  let assert Ok(bytes) = jwk.to_octet_bits(pub_key)
+  let assert Ok(restored) = jwk.from_xdh_public_bits(curve, bytes)
+  let assert Ok(restored_bits) = jwk.to_octet_bits(restored)
+  assert bytes == restored_bits
 }
 
 pub fn from_eddsa_bits_rejects_invalid_test() {

@@ -4,32 +4,21 @@ import gose/test_helpers/generators
 import qcheck
 
 pub fn jws_alg_roundtrip_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    generators.bare_jws_alg_generator(),
-    fn(alg) {
-      let alg_str = jwa.jws_alg_to_string(alg)
-      assert jwa.jws_alg_from_string(alg_str) == Ok(alg)
-    },
-  )
+  use alg <- qcheck.given(generators.bare_jws_alg_generator())
+  let alg_str = jwa.jws_alg_to_string(alg)
+  assert jwa.jws_alg_from_string(alg_str) == Ok(alg)
 }
 
 pub fn jwe_alg_roundtrip_test() {
-  qcheck.run(
-    qcheck.default_config(),
-    generators.bare_jwe_alg_generator(),
-    fn(alg) {
-      let alg_str = jwa.jwe_alg_to_string(alg)
-      assert jwa.jwe_alg_from_string(alg_str) == Ok(alg)
-    },
-  )
+  use alg <- qcheck.given(generators.bare_jwe_alg_generator())
+  let alg_str = jwa.jwe_alg_to_string(alg)
+  assert jwa.jwe_alg_from_string(alg_str) == Ok(alg)
 }
 
 pub fn enc_roundtrip_test() {
-  qcheck.run(qcheck.default_config(), generators.jwe_enc_generator(), fn(enc) {
-    let enc_str = jwa.enc_to_string(enc)
-    assert jwa.enc_from_string(enc_str) == Ok(enc)
-  })
+  use enc <- qcheck.given(generators.jwe_enc_generator())
+  let enc_str = jwa.enc_to_string(enc)
+  assert jwa.enc_from_string(enc_str) == Ok(enc)
 }
 
 pub fn jws_alg_from_string_rejects_invalid_test() {
@@ -95,18 +84,17 @@ pub fn enc_from_string_rejects_empty_test() {
 }
 
 pub fn enc_octet_key_size_all_variants_test() {
-  qcheck.run(qcheck.default_config(), generators.jwe_enc_generator(), fn(enc) {
-    let size = jwa.enc_octet_key_size(enc)
-    assert size
-      == case enc {
-        jwa.AesGcm(jwa.Aes128) -> 16
-        jwa.AesGcm(jwa.Aes192) -> 24
-        jwa.AesGcm(jwa.Aes256) -> 32
-        jwa.AesCbcHmac(jwa.Aes128) -> 32
-        jwa.AesCbcHmac(jwa.Aes192) -> 48
-        jwa.AesCbcHmac(jwa.Aes256) -> 64
-        jwa.ChaCha20Poly1305 -> 32
-        jwa.XChaCha20Poly1305 -> 32
-      }
-  })
+  use enc <- qcheck.given(generators.jwe_enc_generator())
+  let size = jwa.enc_octet_key_size(enc)
+  assert size
+    == case enc {
+      jwa.AesGcm(jwa.Aes128) -> 16
+      jwa.AesGcm(jwa.Aes192) -> 24
+      jwa.AesGcm(jwa.Aes256) -> 32
+      jwa.AesCbcHmac(jwa.Aes128) -> 32
+      jwa.AesCbcHmac(jwa.Aes192) -> 48
+      jwa.AesCbcHmac(jwa.Aes256) -> 64
+      jwa.ChaCha20Poly1305 -> 32
+      jwa.XChaCha20Poly1305 -> 32
+    }
 }

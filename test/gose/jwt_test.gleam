@@ -111,87 +111,81 @@ pub fn with_audiences_validation_test() {
 
 pub fn sign_verify_hmac_property_test() {
   let hmac_keys = generators.generate_hmac_keys()
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jws_hmac_alg_generator(hmac_keys),
       qcheck.non_empty_string(),
     ),
-    fn(tuple) {
-      let #(generators.JwsAlgWithKey(alg, key), subject) = tuple
-      let now = jwt_helpers.fixed_timestamp()
-      let exp = timestamp.add(now, duration.hours(1))
-
-      let claims =
-        jwt.claims()
-        |> jwt.with_subject(subject)
-        |> jwt.with_expiration(exp)
-
-      let assert Ok(signed) = jwt.sign(alg, claims, key)
-      let token = jwt.serialize(signed)
-
-      let assert Ok(v) = jwt.verifier(alg, [key], jwt.default_validation())
-      let assert Ok(verified) = jwt.verify_and_validate(v, token, now)
-      let assert Ok(sub) = jwt.decode(verified, jwt_helpers.sub_decoder())
-      assert sub == subject
-    },
   )
+  let #(generators.JwsAlgWithKey(alg, key), subject) = tuple
+  let now = jwt_helpers.fixed_timestamp()
+  let exp = timestamp.add(now, duration.hours(1))
+
+  let claims =
+    jwt.claims()
+    |> jwt.with_subject(subject)
+    |> jwt.with_expiration(exp)
+
+  let assert Ok(signed) = jwt.sign(alg, claims, key)
+  let token = jwt.serialize(signed)
+
+  let assert Ok(v) = jwt.verifier(alg, [key], jwt.default_validation())
+  let assert Ok(verified) = jwt.verify_and_validate(v, token, now)
+  let assert Ok(sub) = jwt.decode(verified, jwt_helpers.sub_decoder())
+  assert sub == subject
 }
 
 pub fn sign_verify_ec_property_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jws_ecdsa_alg_generator(),
       qcheck.non_empty_string(),
     ),
-    fn(tuple) {
-      let #(generators.JwsAlgWithKey(alg, key), subject) = tuple
-      let now = jwt_helpers.fixed_timestamp()
-      let exp = timestamp.add(now, duration.hours(1))
-
-      let claims =
-        jwt.claims()
-        |> jwt.with_subject(subject)
-        |> jwt.with_expiration(exp)
-
-      let assert Ok(signed) = jwt.sign(alg, claims, key)
-      let token = jwt.serialize(signed)
-
-      let assert Ok(v) = jwt.verifier(alg, [key], jwt.default_validation())
-      let assert Ok(verified) = jwt.verify_and_validate(v, token, now)
-      let assert Ok(sub) = jwt.decode(verified, jwt_helpers.sub_decoder())
-      assert sub == subject
-    },
   )
+  let #(generators.JwsAlgWithKey(alg, key), subject) = tuple
+  let now = jwt_helpers.fixed_timestamp()
+  let exp = timestamp.add(now, duration.hours(1))
+
+  let claims =
+    jwt.claims()
+    |> jwt.with_subject(subject)
+    |> jwt.with_expiration(exp)
+
+  let assert Ok(signed) = jwt.sign(alg, claims, key)
+  let token = jwt.serialize(signed)
+
+  let assert Ok(v) = jwt.verifier(alg, [key], jwt.default_validation())
+  let assert Ok(verified) = jwt.verify_and_validate(v, token, now)
+  let assert Ok(sub) = jwt.decode(verified, jwt_helpers.sub_decoder())
+  assert sub == subject
 }
 
 pub fn sign_verify_eddsa_property_test() {
-  qcheck.run(
+  use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.tuple2(
       generators.jws_eddsa_alg_generator(),
       qcheck.non_empty_string(),
     ),
-    fn(tuple) {
-      let #(generators.JwsAlgWithKey(alg, key), subject) = tuple
-      let now = jwt_helpers.fixed_timestamp()
-      let exp = timestamp.add(now, duration.hours(1))
-
-      let claims =
-        jwt.claims()
-        |> jwt.with_subject(subject)
-        |> jwt.with_expiration(exp)
-
-      let assert Ok(signed) = jwt.sign(alg, claims, key)
-      let token = jwt.serialize(signed)
-
-      let assert Ok(v) = jwt.verifier(alg, [key], jwt.default_validation())
-      let assert Ok(verified) = jwt.verify_and_validate(v, token, now)
-      let assert Ok(sub) = jwt.decode(verified, jwt_helpers.sub_decoder())
-      assert sub == subject
-    },
   )
+  let #(generators.JwsAlgWithKey(alg, key), subject) = tuple
+  let now = jwt_helpers.fixed_timestamp()
+  let exp = timestamp.add(now, duration.hours(1))
+
+  let claims =
+    jwt.claims()
+    |> jwt.with_subject(subject)
+    |> jwt.with_expiration(exp)
+
+  let assert Ok(signed) = jwt.sign(alg, claims, key)
+  let token = jwt.serialize(signed)
+
+  let assert Ok(v) = jwt.verifier(alg, [key], jwt.default_validation())
+  let assert Ok(verified) = jwt.verify_and_validate(v, token, now)
+  let assert Ok(sub) = jwt.decode(verified, jwt_helpers.sub_decoder())
+  assert sub == subject
 }
 
 pub fn sign_verify_rsa_roundtrip_test() {
