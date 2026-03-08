@@ -131,6 +131,34 @@ pub fn validate_jws_key_type(
   }
 }
 
+pub fn validate_jwe_key_type(
+  alg: jwa.JweAlg,
+  key: jwk.Jwk,
+) -> Result(Nil, gose.GoseError) {
+  let key_type = jwk.key_type(key)
+  case alg, key_type {
+    jwa.JweDirect, jwk.OctKeyType
+    | jwa.JweAesKeyWrap(_, _), jwk.OctKeyType
+    | jwa.JweChaCha20KeyWrap(_), jwk.OctKeyType
+    -> Ok(Nil)
+
+    jwa.JweRsa(_), jwk.RsaKeyType -> Ok(Nil)
+
+    jwa.JweEcdhEs(_), jwk.EcKeyType -> Ok(Nil)
+    jwa.JweEcdhEs(_), jwk.OkpKeyType -> validate_xdh_key(key)
+
+    jwa.JwePbes2(_), _ ->
+      Error(gose.InvalidState("use password_decryptor for PBES2 algorithms"))
+
+    _, _ ->
+      Error(gose.InvalidState(
+        "algorithm "
+        <> jwa.jwe_alg_to_string(alg)
+        <> " incompatible with key type",
+      ))
+  }
+}
+
 fn validate_ec_curve(
   key: jwk.Jwk,
   expected: ec.Curve,
@@ -148,6 +176,16 @@ fn validate_eddsa_key(key: jwk.Jwk) -> Result(Nil, gose.GoseError) {
     Error(_) ->
       Error(gose.InvalidState(
         "EdDSA algorithm requires an EdDSA key (Ed25519/Ed448), not XDH",
+      ))
+  }
+}
+
+fn validate_xdh_key(key: jwk.Jwk) -> Result(Nil, gose.GoseError) {
+  case jwk.xdh_curve(key) {
+    Ok(_) -> Ok(Nil)
+    Error(_) ->
+      Error(gose.InvalidState(
+        "ECDH-ES algorithm requires an EC or XDH key (X25519/X448), not EdDSA",
       ))
   }
 }
@@ -222,6 +260,7 @@ pub fn validate_key_for_jwe_decryption(
   alg: jwa.JweAlg,
   key: jwk.Jwk,
 ) -> Result(Nil, gose.GoseError) {
+  use _ <- result.try(validate_jwe_key_type(alg, key))
   use _ <- result.try(validate_key_use(key, ForDecryption))
   use _ <- result.try(validate_key_ops(key, ForDecryption))
   validate_key_algorithm_jwe(key, alg)
@@ -234,6 +273,7 @@ pub fn validate_key_for_jwe_encryption(
   alg: jwa.JweAlg,
   key: jwk.Jwk,
 ) -> Result(Nil, gose.GoseError) {
+  use _ <- result.try(validate_jwe_key_type(alg, key))
   use _ <- result.try(validate_key_use(key, ForEncryption))
   use _ <- result.try(validate_key_ops(key, ForEncryption))
   validate_key_algorithm_jwe(key, alg)

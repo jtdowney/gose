@@ -511,3 +511,75 @@ pub fn validate_key_for_jwe_encryption_wrong_alg_test() {
   assert msg
     == "key algorithm mismatch: key has RSA-OAEP, expected RSA-OAEP-256"
 }
+
+pub fn validate_jwe_key_type_oct_alg_ok_test() {
+  let key = jwk.generate_enc_key(jwa.AesGcm(jwa.Aes128))
+  let result = key_helpers.validate_jwe_key_type(jwa.JweDirect, key)
+  assert result == Ok(Nil)
+}
+
+pub fn validate_jwe_key_type_rsa_ok_test() {
+  let key = fixtures.rsa_private_key()
+  let result =
+    key_helpers.validate_jwe_key_type(jwa.JweRsa(jwa.RsaOaepSha256), key)
+  assert result == Ok(Nil)
+}
+
+pub fn validate_jwe_key_type_ecdh_es_ec_ok_test() {
+  let key = fixtures.ec_p256_key()
+  let result =
+    key_helpers.validate_jwe_key_type(jwa.JweEcdhEs(jwa.EcdhEsDirect), key)
+  assert result == Ok(Nil)
+}
+
+pub fn validate_jwe_key_type_ecdh_es_xdh_ok_test() {
+  let key = fixtures.x25519_key()
+  let result =
+    key_helpers.validate_jwe_key_type(jwa.JweEcdhEs(jwa.EcdhEsDirect), key)
+  assert result == Ok(Nil)
+}
+
+pub fn validate_jwe_key_type_ecdh_es_rejects_eddsa_test() {
+  let key = fixtures.ed25519_key()
+  let assert Error(gose.InvalidState(msg)) =
+    key_helpers.validate_jwe_key_type(jwa.JweEcdhEs(jwa.EcdhEsDirect), key)
+  assert msg
+    == "ECDH-ES algorithm requires an EC or XDH key (X25519/X448), not EdDSA"
+}
+
+pub fn validate_jwe_key_type_pbes2_rejects_any_key_test() {
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let assert Error(gose.InvalidState(msg)) =
+    key_helpers.validate_jwe_key_type(
+      jwa.JwePbes2(jwa.Pbes2Sha256Aes128Kw),
+      key,
+    )
+  assert msg == "use password_decryptor for PBES2 algorithms"
+}
+
+pub fn validate_jwe_key_type_wrong_key_type_test() {
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let assert Error(gose.InvalidState(msg)) =
+    key_helpers.validate_jwe_key_type(jwa.JweRsa(jwa.RsaOaepSha256), key)
+  assert msg == "algorithm RSA-OAEP-256 incompatible with key type"
+}
+
+pub fn validate_key_for_jwe_decryption_wrong_key_type_test() {
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let assert Error(gose.InvalidState(msg)) =
+    key_helpers.validate_key_for_jwe_decryption(
+      jwa.JweRsa(jwa.RsaOaepSha256),
+      key,
+    )
+  assert msg == "algorithm RSA-OAEP-256 incompatible with key type"
+}
+
+pub fn validate_key_for_jwe_encryption_wrong_key_type_test() {
+  let key = jwk.generate_hmac_key(jwa.HmacSha256)
+  let assert Error(gose.InvalidState(msg)) =
+    key_helpers.validate_key_for_jwe_encryption(
+      jwa.JweRsa(jwa.RsaOaepSha256),
+      key,
+    )
+  assert msg == "algorithm RSA-OAEP-256 incompatible with key type"
+}

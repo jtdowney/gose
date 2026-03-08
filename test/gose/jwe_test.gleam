@@ -377,14 +377,14 @@ pub fn wrong_key_type_test() {
     |> jwe.encrypt(rsa_key, <<"test":utf8>>)
 
   assert result1
-    == Error(gose.InvalidState("direct encryption requires an octet key"))
+    == Error(gose.InvalidState("algorithm dir incompatible with key type"))
 
   let result2 =
     jwe.new_rsa(jwa.RsaOaepSha1, jwa.AesGcm(jwa.Aes256))
     |> jwe.encrypt(octet_key, <<"test":utf8>>)
 
   assert result2
-    == Error(gose.InvalidState("RSA encryption requires an RSA key"))
+    == Error(gose.InvalidState("algorithm RSA-OAEP incompatible with key type"))
 }
 
 pub fn wrong_key_size_test() {
