@@ -1332,6 +1332,38 @@ fn parse_header_json(
   ))
 }
 
+fn build_signed_jws_json(
+  header: JwsHeader,
+  header_raw: Option(decode.Dynamic),
+  protected_b64: String,
+  signature: BitArray,
+  payload_opt: Option(String),
+  unencoded_payload: Bool,
+  unprotected: dict.Dict(String, json.Json),
+  unprotected_raw: Option(decode.Dynamic),
+) -> Result(Jws(Signed, Parsed), gose.GoseError) {
+  let #(payload_b64, detached) = case payload_opt {
+    Some(p) -> #(p, False)
+    None -> #("", True)
+  }
+  use payload <- result.try(decode_payload_segment(
+    payload_b64,
+    unencoded_payload,
+  ))
+  Ok(SignedJws(
+    header:,
+    header_raw:,
+    payload:,
+    protected_b64:,
+    payload_segment: payload_b64,
+    signature:,
+    detached:,
+    unencoded_payload:,
+    unprotected:,
+    unprotected_raw:,
+  ))
+}
+
 fn parse_json_flattened(
   json_str: String,
 ) -> Result(Jws(Signed, Parsed), gose.GoseError) {
@@ -1366,26 +1398,16 @@ fn parse_json_flattened(
   ))
   use signature <- result.try(utils.decode_base64_url(sig_b64, "signature"))
 
-  let #(payload_b64, detached) = case payload_opt {
-    Some(p) -> #(p, False)
-    None -> #("", True)
-  }
-  use payload <- result.try(decode_payload_segment(
-    payload_b64,
+  build_signed_jws_json(
+    header,
+    header_raw,
+    protected_b64,
+    signature,
+    payload_opt,
     unencoded_payload,
-  ))
-  Ok(SignedJws(
-    header:,
-    header_raw:,
-    payload:,
-    protected_b64:,
-    payload_segment: payload_b64,
-    signature:,
-    detached:,
-    unencoded_payload:,
-    unprotected:,
-    unprotected_raw:,
-  ))
+    unprotected,
+    unprotected_raw,
+  )
 }
 
 /// Parse a JWS from JSON General format.
@@ -1424,26 +1446,16 @@ fn parse_json_general(
       )
       use signature <- result.try(utils.decode_base64_url(sig_b64, "signature"))
 
-      let #(payload_b64, detached) = case payload_opt {
-        Some(p) -> #(p, False)
-        None -> #("", True)
-      }
-      use payload <- result.try(decode_payload_segment(
-        payload_b64,
+      build_signed_jws_json(
+        header,
+        header_raw,
+        protected_b64,
+        signature,
+        payload_opt,
         unencoded_payload,
-      ))
-      Ok(SignedJws(
-        header:,
-        header_raw:,
-        payload:,
-        protected_b64:,
-        payload_segment: payload_b64,
-        signature:,
-        detached:,
-        unencoded_payload:,
-        unprotected:,
-        unprotected_raw:,
-      ))
+        unprotected,
+        unprotected_raw,
+      )
     }
     [_, _, ..] ->
       Error(gose.ParseError(

@@ -164,7 +164,7 @@ pub fn aes_kw_roundtrip_test() {
 pub fn aes_gcm_kw_roundtrip_test() {
   use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
-    qcheck.tuple2(generators.aes_gcm_kw_variant_generator(), key_generator()),
+    qcheck.tuple2(generators.aes_kw_variant_generator(), key_generator()),
   )
   let #(generators.AesKeyWrapVariant(alg, enc), key) = tuple
 

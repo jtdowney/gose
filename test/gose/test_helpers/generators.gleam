@@ -355,16 +355,6 @@ pub fn aes_kw_variant_generator() -> qcheck.Generator(AesKeyWrapVariant) {
   )
 }
 
-pub fn aes_gcm_kw_variant_generator() -> qcheck.Generator(AesKeyWrapVariant) {
-  qcheck.from_generators(
-    qcheck.return(AesKeyWrapVariant(jwa.Aes128, jwa.AesGcm(jwa.Aes128))),
-    [
-      qcheck.return(AesKeyWrapVariant(jwa.Aes192, jwa.AesGcm(jwa.Aes192))),
-      qcheck.return(AesKeyWrapVariant(jwa.Aes256, jwa.AesGcm(jwa.Aes256))),
-    ],
-  )
-}
-
 pub type RsaVariant {
   RsaVariant(alg: jwa.RsaJweAlg, enc: jwa.Enc)
 }

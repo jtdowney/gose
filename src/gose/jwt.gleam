@@ -1014,12 +1014,10 @@ fn extract_payload_bits(token: String) -> Result(BitArray, JwtError) {
 /// Parse a raw JSON payload into JWT claims.
 @internal
 pub fn parse_claims_bits(payload: BitArray) -> Result(Claims, JwtError) {
-  use all_fields <- result.try(
-    json.parse_bits(payload, decode.dict(decode.string, decode.dynamic))
-    |> result.replace_error(MalformedToken("invalid claims JSON")),
-  )
-
-  parse_claims_from_fields(all_fields)
+  case json.parse_bits(payload, decode.dict(decode.string, decode.dynamic)) {
+    Ok(all_fields) -> parse_claims_from_fields(all_fields)
+    Error(_) -> Error(MalformedToken("invalid claims JSON"))
+  }
 }
 
 fn extract_optional_audience(

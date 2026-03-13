@@ -1913,15 +1913,7 @@ fn alg_fields_to_json(
       }),
       option.map(p2c, fn(c) { #("p2c", json.int(c)) }),
     ]
-    AesGcmKwFields(kw_iv:, kw_tag:) -> [
-      option.map(kw_iv, fn(iv) {
-        #("iv", json.string(utils.encode_base64_url(iv)))
-      }),
-      option.map(kw_tag, fn(t) {
-        #("tag", json.string(utils.encode_base64_url(t)))
-      }),
-    ]
-    ChaCha20KwFields(kw_iv:, kw_tag:) -> [
+    AesGcmKwFields(kw_iv:, kw_tag:) | ChaCha20KwFields(kw_iv:, kw_tag:) -> [
       option.map(kw_iv, fn(iv) {
         #("iv", json.string(utils.encode_base64_url(iv)))
       }),
@@ -2265,6 +2257,16 @@ fn validate_crit(crit: Option(List(String))) -> Result(Nil, gose.GoseError) {
   }
 }
 
+fn validate_apu_apv_distinct(
+  apu: Option(BitArray),
+  apv: Option(BitArray),
+) -> Result(Nil, gose.GoseError) {
+  case option.is_some(apu) && option.is_some(apv) && apu == apv {
+    True -> Error(gose.ParseError("apu and apv must be distinct"))
+    False -> Ok(Nil)
+  }
+}
+
 fn build_parsed_alg_fields(
   alg: jwa.JweAlg,
   epk: Option(key_wrap.EphemeralPublicKey),
@@ -2296,10 +2298,8 @@ fn build_parsed_alg_fields(
           #(option.is_some(p2c), "p2c"),
         ]),
       )
-      case option.is_some(apu) && option.is_some(apv) && apu == apv {
-        True -> Error(gose.ParseError("apu and apv must be distinct"))
-        False -> Ok(EcdhEsChaCha20KwFields(epk:, apu:, apv:, kw_iv:, kw_tag:))
-      }
+      use _ <- result.try(validate_apu_apv_distinct(apu, apv))
+      Ok(EcdhEsChaCha20KwFields(epk:, apu:, apv:, kw_iv:, kw_tag:))
     }
     jwa.JweEcdhEs(_) -> {
       use _ <- result.try(
@@ -2308,10 +2308,8 @@ fn build_parsed_alg_fields(
           #(option.is_some(p2c), "p2c"),
         ]),
       )
-      case option.is_some(apu) && option.is_some(apv) && apu == apv {
-        True -> Error(gose.ParseError("apu and apv must be distinct"))
-        False -> Ok(EcdhEsFields(epk:, apu:, apv:))
-      }
+      use _ <- result.try(validate_apu_apv_distinct(apu, apv))
+      Ok(EcdhEsFields(epk:, apu:, apv:))
     }
     jwa.JwePbes2(_) -> {
       use _ <- result.try(
@@ -2459,12 +2457,7 @@ fn validate_jwe_header_disjointness(
         #(option.is_some(p2s), "p2s"),
         #(option.is_some(p2c), "p2c"),
       ])
-    AesGcmKwFields(kw_iv:, kw_tag:) ->
-      present_field_names([
-        #(option.is_some(kw_iv), "iv"),
-        #(option.is_some(kw_tag), "tag"),
-      ])
-    ChaCha20KwFields(kw_iv:, kw_tag:) ->
+    AesGcmKwFields(kw_iv:, kw_tag:) | ChaCha20KwFields(kw_iv:, kw_tag:) ->
       present_field_names([
         #(option.is_some(kw_iv), "iv"),
         #(option.is_some(kw_tag), "tag"),
