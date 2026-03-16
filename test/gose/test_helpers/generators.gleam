@@ -1,3 +1,4 @@
+import gleam/list
 import gose/jwa
 import gose/jwk
 import gose/test_helpers/fixtures
@@ -163,6 +164,19 @@ pub fn jwe_direct_generator() -> qcheck.Generator(JweDirectEncWithKey) {
   ])
 }
 
+fn aes_size_enc_combinations() -> List(#(jwa.AesKeySize, jwa.Enc)) {
+  let sizes = [jwa.Aes128, jwa.Aes192, jwa.Aes256]
+  let encs = [
+    jwa.AesGcm(jwa.Aes128),
+    jwa.AesGcm(jwa.Aes192),
+    jwa.AesGcm(jwa.Aes256),
+    jwa.AesCbcHmac(jwa.Aes128),
+    jwa.AesCbcHmac(jwa.Aes192),
+    jwa.AesCbcHmac(jwa.Aes256),
+  ]
+  list.flat_map(sizes, fn(size) { list.map(encs, fn(enc) { #(size, enc) }) })
+}
+
 pub type JweAesKwWithKey {
   JweAesKwWithKey(size: jwa.AesKeySize, enc: jwa.Enc, key: jwk.Jwk)
 }
@@ -176,28 +190,12 @@ fn jwe_aes_kw_with_key(
 }
 
 pub fn jwe_aes_kw_generator() -> qcheck.Generator(JweAesKwWithKey) {
-  qcheck.from_generators(
-    jwe_aes_kw_with_key(jwa.Aes128, jwa.AesGcm(jwa.Aes128)),
-    [
-      jwe_aes_kw_with_key(jwa.Aes128, jwa.AesGcm(jwa.Aes192)),
-      jwe_aes_kw_with_key(jwa.Aes128, jwa.AesGcm(jwa.Aes256)),
-      jwe_aes_kw_with_key(jwa.Aes128, jwa.AesCbcHmac(jwa.Aes128)),
-      jwe_aes_kw_with_key(jwa.Aes128, jwa.AesCbcHmac(jwa.Aes192)),
-      jwe_aes_kw_with_key(jwa.Aes128, jwa.AesCbcHmac(jwa.Aes256)),
-      jwe_aes_kw_with_key(jwa.Aes192, jwa.AesGcm(jwa.Aes128)),
-      jwe_aes_kw_with_key(jwa.Aes192, jwa.AesGcm(jwa.Aes192)),
-      jwe_aes_kw_with_key(jwa.Aes192, jwa.AesGcm(jwa.Aes256)),
-      jwe_aes_kw_with_key(jwa.Aes192, jwa.AesCbcHmac(jwa.Aes128)),
-      jwe_aes_kw_with_key(jwa.Aes192, jwa.AesCbcHmac(jwa.Aes192)),
-      jwe_aes_kw_with_key(jwa.Aes192, jwa.AesCbcHmac(jwa.Aes256)),
-      jwe_aes_kw_with_key(jwa.Aes256, jwa.AesGcm(jwa.Aes128)),
-      jwe_aes_kw_with_key(jwa.Aes256, jwa.AesGcm(jwa.Aes192)),
-      jwe_aes_kw_with_key(jwa.Aes256, jwa.AesGcm(jwa.Aes256)),
-      jwe_aes_kw_with_key(jwa.Aes256, jwa.AesCbcHmac(jwa.Aes128)),
-      jwe_aes_kw_with_key(jwa.Aes256, jwa.AesCbcHmac(jwa.Aes192)),
-      jwe_aes_kw_with_key(jwa.Aes256, jwa.AesCbcHmac(jwa.Aes256)),
-    ],
-  )
+  let generators =
+    list.map(aes_size_enc_combinations(), fn(pair) {
+      jwe_aes_kw_with_key(pair.0, pair.1)
+    })
+  let assert [first, ..rest] = generators
+  qcheck.from_generators(first, rest)
 }
 
 pub type JweAesGcmKwWithKey {
@@ -213,28 +211,12 @@ fn jwe_aes_gcm_kw_with_key(
 }
 
 pub fn jwe_aes_gcm_kw_generator() -> qcheck.Generator(JweAesGcmKwWithKey) {
-  qcheck.from_generators(
-    jwe_aes_gcm_kw_with_key(jwa.Aes128, jwa.AesGcm(jwa.Aes128)),
-    [
-      jwe_aes_gcm_kw_with_key(jwa.Aes128, jwa.AesGcm(jwa.Aes192)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes128, jwa.AesGcm(jwa.Aes256)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes128, jwa.AesCbcHmac(jwa.Aes128)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes128, jwa.AesCbcHmac(jwa.Aes192)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes128, jwa.AesCbcHmac(jwa.Aes256)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes192, jwa.AesGcm(jwa.Aes128)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes192, jwa.AesGcm(jwa.Aes192)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes192, jwa.AesGcm(jwa.Aes256)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes192, jwa.AesCbcHmac(jwa.Aes128)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes192, jwa.AesCbcHmac(jwa.Aes192)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes192, jwa.AesCbcHmac(jwa.Aes256)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes256, jwa.AesGcm(jwa.Aes128)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes256, jwa.AesGcm(jwa.Aes192)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes256, jwa.AesGcm(jwa.Aes256)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes256, jwa.AesCbcHmac(jwa.Aes128)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes256, jwa.AesCbcHmac(jwa.Aes192)),
-      jwe_aes_gcm_kw_with_key(jwa.Aes256, jwa.AesCbcHmac(jwa.Aes256)),
-    ],
-  )
+  let generators =
+    list.map(aes_size_enc_combinations(), fn(pair) {
+      jwe_aes_gcm_kw_with_key(pair.0, pair.1)
+    })
+  let assert [first, ..rest] = generators
+  qcheck.from_generators(first, rest)
 }
 
 pub type JweChaCha20KwWithKey {

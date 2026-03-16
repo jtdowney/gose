@@ -692,7 +692,10 @@ pub fn jws_b64_false_payload_roundtrip_test() {
   let #(generators.JwsAlgWithKey(alg, key), payload_str) = tuple
   // RFC 7797: period characters MUST NOT be used in unencoded payloads
   // with compact serialization (they conflict with the segment separator)
-  let payload = <<string.replace(payload_str, ".", "_"):utf8>>
+  let payload =
+    payload_str
+    |> string.replace(".", "_")
+    |> bit_array.from_string
   let unsigned =
     jws.new(alg)
     |> jws.with_unencoded()

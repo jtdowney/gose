@@ -125,8 +125,24 @@ pub fn encrypt_content(
         hash_for_aes_size(size),
         size,
       )
-    jwa.ChaCha20Poly1305 -> encrypt_chacha20(cek, iv, aad, plaintext)
-    jwa.XChaCha20Poly1305 -> encrypt_xchacha20(cek, iv, aad, plaintext)
+    jwa.ChaCha20Poly1305 ->
+      encrypt_chacha20_variant(
+        cek:,
+        iv:,
+        aad:,
+        plaintext:,
+        using: aead.chacha20_poly1305,
+        variant: "ChaCha20-Poly1305",
+      )
+    jwa.XChaCha20Poly1305 ->
+      encrypt_chacha20_variant(
+        cek:,
+        iv:,
+        aad:,
+        plaintext:,
+        using: aead.xchacha20_poly1305,
+        variant: "XChaCha20-Poly1305",
+      )
   }
 }
 
@@ -151,8 +167,26 @@ pub fn decrypt_content(
         hash_for_aes_size(size),
         size,
       )
-    jwa.ChaCha20Poly1305 -> decrypt_chacha20(cek, iv, aad, ciphertext, tag)
-    jwa.XChaCha20Poly1305 -> decrypt_xchacha20(cek, iv, aad, ciphertext, tag)
+    jwa.ChaCha20Poly1305 ->
+      decrypt_chacha20_variant(
+        cek:,
+        iv:,
+        aad:,
+        ciphertext:,
+        tag:,
+        using: aead.chacha20_poly1305,
+        variant: "ChaCha20-Poly1305",
+      )
+    jwa.XChaCha20Poly1305 ->
+      decrypt_chacha20_variant(
+        cek:,
+        iv:,
+        aad:,
+        ciphertext:,
+        tag:,
+        using: aead.xchacha20_poly1305,
+        variant: "XChaCha20-Poly1305",
+      )
   }
 }
 
@@ -189,78 +223,41 @@ fn decrypt_aes_gcm(
   |> result.replace_error(gose.CryptoError("AES-GCM decryption failed"))
 }
 
-fn encrypt_chacha20(
-  cek: BitArray,
-  iv: BitArray,
-  aad: BitArray,
-  plaintext: BitArray,
+fn encrypt_chacha20_variant(
+  cek cek: BitArray,
+  iv iv: BitArray,
+  aad aad: BitArray,
+  plaintext plaintext: BitArray,
+  using cipher_fn: fn(BitArray) -> Result(aead.AeadContext, Nil),
+  variant variant_name: String,
 ) -> Result(#(BitArray, BitArray), gose.GoseError) {
   use ctx <- result.try(
-    aead.chacha20_poly1305(cek)
+    cipher_fn(cek)
     |> result.replace_error(gose.CryptoError(
-      "invalid key size for ChaCha20-Poly1305",
+      "invalid key size for " <> variant_name,
     )),
   )
   aead.seal_with_aad(ctx, nonce: iv, plaintext:, additional_data: aad)
-  |> result.replace_error(gose.CryptoError(
-    "ChaCha20-Poly1305 encryption failed",
-  ))
+  |> result.replace_error(gose.CryptoError(variant_name <> " encryption failed"))
 }
 
-fn decrypt_chacha20(
-  cek: BitArray,
-  iv: BitArray,
-  aad: BitArray,
-  ciphertext: BitArray,
-  tag: BitArray,
+fn decrypt_chacha20_variant(
+  cek cek: BitArray,
+  iv iv: BitArray,
+  aad aad: BitArray,
+  ciphertext ciphertext: BitArray,
+  tag tag: BitArray,
+  using cipher_fn: fn(BitArray) -> Result(aead.AeadContext, Nil),
+  variant variant_name: String,
 ) -> Result(BitArray, gose.GoseError) {
   use ctx <- result.try(
-    aead.chacha20_poly1305(cek)
+    cipher_fn(cek)
     |> result.replace_error(gose.CryptoError(
-      "invalid key size for ChaCha20-Poly1305",
+      "invalid key size for " <> variant_name,
     )),
   )
   aead.open_with_aad(ctx, nonce: iv, tag:, ciphertext:, additional_data: aad)
-  |> result.replace_error(gose.CryptoError(
-    "ChaCha20-Poly1305 decryption failed",
-  ))
-}
-
-fn encrypt_xchacha20(
-  cek: BitArray,
-  iv: BitArray,
-  aad: BitArray,
-  plaintext: BitArray,
-) -> Result(#(BitArray, BitArray), gose.GoseError) {
-  use ctx <- result.try(
-    aead.xchacha20_poly1305(cek)
-    |> result.replace_error(gose.CryptoError(
-      "invalid key size for XChaCha20-Poly1305",
-    )),
-  )
-  aead.seal_with_aad(ctx, nonce: iv, plaintext:, additional_data: aad)
-  |> result.replace_error(gose.CryptoError(
-    "XChaCha20-Poly1305 encryption failed",
-  ))
-}
-
-fn decrypt_xchacha20(
-  cek: BitArray,
-  iv: BitArray,
-  aad: BitArray,
-  ciphertext: BitArray,
-  tag: BitArray,
-) -> Result(BitArray, gose.GoseError) {
-  use ctx <- result.try(
-    aead.xchacha20_poly1305(cek)
-    |> result.replace_error(gose.CryptoError(
-      "invalid key size for XChaCha20-Poly1305",
-    )),
-  )
-  aead.open_with_aad(ctx, nonce: iv, tag:, ciphertext:, additional_data: aad)
-  |> result.replace_error(gose.CryptoError(
-    "XChaCha20-Poly1305 decryption failed",
-  ))
+  |> result.replace_error(gose.CryptoError(variant_name <> " decryption failed"))
 }
 
 pub fn aes_cipher(

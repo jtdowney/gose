@@ -677,7 +677,7 @@ pub fn parse_invalid_token_test() {
 
 pub fn parse_rejects_non_json_payload_test() {
   let key = jwt_helpers.hmac_key()
-  let payload = bit_array.from_string("not valid json")
+  let payload = <<"not valid json":utf8>>
   let assert Ok(signed) =
     jws.new(jwa.JwsHmac(jwa.HmacSha256))
     |> jws.sign(key, payload)

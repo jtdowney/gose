@@ -49,14 +49,18 @@ pub fn ec_public_key_coordinates(
   let raw_point = ec.public_key_to_raw_point(public)
   let expected_size = 1 + coord_size * 2
   case bit_array.byte_size(raw_point) == expected_size, raw_point {
-    True, <<0x04, rest:bits>> ->
-      case bit_array.slice(rest, 0, coord_size) {
-        Ok(x) ->
-          bit_array.slice(rest, coord_size, coord_size)
-          |> result.replace_error(gose.InvalidState("invalid raw point format"))
-          |> result.map(fn(y) { #(x, y) })
-        Error(_) -> Error(gose.InvalidState("invalid raw point format"))
-      }
+    True, <<0x04, rest:bits>> -> {
+      let error = gose.InvalidState("invalid raw point format")
+      use x <- result.try(
+        bit_array.slice(rest, 0, coord_size)
+        |> result.replace_error(error),
+      )
+      use y <- result.try(
+        bit_array.slice(rest, coord_size, coord_size)
+        |> result.replace_error(error),
+      )
+      Ok(#(x, y))
+    }
     _, _ -> Error(gose.InvalidState("invalid raw point format"))
   }
 }

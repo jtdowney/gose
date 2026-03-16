@@ -167,6 +167,15 @@ type JwsHeader {
   )
 }
 
+type ParsedHeader {
+  ParsedHeader(
+    header: JwsHeader,
+    unencoded_payload: Bool,
+    header_raw: Option(decode.Dynamic),
+    custom_keys: set.Set(String),
+  )
+}
+
 /// A JSON Web Signature with phantom types for state and origin tracking.
 ///
 /// The origin phantom type distinguishes between JWS created via builders
@@ -744,8 +753,8 @@ fn do_verify(
   use _ <- result.try(key_helpers.validate_key_algorithm_jws(key, header.alg))
 
   use <- bool.guard(
-    detached,
-    Error(gose.InvalidState(
+    when: detached,
+    return: Error(gose.InvalidState(
       "Cannot verify detached JWS without payload. Use verify_detached instead.",
     )),
   )
@@ -969,15 +978,15 @@ fn header_to_json(header: JwsHeader, unencoded_payload: Bool) -> BitArray {
     False -> []
   }
 
+  let custom_sorted =
+    header.custom
+    |> dict.to_list
+    |> list.sort(fn(a, b) { string.compare(a.0, b.0) })
+
   let fields =
-    list.flatten([
-      [alg_field],
-      optional_fields,
-      b64_fields,
-      header.custom
-        |> dict.to_list
-        |> list.sort(fn(a, b) { string.compare(a.0, b.0) }),
-    ])
+    [alg_field, ..optional_fields]
+    |> list.append(b64_fields)
+    |> list.append(custom_sorted)
   json.object(fields)
   |> json.to_string
   |> bit_array.from_string
@@ -1224,7 +1233,7 @@ fn build_signed_jws(
   sig_b64: String,
   detached: Bool,
 ) -> Result(Jws(Signed, Parsed), gose.GoseError) {
-  use #(header, unencoded_payload, header_raw, _custom_keys) <- result.try(
+  use ParsedHeader(header:, unencoded_payload:, header_raw:, custom_keys: _) <- result.try(
     parse_protected_header(protected_b64),
   )
   use signature <- result.try(utils.decode_base64_url(sig_b64, "signature"))
@@ -1261,10 +1270,7 @@ const known_extensions = ["b64"]
 
 fn parse_header_json(
   json_bits: BitArray,
-) -> Result(
-  #(JwsHeader, Bool, Option(decode.Dynamic), set.Set(String)),
-  gose.GoseError,
-) {
+) -> Result(ParsedHeader, gose.GoseError) {
   let standard_decoder = {
     use alg <- decode.field("alg", decode.string)
     use kid <- decode.optional_field(
@@ -1324,23 +1330,23 @@ fn parse_header_json(
     |> list.filter(fn(k) { !list.contains(reserved_header_names, k) })
     |> set.from_list
 
-  Ok(#(
-    JwsHeader(alg:, kid:, typ:, cty:, custom: dict.new()),
-    unencoded_payload,
-    Some(raw_dynamic),
-    custom_keys,
+  Ok(ParsedHeader(
+    header: JwsHeader(alg:, kid:, typ:, cty:, custom: dict.new()),
+    unencoded_payload:,
+    header_raw: Some(raw_dynamic),
+    custom_keys:,
   ))
 }
 
 fn build_signed_jws_json(
-  header: JwsHeader,
-  header_raw: Option(decode.Dynamic),
-  protected_b64: String,
-  signature: BitArray,
-  payload_opt: Option(String),
-  unencoded_payload: Bool,
-  unprotected: dict.Dict(String, json.Json),
-  unprotected_raw: Option(decode.Dynamic),
+  header header: JwsHeader,
+  header_raw header_raw: Option(decode.Dynamic),
+  protected_b64 protected_b64: String,
+  signature signature: BitArray,
+  payload_opt payload_opt: Option(String),
+  unencoded_payload unencoded_payload: Bool,
+  unprotected unprotected: dict.Dict(String, json.Json),
+  unprotected_raw unprotected_raw: Option(decode.Dynamic),
 ) -> Result(Jws(Signed, Parsed), gose.GoseError) {
   let #(payload_b64, detached) = case payload_opt {
     Some(p) -> #(p, False)
@@ -1388,7 +1394,7 @@ fn parse_json_flattened(
     |> result.replace_error(gose.ParseError("invalid JWS JSON (flattened)")),
   )
 
-  use #(header, unencoded_payload, header_raw, custom_keys) <- result.try(
+  use ParsedHeader(header:, unencoded_payload:, header_raw:, custom_keys:) <- result.try(
     parse_protected_header(protected_b64),
   )
   use #(unprotected, unprotected_raw) <- result.try(parse_unprotected_header(
@@ -1399,14 +1405,14 @@ fn parse_json_flattened(
   use signature <- result.try(utils.decode_base64_url(sig_b64, "signature"))
 
   build_signed_jws_json(
-    header,
-    header_raw,
-    protected_b64,
-    signature,
-    payload_opt,
-    unencoded_payload,
-    unprotected,
-    unprotected_raw,
+    header:,
+    header_raw:,
+    protected_b64:,
+    signature:,
+    payload_opt:,
+    unencoded_payload:,
+    unprotected:,
+    unprotected_raw:,
   )
 }
 
@@ -1438,7 +1444,7 @@ fn parse_json_general(
 
   case signatures {
     [#(protected_b64, sig_b64, unprotected_header_raw)] -> {
-      use #(header, unencoded_payload, header_raw, custom_keys) <- result.try(
+      use ParsedHeader(header:, unencoded_payload:, header_raw:, custom_keys:) <- result.try(
         parse_protected_header(protected_b64),
       )
       use #(unprotected, unprotected_raw) <- result.try(
@@ -1447,14 +1453,14 @@ fn parse_json_general(
       use signature <- result.try(utils.decode_base64_url(sig_b64, "signature"))
 
       build_signed_jws_json(
-        header,
-        header_raw,
-        protected_b64,
-        signature,
-        payload_opt,
-        unencoded_payload,
-        unprotected,
-        unprotected_raw,
+        header:,
+        header_raw:,
+        protected_b64:,
+        signature:,
+        payload_opt:,
+        unencoded_payload:,
+        unprotected:,
+        unprotected_raw:,
       )
     }
     [_, _, ..] ->
@@ -1465,12 +1471,7 @@ fn parse_json_general(
   }
 }
 
-fn parse_protected_header(
-  b64: String,
-) -> Result(
-  #(JwsHeader, Bool, Option(decode.Dynamic), set.Set(String)),
-  gose.GoseError,
-) {
+fn parse_protected_header(b64: String) -> Result(ParsedHeader, gose.GoseError) {
   use header_bits <- result.try(utils.decode_base64_url(b64, "header"))
   parse_header_json(header_bits)
 }

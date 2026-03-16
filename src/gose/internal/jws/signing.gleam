@@ -21,17 +21,9 @@ pub fn compute_signature(
   let mat = jwk.material(key)
   case alg {
     jwa.JwsHmac(hmac_alg) -> {
-      use secret <- result.try(
-        jwk.material_octet_secret(mat)
-        |> result.replace_error(gose.InvalidState(
-          "HMAC algorithms require an octet key",
-        )),
-      )
-      let #(hash_alg, min_size, alg_name) = resolve_hmac_params(hmac_alg)
-      use _ <- result.try(key_helpers.validate_hmac_key_size(
+      use #(hash_alg, secret) <- result.try(extract_validated_hmac_secret(
         key,
-        min_size,
-        alg_name,
+        hmac_alg,
       ))
       crypto.hmac(hash_alg, secret, message)
       |> result.replace_error(gose.CryptoError("HMAC computation failed"))
@@ -75,17 +67,9 @@ pub fn verify_signature(
   let mat = jwk.material(key)
   case alg {
     jwa.JwsHmac(hmac_alg) -> {
-      use secret <- result.try(
-        jwk.material_octet_secret(mat)
-        |> result.replace_error(gose.InvalidState(
-          "HMAC algorithms require an octet key",
-        )),
-      )
-      let #(hash_alg, min_size, alg_name) = resolve_hmac_params(hmac_alg)
-      use _ <- result.try(key_helpers.validate_hmac_key_size(
+      use #(hash_alg, secret) <- result.try(extract_validated_hmac_secret(
         key,
-        min_size,
-        alg_name,
+        hmac_alg,
       ))
       hmac_verify(hash_alg, secret, message, signature)
     }
@@ -117,6 +101,25 @@ pub fn verify_signature(
       Ok(eddsa.verify(public, message, signature))
     }
   }
+}
+
+fn extract_validated_hmac_secret(
+  key: jwk.Jwk,
+  hmac_alg: jwa.HmacAlg,
+) -> Result(#(hash.HashAlgorithm, BitArray), gose.GoseError) {
+  use secret <- result.try(
+    jwk.material_octet_secret(jwk.material(key))
+    |> result.replace_error(gose.InvalidState(
+      "HMAC algorithms require an octet key",
+    )),
+  )
+  let #(hash_alg, min_size, alg_name) = resolve_hmac_params(hmac_alg)
+  use _ <- result.try(key_helpers.validate_hmac_key_size(
+    key,
+    min_size,
+    alg_name,
+  ))
+  Ok(#(hash_alg, secret))
 }
 
 fn hmac_verify(

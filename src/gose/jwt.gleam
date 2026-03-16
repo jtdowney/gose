@@ -701,7 +701,7 @@ fn require_jwt_compatible_jws(
     True, _ ->
       Error(MalformedToken("JWTs do not support unencoded payloads (b64=false)"))
     _, True -> Error(InsecureUnprotectedHeader("alg"))
-    _, _ -> Ok(Nil)
+    False, False -> Ok(Nil)
   }
 }
 
@@ -768,7 +768,7 @@ fn try_verify_with_keys(
     Ok(False) -> Error(InvalidSignature)
     Error(gose.CryptoError(_)) -> Error(InvalidSignature)
     Error(gose.ParseError(reason)) -> Error(MalformedToken(reason))
-    Error(err) -> Error(JoseError(err))
+    Error(gose.InvalidState(_) as err) -> Error(JoseError(err))
   }
 }
 

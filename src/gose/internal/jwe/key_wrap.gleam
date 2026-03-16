@@ -116,70 +116,48 @@ pub fn unwrap_aes_gcm_kw(
   unwrap_aes_gcm(kek, encrypted_cek, iv, tag, size)
 }
 
-pub fn wrap_chacha20(
-  kek: BitArray,
-  cek: BitArray,
-  nonce: BitArray,
+fn chacha20_variant_params(
+  variant: jwa.ChaCha20Kw,
+) -> #(fn(BitArray) -> Result(aead.AeadContext, Nil), String) {
+  case variant {
+    jwa.C20PKw -> #(aead.chacha20_poly1305, "ChaCha20-Poly1305")
+    jwa.XC20PKw -> #(aead.xchacha20_poly1305, "XChaCha20-Poly1305")
+  }
+}
+
+fn wrap_chacha20_variant(
+  kek kek: BitArray,
+  cek cek: BitArray,
+  nonce nonce: BitArray,
+  using cipher_fn: fn(BitArray) -> Result(aead.AeadContext, Nil),
+  variant variant_name: String,
 ) -> Result(#(BitArray, BitArray), gose.GoseError) {
   use ctx <- result.try(
-    aead.chacha20_poly1305(kek)
+    cipher_fn(kek)
     |> result.replace_error(gose.CryptoError(
-      "invalid key size for ChaCha20-Poly1305 Key Wrap",
+      "invalid key size for " <> variant_name <> " Key Wrap",
     )),
   )
   aead.seal(ctx, nonce:, plaintext: cek)
-  |> result.replace_error(gose.CryptoError("ChaCha20-Poly1305 Key Wrap failed"))
+  |> result.replace_error(gose.CryptoError(variant_name <> " Key Wrap failed"))
 }
 
-pub fn unwrap_chacha20(
-  kek: BitArray,
-  encrypted_cek: BitArray,
-  nonce: BitArray,
-  tag: BitArray,
+fn unwrap_chacha20_variant(
+  kek kek: BitArray,
+  encrypted_cek encrypted_cek: BitArray,
+  nonce nonce: BitArray,
+  tag tag: BitArray,
+  using cipher_fn: fn(BitArray) -> Result(aead.AeadContext, Nil),
+  variant variant_name: String,
 ) -> Result(BitArray, gose.GoseError) {
   use ctx <- result.try(
-    aead.chacha20_poly1305(kek)
+    cipher_fn(kek)
     |> result.replace_error(gose.CryptoError(
-      "invalid key size for ChaCha20-Poly1305 Key Unwrap",
+      "invalid key size for " <> variant_name <> " Key Unwrap",
     )),
   )
   aead.open(ctx, nonce:, tag:, ciphertext: encrypted_cek)
-  |> result.replace_error(gose.CryptoError(
-    "ChaCha20-Poly1305 Key Unwrap failed",
-  ))
-}
-
-pub fn wrap_xchacha20(
-  kek: BitArray,
-  cek: BitArray,
-  nonce: BitArray,
-) -> Result(#(BitArray, BitArray), gose.GoseError) {
-  use ctx <- result.try(
-    aead.xchacha20_poly1305(kek)
-    |> result.replace_error(gose.CryptoError(
-      "invalid key size for XChaCha20-Poly1305 Key Wrap",
-    )),
-  )
-  aead.seal(ctx, nonce:, plaintext: cek)
-  |> result.replace_error(gose.CryptoError("XChaCha20-Poly1305 Key Wrap failed"))
-}
-
-pub fn unwrap_xchacha20(
-  kek: BitArray,
-  encrypted_cek: BitArray,
-  nonce: BitArray,
-  tag: BitArray,
-) -> Result(BitArray, gose.GoseError) {
-  use ctx <- result.try(
-    aead.xchacha20_poly1305(kek)
-    |> result.replace_error(gose.CryptoError(
-      "invalid key size for XChaCha20-Poly1305 Key Unwrap",
-    )),
-  )
-  aead.open(ctx, nonce:, tag:, ciphertext: encrypted_cek)
-  |> result.replace_error(gose.CryptoError(
-    "XChaCha20-Poly1305 Key Unwrap failed",
-  ))
+  |> result.replace_error(gose.CryptoError(variant_name <> " Key Unwrap failed"))
 }
 
 pub fn wrap_chacha20_by_variant(
@@ -188,10 +166,14 @@ pub fn wrap_chacha20_by_variant(
   nonce: BitArray,
   variant: jwa.ChaCha20Kw,
 ) -> Result(#(BitArray, BitArray), gose.GoseError) {
-  case variant {
-    jwa.C20PKw -> wrap_chacha20(kek, cek, nonce)
-    jwa.XC20PKw -> wrap_xchacha20(kek, cek, nonce)
-  }
+  let #(cipher_fn, variant_name) = chacha20_variant_params(variant)
+  wrap_chacha20_variant(
+    kek:,
+    cek:,
+    nonce:,
+    using: cipher_fn,
+    variant: variant_name,
+  )
 }
 
 pub fn unwrap_chacha20_by_variant(
@@ -201,10 +183,15 @@ pub fn unwrap_chacha20_by_variant(
   tag: BitArray,
   variant: jwa.ChaCha20Kw,
 ) -> Result(BitArray, gose.GoseError) {
-  case variant {
-    jwa.C20PKw -> unwrap_chacha20(kek, encrypted_cek, nonce, tag)
-    jwa.XC20PKw -> unwrap_xchacha20(kek, encrypted_cek, nonce, tag)
-  }
+  let #(cipher_fn, variant_name) = chacha20_variant_params(variant)
+  unwrap_chacha20_variant(
+    kek:,
+    encrypted_cek:,
+    nonce:,
+    tag:,
+    using: cipher_fn,
+    variant: variant_name,
+  )
 }
 
 pub fn unwrap_chacha20_kw(
