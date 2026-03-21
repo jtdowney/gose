@@ -1,13 +1,19 @@
 //// Encrypted JWT (JWE-based) - [RFC 7519](https://www.rfc-editor.org/rfc/rfc7519.html)
 ////
 //// This module provides encrypted JWT functionality built on top of JWE.
-//// Encrypted JWTs protect the claims payload through encryption rather than
-//// just signing, ensuring confidentiality in addition to integrity.
+//// Encrypted JWTs protect the claims payload through encryption, providing
+//// confidentiality and ciphertext integrity. **Encryption alone does not
+//// authenticate the issuer** — for asymmetric algorithms (RSA-OAEP, ECDH-ES),
+//// anyone with the recipient's public key can produce a valid encrypted token.
+////
+//// If your application requires proof of origin, use sign-then-encrypt
+//// (nested JWT): sign the claims with JWS first, then encrypt the signed
+//// token with JWE.
 ////
 //// Use `peek_headers()` to inspect a token's headers without decrypting.
-//// Use `decrypt_and_validate()` to
-//// decrypt and validate, producing a `EncryptedJwt` whose claims can be
-//// trusted.
+//// Use `decrypt_and_validate()` to decrypt and validate claim fields (exp,
+//// nbf, iss, aud), producing an `EncryptedJwt` whose claims have been
+//// decrypted and validated.
 ////
 //// ## Example
 ////
@@ -36,11 +42,11 @@
 //// // Decrypt and validate using Decryptor (enforces algorithm pinning)
 //// let assert Ok(decryptor) = encrypted_jwt.key_decryptor(
 ////   jwa.JweDirect, jwa.AesGcm(jwa.Aes256), [key], jwt.default_validation())
-//// let assert Ok(verified) = encrypted_jwt.decrypt_and_validate(decryptor, token, now)
+//// let assert Ok(decrypted) = encrypted_jwt.decrypt_and_validate(decryptor, token, now)
 ////
-//// // Decode verified claims
+//// // Decode decrypted and validated claims
 //// let decoder = decode.field("sub", decode.string, decode.success)
-//// let assert Ok(subject) = encrypted_jwt.decode(verified, decoder)
+//// let assert Ok(subject) = encrypted_jwt.decode(decrypted, decoder)
 //// ```
 
 import gleam/bit_array
@@ -57,9 +63,9 @@ import gose/jwe
 import gose/jwk
 import gose/jwt
 
-/// A JWT whose plaintext claims are available and have been validated.
-/// This type is produced by `decrypt_and_validate()` after successful
-/// decryption and claim verification.
+/// A JWT whose claims have been decrypted and whose claim fields (exp, nbf,
+/// iss, aud) have been validated. Produced by `decrypt_and_validate()`.
+/// Note that encryption provides confidentiality, not issuer authentication.
 pub opaque type EncryptedJwt {
   EncryptedJwt(
     alg: jwa.JweAlg,
@@ -414,7 +420,7 @@ pub fn decrypt_and_validate(
 ///
 /// ## Parameters
 ///
-/// - `jwt` - A verified (decrypted) encrypted JWT.
+/// - `jwt` - A decrypted and validated encrypted JWT.
 /// - `decoder` - A `gleam/dynamic/decode` decoder for the claims.
 ///
 /// ## Returns
@@ -429,11 +435,11 @@ pub fn decode(
   |> result.replace_error(jwt.ClaimDecodingFailed("failed to decode claims"))
 }
 
-/// Get the key encryption algorithm (`alg`) from a verified encrypted JWT.
+/// Get the key encryption algorithm (`alg`) from a decrypted and validated encrypted JWT.
 ///
 /// ## Parameters
 ///
-/// - `jwt` - The verified encrypted JWT.
+/// - `jwt` - The decrypted and validated encrypted JWT.
 ///
 /// ## Returns
 ///
@@ -442,11 +448,11 @@ pub fn alg(jwt: EncryptedJwt) -> jwa.JweAlg {
   jwt.alg
 }
 
-/// Get the content encryption algorithm (`enc`) from a verified encrypted JWT.
+/// Get the content encryption algorithm (`enc`) from a decrypted and validated encrypted JWT.
 ///
 /// ## Parameters
 ///
-/// - `jwt` - The verified encrypted JWT.
+/// - `jwt` - The decrypted and validated encrypted JWT.
 ///
 /// ## Returns
 ///
@@ -455,7 +461,7 @@ pub fn enc(jwt: EncryptedJwt) -> jwa.Enc {
   jwt.enc
 }
 
-/// Get the key ID (kid) from a verified encrypted JWT header.
+/// Get the key ID (kid) from a decrypted and validated encrypted JWT header.
 ///
 /// **Security Warning:** The `kid` value comes from the token and is untrusted
 /// input. If you use it to look up keys (from a database, filesystem, or key
@@ -463,7 +469,7 @@ pub fn enc(jwt: EncryptedJwt) -> jwa.Enc {
 ///
 /// ## Parameters
 ///
-/// - `jwt` - The verified encrypted JWT.
+/// - `jwt` - The decrypted and validated encrypted JWT.
 ///
 /// ## Returns
 ///
