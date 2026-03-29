@@ -249,18 +249,6 @@ pub opaque type Decryptor {
 /// When decrypting, keys are tried in order. If the JWE has a `kid` header,
 /// a key with matching `kid` is prioritized.
 ///
-/// ## Parameters
-///
-/// - `alg` - The expected key encryption algorithm.
-/// - `enc` - The expected content encryption algorithm.
-/// - `keys` - Candidate decryption keys, tried in order.
-///
-/// ## Returns
-///
-/// `Ok(Decryptor)` that can be passed to `decrypt`, or `Error(GoseError)` if
-/// the key list is empty or any key fails validation (all provided keys must
-/// pass algorithm-compatibility validation).
-///
 /// ## Example
 ///
 /// ```gleam
@@ -281,15 +269,6 @@ pub fn key_decryptor(
 
 /// Create a new unencrypted JWE for AES-GCM Key Wrap encryption. A random CEK
 /// is generated and wrapped using AES-GCM with the provided symmetric key.
-///
-/// ## Parameters
-///
-/// - `size` - The AES key size variant to use.
-/// - `enc` - The content encryption algorithm to use.
-///
-/// ## Returns
-///
-/// An unencrypted `Jwe` with the AES-GCM Key Wrap family ready for encryption.
 ///
 /// ## Example
 ///
@@ -318,15 +297,6 @@ pub fn new_aes_gcm_kw(
 
 /// Create a new unencrypted JWE for AES Key Wrap encryption. A random CEK is
 /// generated and wrapped with the provided symmetric key.
-///
-/// ## Parameters
-///
-/// - `size` - The AES key size variant to use.
-/// - `enc` - The content encryption algorithm to use.
-///
-/// ## Returns
-///
-/// An unencrypted `Jwe` with the AES Key Wrap family ready for encryption.
 ///
 /// ## Example
 ///
@@ -359,15 +329,6 @@ pub fn new_aes_kw(
 ///
 /// This is a non-standard extension (not defined in RFC 7518).
 ///
-/// ## Parameters
-///
-/// - `variant` - The ChaCha20 Key Wrap variant (`C20PKw` or `XC20PKw`).
-/// - `enc` - The content encryption algorithm to use.
-///
-/// ## Returns
-///
-/// An unencrypted `Jwe` with the ChaCha20 Key Wrap family ready for encryption.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -396,14 +357,6 @@ pub fn new_chacha20_kw(
 /// Create a new unencrypted JWE for direct key encryption. The symmetric key
 /// is used directly as the Content Encryption Key (CEK).
 ///
-/// ## Parameters
-///
-/// - `enc` - The content encryption algorithm to use.
-///
-/// ## Returns
-///
-/// An unencrypted `Jwe` with the Direct family ready for encryption.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -422,15 +375,6 @@ pub fn new_direct(enc: jwa.Enc) -> Jwe(Unencrypted, Direct, Built) {
 
 /// Create a new unencrypted JWE for ECDH-ES key agreement. An ephemeral key
 /// pair is generated during encryption for the key agreement.
-///
-/// ## Parameters
-///
-/// - `alg` - The ECDH-ES algorithm variant to use.
-/// - `enc` - The content encryption algorithm to use.
-///
-/// ## Returns
-///
-/// An unencrypted `Jwe` with the ECDH-ES family ready for encryption.
 ///
 /// ## Example
 ///
@@ -472,14 +416,6 @@ pub fn new_ecdh_es(
 /// Create a new unencrypted JWE for PBES2 password-based encryption. The CEK
 /// is derived from the password using PBKDF2.
 ///
-/// ## Parameters
-///
-/// - `alg` - The PBES2 algorithm variant to use.
-/// - `enc` - The content encryption algorithm to use.
-///
-/// ## Returns
-///
-/// An unencrypted `Jwe` with the PBES2 family ready for encryption.
 /// Use `with_p2c` to override the default iteration count. The salt
 /// is generated automatically.
 ///
@@ -511,15 +447,6 @@ pub fn new_pbes2(
 /// Create a new unencrypted JWE for RSA key encryption. A random CEK is
 /// generated and encrypted with the RSA public key.
 ///
-/// ## Parameters
-///
-/// - `alg` - The RSA key encryption algorithm variant to use.
-/// - `enc` - The content encryption algorithm to use.
-///
-/// ## Returns
-///
-/// An unencrypted `Jwe` with the RSA family ready for encryption.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -547,16 +474,6 @@ pub fn new_rsa(alg: jwa.RsaJweAlg, enc: jwa.Enc) -> Jwe(Unencrypted, Rsa, Built)
 /// The decryptor pins the expected algorithm and encryption method.
 /// Tokens with different algorithms will be rejected.
 ///
-/// ## Parameters
-///
-/// - `alg` - The expected PBES2 key encryption algorithm.
-/// - `enc` - The expected content encryption algorithm.
-/// - `password` - The password used for key derivation.
-///
-/// ## Returns
-///
-/// A `Decryptor` that can be passed to `decrypt` to decrypt a PBES2-encrypted JWE.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -581,15 +498,6 @@ pub fn password_decryptor(
 /// Attempting to serialize to compact format with AAD set will return an error.
 ///
 /// Per RFC 7516, AAD is included in the AEAD authentication but is not encrypted.
-///
-/// ## Parameters
-///
-/// - `jwe` - The unencrypted JWE to add AAD to.
-/// - `aad` - The additional authenticated data.
-///
-/// ## Returns
-///
-/// The `Jwe` with AAD set.
 pub fn with_aad(
   jwe: Jwe(Unencrypted, family, Built),
   aad: BitArray,
@@ -599,15 +507,6 @@ pub fn with_aad(
 }
 
 /// Set the Agreement PartyUInfo (apu) for ECDH-ES algorithms.
-///
-/// ## Parameters
-///
-/// - `jwe` - The unencrypted ECDH-ES JWE.
-/// - `apu` - The PartyUInfo value (typically an identifier for the sender).
-///
-/// ## Returns
-///
-/// The `Jwe` with the `apu` header set.
 ///
 /// ## Example
 ///
@@ -635,15 +534,6 @@ pub fn with_apu(
 
 /// Set the Agreement PartyVInfo (apv) for ECDH-ES algorithms.
 ///
-/// ## Parameters
-///
-/// - `jwe` - The unencrypted ECDH-ES JWE.
-/// - `apv` - The PartyVInfo value (typically an identifier for the recipient).
-///
-/// ## Returns
-///
-/// The `Jwe` with the `apv` header set.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -669,15 +559,6 @@ pub fn with_apv(
 }
 
 /// Set the content type (cty) header parameter.
-///
-/// ## Parameters
-///
-/// - `jwe` - The unencrypted JWE.
-/// - `cty` - The content type string (e.g. `"JWT"`).
-///
-/// ## Returns
-///
-/// The `Jwe` with the `cty` header set.
 pub fn with_cty(
   jwe: Jwe(Unencrypted, family, Built),
   cty: String,
@@ -687,15 +568,6 @@ pub fn with_cty(
 }
 
 /// Set the key ID (kid) header parameter.
-///
-/// ## Parameters
-///
-/// - `jwe` - The unencrypted JWE.
-/// - `kid` - The key identifier string.
-///
-/// ## Returns
-///
-/// The `Jwe` with the `kid` header set.
 pub fn with_kid(
   jwe: Jwe(Unencrypted, family, Built),
   kid: String,
@@ -711,16 +583,6 @@ pub fn with_kid(
 ///
 /// Returns an error if iterations is less than 1,000 or greater than
 /// 10,000,000.
-///
-/// ## Parameters
-///
-/// - `jwe` - The unencrypted PBES2 JWE.
-/// - `iterations` - The PBKDF2 iteration count (must be between 1,000 and 10,000,000).
-///
-/// ## Returns
-///
-/// `Ok(Jwe)` with the updated iteration count, or `Error(GoseError)` if
-/// the iteration count is out of the allowed range.
 ///
 /// ## Example
 ///
@@ -758,18 +620,6 @@ pub fn with_p2c(
 /// - Keys with `use=sig` are rejected
 /// - Keys with `key_ops` that don't include `encrypt` or `wrapKey` are rejected
 ///
-/// ## Parameters
-///
-/// - `jwe` - The unencrypted JWE to encrypt.
-/// - `key` - The encryption key (type must match the algorithm).
-/// - `plaintext` - The data to encrypt.
-///
-/// ## Returns
-///
-/// `Ok(Jwe(Encrypted, family, Built))` with the encrypted JWE, or
-/// `Error(GoseError)` if the key is invalid, the algorithm is PBES2, or
-/// encryption fails.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -798,17 +648,6 @@ pub fn encrypt(
 }
 
 /// Encrypt a JWE using a password (PBES2).
-///
-/// ## Parameters
-///
-/// - `jwe` - The unencrypted JWE to encrypt.
-/// - `password` - The password used for key derivation via PBKDF2.
-/// - `plaintext` - The data to encrypt.
-///
-/// ## Returns
-///
-/// `Ok(Jwe(Encrypted, Pbes2, Built))` with the encrypted JWE, or
-/// `Error(GoseError)` if key derivation or encryption fails.
 ///
 /// ## Example
 ///
@@ -869,17 +708,6 @@ pub fn encrypt_with_password(
 ///
 /// If the same header name is set multiple times, the last value wins.
 ///
-/// ## Parameters
-///
-/// - `jwe` - The unencrypted JWE to add the header to.
-/// - `name` - The header parameter name.
-/// - `value` - The header parameter value as JSON.
-///
-/// ## Returns
-///
-/// `Ok(Jwe)` with the added shared unprotected header, or
-/// `Error(GoseError)` if the name is a protected-only header.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -905,15 +733,6 @@ pub fn with_shared_unprotected(
 }
 
 /// Set the type (typ) header parameter (e.g., "JWT").
-///
-/// ## Parameters
-///
-/// - `jwe` - The unencrypted JWE.
-/// - `typ` - The type string (e.g. `"JWT"`).
-///
-/// ## Returns
-///
-/// The `Jwe` with the `typ` header set.
 pub fn with_typ(
   jwe: Jwe(Unencrypted, family, Built),
   typ: String,
@@ -935,17 +754,6 @@ pub fn with_typ(
 /// unprotected headers are present.
 ///
 /// If the same header name is set multiple times, the last value wins.
-///
-/// ## Parameters
-///
-/// - `jwe` - The unencrypted JWE to add the header to.
-/// - `name` - The header parameter name.
-/// - `value` - The header parameter value as JSON.
-///
-/// ## Returns
-///
-/// `Ok(Jwe)` with the added per-recipient unprotected header, or
-/// `Error(GoseError)` if the name is a protected-only header.
 pub fn with_unprotected(
   jwe: Jwe(Unencrypted, family, Built),
   name: String,
@@ -974,28 +782,12 @@ pub fn with_unprotected(
 ///
 /// Returns `Ok(aad)` if AAD was set, `Error(Nil)` if not.
 /// AAD is only present in JSON serialization; compact format never has AAD.
-///
-/// ## Parameters
-///
-/// - `jwe` - The encrypted JWE to read AAD from.
-///
-/// ## Returns
-///
-/// `Ok(BitArray)` with the AAD, or `Error(Nil)` if no AAD is present.
 pub fn aad(jwe: Jwe(Encrypted, family, origin)) -> Result(BitArray, Nil) {
   let assert EncryptedJwe(aad:, ..) = jwe
   option.to_result(aad, Nil)
 }
 
 /// Get the key encryption algorithm (`alg`) from a JWE.
-///
-/// ## Parameters
-///
-/// - `jwe` - The JWE to read the algorithm from.
-///
-/// ## Returns
-///
-/// The `JweAlg` key encryption algorithm.
 pub fn alg(jwe: Jwe(state, family, origin)) -> jwa.JweAlg {
   case jwe {
     Jwe(header:, ..) | EncryptedJwe(header:, ..) -> header.alg
@@ -1003,14 +795,6 @@ pub fn alg(jwe: Jwe(state, family, origin)) -> jwa.JweAlg {
 }
 
 /// Get the content type (cty) from a JWE header.
-///
-/// ## Parameters
-///
-/// - `jwe` - The JWE to read the content type from.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the content type, or `Error(Nil)` if not set.
 pub fn cty(jwe: Jwe(state, family, origin)) -> Result(String, Nil) {
   case jwe {
     Jwe(header:, ..) | EncryptedJwe(header:, ..) ->
@@ -1029,17 +813,6 @@ pub fn cty(jwe: Jwe(state, family, origin)) -> Result(String, Nil) {
 /// to check their presence.
 ///
 /// Returns an error if no shared unprotected headers are present.
-///
-/// ## Parameters
-///
-/// - `jwe` - The parsed encrypted JWE to decode headers from.
-/// - `decoder` - A decoder for the expected header structure.
-///
-/// ## Returns
-///
-/// `Ok(a)` with the decoded shared unprotected header value, or
-/// `Error(GoseError)` if no shared unprotected headers are present or
-/// decoding fails.
 ///
 /// ## Example
 ///
@@ -1078,17 +851,6 @@ pub fn decode_shared_unprotected_header(
 ///
 /// Returns an error if no per-recipient unprotected headers are present.
 ///
-/// ## Parameters
-///
-/// - `jwe` - The parsed encrypted JWE to decode headers from.
-/// - `decoder` - A decoder for the expected header structure.
-///
-/// ## Returns
-///
-/// `Ok(a)` with the decoded per-recipient unprotected header value, or
-/// `Error(GoseError)` if no per-recipient unprotected headers are present
-/// or decoding fails.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -1116,14 +878,6 @@ pub fn decode_unprotected_header(
 }
 
 /// Get the content encryption algorithm (`enc`) from a JWE.
-///
-/// ## Parameters
-///
-/// - `jwe` - The JWE to read the encryption algorithm from.
-///
-/// ## Returns
-///
-/// The `Enc` content encryption algorithm.
 pub fn enc(jwe: Jwe(state, family, origin)) -> jwa.Enc {
   case jwe {
     Jwe(header:, ..) | EncryptedJwe(header:, ..) -> header.enc
@@ -1134,14 +888,6 @@ pub fn enc(jwe: Jwe(state, family, origin)) -> jwa.Enc {
 ///
 /// Returns True if the JWE was parsed from JSON with shared unprotected headers,
 /// or if shared unprotected headers were added via `with_shared_unprotected`.
-///
-/// ## Parameters
-///
-/// - `jwe` - The encrypted JWE to check.
-///
-/// ## Returns
-///
-/// `True` if shared unprotected headers are present, `False` otherwise.
 pub fn has_shared_unprotected_header(
   jwe: Jwe(Encrypted, family, origin),
 ) -> Bool {
@@ -1154,14 +900,6 @@ pub fn has_shared_unprotected_header(
 ///
 /// Returns True if the JWE was parsed from JSON with per-recipient unprotected headers,
 /// or if per-recipient unprotected headers were added via `with_unprotected`.
-///
-/// ## Parameters
-///
-/// - `jwe` - The encrypted JWE to check.
-///
-/// ## Returns
-///
-/// `True` if per-recipient unprotected headers are present, `False` otherwise.
 pub fn has_unprotected_header(jwe: Jwe(Encrypted, family, origin)) -> Bool {
   let assert EncryptedJwe(
     per_recipient_unprotected:,
@@ -1173,14 +911,6 @@ pub fn has_unprotected_header(jwe: Jwe(Encrypted, family, origin)) -> Bool {
 }
 
 /// Get the key ID (kid) from a JWE header.
-///
-/// ## Parameters
-///
-/// - `jwe` - The JWE to read the key ID from.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the key ID, or `Error(Nil)` if not set.
 pub fn kid(jwe: Jwe(state, family, origin)) -> Result(String, Nil) {
   case jwe {
     Jwe(header:, ..) | EncryptedJwe(header:, ..) ->
@@ -1189,14 +919,6 @@ pub fn kid(jwe: Jwe(state, family, origin)) -> Result(String, Nil) {
 }
 
 /// Get the type (typ) from a JWE header.
-///
-/// ## Parameters
-///
-/// - `jwe` - The JWE to read the type from.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the type, or `Error(Nil)` if not set.
 pub fn typ(jwe: Jwe(state, family, origin)) -> Result(String, Nil) {
   case jwe {
     Jwe(header:, ..) | EncryptedJwe(header:, ..) ->
@@ -1763,16 +1485,6 @@ fn decrypt_with_password(
 /// confusion attacks by validating that the token's algorithms match
 /// the expected algorithms configured in the decryptor.
 ///
-/// ## Parameters
-///
-/// - `decryptor` - A decryptor that pins the expected algorithms and provides keys or a password.
-/// - `jwe` - The encrypted JWE to decrypt.
-///
-/// ## Returns
-///
-/// `Ok(BitArray)` with the decrypted plaintext, or `Error(GoseError)` if
-/// algorithm validation fails, the key is wrong, or decryption fails.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -1968,15 +1680,6 @@ fn epk_to_json_field(epk: key_wrap.EphemeralPublicKey) -> #(String, json.Json) {
 /// Returns an error if AAD is set, since compact format does not support AAD.
 /// Use `serialize_json_flattened` or `serialize_json_general` for JWEs with AAD.
 ///
-/// ## Parameters
-///
-/// - `jwe` - The encrypted JWE to serialize.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the JWE in compact serialization format, or
-/// `Error(GoseError)` if AAD or unprotected headers are present.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -2031,15 +1734,6 @@ pub fn serialize_compact(
 ///
 /// Returns an encrypted JWE that can be decrypted.
 /// Uses Nil family since algorithm family isn't known at compile time.
-///
-/// ## Parameters
-///
-/// - `token` - The compact-serialized JWE string to parse.
-///
-/// ## Returns
-///
-/// `Ok(Jwe(Encrypted, Nil, Parsed))` with the parsed encrypted JWE, or
-/// `Error(GoseError)` if the token is malformed or contains invalid data.
 ///
 /// ## Example
 ///
@@ -2578,14 +2272,6 @@ fn parse_optional_base64(
 /// For Direct or ECDH-ES algorithms, the encrypted_key field is omitted.
 /// When AAD is present, includes the `aad` field.
 /// When unprotected headers are present, includes the `unprotected` and/or `header` fields.
-///
-/// ## Parameters
-///
-/// - `jwe` - The encrypted JWE to serialize.
-///
-/// ## Returns
-///
-/// The JWE as a `json.Json` value in Flattened JSON Serialization format.
 pub fn serialize_json_flattened(jwe: Jwe(Encrypted, family, Built)) -> json.Json {
   let assert EncryptedJwe(
     protected_b64:,
@@ -2643,14 +2329,6 @@ pub fn serialize_json_flattened(jwe: Jwe(Encrypted, family, Built)) -> json.Json
 /// When AAD is present, includes the `aad` field.
 /// When unprotected headers are present, includes the `unprotected` field and/or
 /// the `header` field in the recipient object.
-///
-/// ## Parameters
-///
-/// - `jwe` - The encrypted JWE to serialize.
-///
-/// ## Returns
-///
-/// The JWE as a `json.Json` value in General JSON Serialization format.
 pub fn serialize_json_general(jwe: Jwe(Encrypted, family, Built)) -> json.Json {
   let assert EncryptedJwe(
     protected_b64:,
@@ -2715,15 +2393,6 @@ fn append_optional_jwe_fields(
 }
 
 /// Parse a JWE from JSON format (supports both General and Flattened).
-///
-/// ## Parameters
-///
-/// - `json_str` - The JSON string to parse.
-///
-/// ## Returns
-///
-/// `Ok(Jwe(Encrypted, Nil, Parsed))` with the parsed encrypted JWE, or
-/// `Error(GoseError)` if the JSON is malformed or contains invalid data.
 pub fn parse_json(
   json_str: String,
 ) -> Result(Jwe(Encrypted, Nil, Parsed), gose.GoseError) {

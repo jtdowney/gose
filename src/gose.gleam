@@ -28,14 +28,6 @@ pub type GoseError {
 }
 
 /// Extract the message string from a GoseError, regardless of variant.
-///
-/// ## Parameters
-///
-/// - `error` - The error to extract the message from.
-///
-/// ## Returns
-///
-/// The human-readable description string contained in the error variant.
 pub fn error_message(error: GoseError) -> String {
   case error {
     ParseError(msg) -> msg

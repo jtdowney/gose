@@ -217,15 +217,6 @@ pub opaque type Verifier {
 /// Create a new unsigned JWS with the specified signing algorithm. The payload
 /// is provided at sign time via `sign`.
 ///
-/// ## Parameters
-///
-/// - `alg` - The JWS signing algorithm to use (e.g., `jwa.JwsHmac(jwa.HmacSha256)`,
-///   `jwa.JwsRsaPkcs1(jwa.RsaPkcs1Sha256)`, `jwa.JwsEcdsa(jwa.EcdsaP256)`, `jwa.JwsEddsa`).
-///
-/// ## Returns
-///
-/// An unsigned `Jws` ready for signing.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -251,20 +242,6 @@ pub fn new(alg: jwa.JwsAlg) -> Jws(Unsigned, Built) {
 /// 1. If the JWS has a `kid` header, prioritize keys with matching kid
 /// 2. Try keys in order until one succeeds
 /// 3. Fail if no key verifies the signature
-///
-/// ## Parameters
-///
-/// - `alg` - The expected JWS signing algorithm. Tokens with a different
-///   algorithm will be rejected during verification.
-/// - `keys` - One or more JWKs to try during verification. Supports key
-///   rotation by accepting multiple keys.
-///
-/// ## Returns
-///
-/// `Ok(Verifier)` with the configured verifier, or `Error(InvalidState)` if
-/// the key list is empty, any key type is incompatible with the algorithm,
-/// any key's `use` field is set but not `Signing`, or any key's `key_ops`
-/// field is set but doesn't include `Verify`.
 pub fn verifier(
   alg: jwa.JwsAlg,
   keys keys: List(jwk.Jwk),
@@ -277,15 +254,6 @@ pub fn verifier(
 }
 
 /// Set the content type (cty) header parameter.
-///
-/// ## Parameters
-///
-/// - `jws` - The unsigned JWS.
-/// - `cty` - The content type string (e.g. `"JWT"`).
-///
-/// ## Returns
-///
-/// The `Jws` with the `cty` header set.
 pub fn with_cty(jws: Jws(Unsigned, Built), cty: String) -> Jws(Unsigned, Built) {
   map_unsigned_header(jws, fn(h) { JwsHeader(..h, cty: Some(cty)) })
 }
@@ -294,14 +262,6 @@ pub fn with_cty(jws: Jws(Unsigned, Built), cty: String) -> Jws(Unsigned, Built) 
 ///
 /// The payload will not be included in the serialized output, but is still
 /// provided at sign time and used for signature computation.
-///
-/// ## Parameters
-///
-/// - `jws` - The unsigned JWS to mark as detached.
-///
-/// ## Returns
-///
-/// The `Jws` configured for detached payload mode.
 pub fn with_detached(jws: Jws(Unsigned, Built)) -> Jws(Unsigned, Built) {
   let assert UnsignedJws(
     header:,
@@ -326,17 +286,6 @@ pub fn with_detached(jws: Jws(Unsigned, Built)) -> Jws(Unsigned, Built) {
 /// `crit`, `b64`) to prevent security issues like algorithm confusion.
 ///
 /// If the same header name is set multiple times, the last value wins.
-///
-/// ## Parameters
-///
-/// - `jws` - The unsigned JWS to add the header to.
-/// - `name` - The header parameter name (must not be a reserved name).
-/// - `value` - The JSON value for the header parameter.
-///
-/// ## Returns
-///
-/// `Ok(Jws(Unsigned, Built))` with the custom header added, or
-/// `Error(InvalidState)` if the header name is reserved.
 pub fn with_header(
   jws: Jws(Unsigned, Built),
   name: String,
@@ -356,29 +305,11 @@ pub fn with_header(
 }
 
 /// Set the key ID (kid) header parameter.
-///
-/// ## Parameters
-///
-/// - `jws` - The unsigned JWS.
-/// - `kid` - The key identifier string.
-///
-/// ## Returns
-///
-/// The `Jws` with the `kid` header set.
 pub fn with_kid(jws: Jws(Unsigned, Built), kid: String) -> Jws(Unsigned, Built) {
   map_unsigned_header(jws, fn(h) { JwsHeader(..h, kid: Some(kid)) })
 }
 
 /// Set the type (typ) header parameter (e.g., "JWT").
-///
-/// ## Parameters
-///
-/// - `jws` - The unsigned JWS.
-/// - `typ` - The type string (e.g. `"JWT"`).
-///
-/// ## Returns
-///
-/// The `Jws` with the `typ` header set.
 pub fn with_typ(jws: Jws(Unsigned, Built), typ: String) -> Jws(Unsigned, Built) {
   map_unsigned_header(jws, fn(h) { JwsHeader(..h, typ: Some(typ)) })
 }
@@ -388,14 +319,6 @@ pub fn with_typ(jws: Jws(Unsigned, Built), typ: String) -> Jws(Unsigned, Built) 
 /// The payload will be included directly in the serialized output without
 /// base64 encoding. The header will include `"crit":["b64"],"b64":false`.
 /// The payload is still provided at sign time.
-///
-/// ## Parameters
-///
-/// - `jws` - The unsigned JWS to mark as unencoded.
-///
-/// ## Returns
-///
-/// The `Jws` configured for unencoded payload mode.
 pub fn with_unencoded(jws: Jws(Unsigned, Built)) -> Jws(Unsigned, Built) {
   let assert UnsignedJws(header:, payload:, detached:, unprotected:, ..) = jws
   UnsignedJws(
@@ -419,17 +342,6 @@ pub fn with_unencoded(jws: Jws(Unsigned, Built)) -> Jws(Unsigned, Built) {
 /// Compact serialization will return an error if unprotected headers are present.
 ///
 /// If the same header name is set multiple times, the last value wins.
-///
-/// ## Parameters
-///
-/// - `jws` - The unsigned JWS to add the unprotected header to.
-/// - `name` - The header parameter name (must not be a protected-only header).
-/// - `value` - The JSON value for the header parameter.
-///
-/// ## Returns
-///
-/// `Ok(Jws(Unsigned, Built))` with the unprotected header added, or
-/// `Error(InvalidState)` if the header name is protected-only (`crit`, `b64`).
 pub fn with_unprotected(
   jws: Jws(Unsigned, Built),
   name: String,
@@ -478,27 +390,11 @@ fn map_unsigned_header(
 }
 
 /// Get the algorithm (`alg`) from a JWS.
-///
-/// ## Parameters
-///
-/// - `jws` - The JWS to read the algorithm from.
-///
-/// ## Returns
-///
-/// The `JwsAlg` signing algorithm.
 pub fn alg(jws: Jws(state, origin)) -> jwa.JwsAlg {
   jws.header.alg
 }
 
 /// Get the content type (cty) from a JWS header.
-///
-/// ## Parameters
-///
-/// - `jws` - The JWS to read the content type from.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the content type, or `Error(Nil)` if not set.
 pub fn cty(jws: Jws(state, origin)) -> Result(String, Nil) {
   option.to_result(jws.header.cty, Nil)
 }
@@ -507,16 +403,6 @@ pub fn cty(jws: Jws(state, origin)) -> Result(String, Nil) {
 ///
 /// This allows reading non-standard header fields that were present during parsing.
 /// For JWS built via `new`, you already know what headers you set.
-///
-/// ## Parameters
-///
-/// - `jws` - A signed, parsed JWS containing header data to decode.
-/// - `decoder` - A `decode.Decoder` for extracting custom header fields.
-///
-/// ## Returns
-///
-/// `Ok(a)` with the decoded custom header value, or `Error(ParseError)` if
-/// no header data is available or decoding fails.
 pub fn decode_custom_headers(
   jws: Jws(Signed, Parsed),
   decoder: decode.Decoder(a),
@@ -539,16 +425,6 @@ pub fn decode_custom_headers(
 /// This function only works on parsed JWS instances. When building a JWS,
 /// you already know what unprotected headers you set - use `has_unprotected_header`
 /// to check their presence.
-///
-/// ## Parameters
-///
-/// - `jws` - A signed, parsed JWS that may contain unprotected headers.
-/// - `decoder` - A `decode.Decoder` for extracting unprotected header fields.
-///
-/// ## Returns
-///
-/// `Ok(a)` with the decoded unprotected header value, or `Error(ParseError)`
-/// if no unprotected headers are present or decoding fails.
 pub fn decode_unprotected_header(
   jws: Jws(Signed, Parsed),
   decoder: decode.Decoder(a),
@@ -568,28 +444,12 @@ pub fn decode_unprotected_header(
 ///
 /// Returns True if the JWS was parsed from JSON with unprotected headers,
 /// or if unprotected headers were added via `with_unprotected`.
-///
-/// ## Parameters
-///
-/// - `jws` - The signed JWS to check.
-///
-/// ## Returns
-///
-/// `True` if unprotected headers are present, `False` otherwise.
 pub fn has_unprotected_header(jws: Jws(Signed, origin)) -> Bool {
   let assert SignedJws(unprotected:, unprotected_raw:, ..) = jws
   option.is_some(unprotected_raw) || !dict.is_empty(unprotected)
 }
 
 /// Check if the JWS has a detached payload.
-///
-/// ## Parameters
-///
-/// - `jws` - The JWS to check.
-///
-/// ## Returns
-///
-/// `True` if the JWS uses a detached payload, `False` otherwise.
 pub fn is_detached(jws: Jws(state, origin)) -> Bool {
   case jws {
     UnsignedJws(detached:, ..) -> detached
@@ -598,14 +458,6 @@ pub fn is_detached(jws: Jws(state, origin)) -> Bool {
 }
 
 /// Check if the JWS uses an unencoded payload (b64=false per RFC 7797).
-///
-/// ## Parameters
-///
-/// - `jws` - The JWS to check.
-///
-/// ## Returns
-///
-/// `True` if the JWS uses an unencoded payload, `False` otherwise.
 pub fn has_unencoded_payload(jws: Jws(state, origin)) -> Bool {
   case jws {
     UnsignedJws(unencoded_payload:, ..) -> unencoded_payload
@@ -621,27 +473,11 @@ pub fn has_unencoded_payload(jws: Jws(state, origin)) -> Bool {
 /// - Use parameterized queries for database lookups
 /// - Validate the format matches your expected key ID pattern
 /// - Never use it directly in file paths or shell commands
-///
-/// ## Parameters
-///
-/// - `jws` - The JWS to read the key ID from.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the key ID, or `Error(Nil)` if not set.
 pub fn kid(jws: Jws(state, origin)) -> Result(String, Nil) {
   option.to_result(jws.header.kid, Nil)
 }
 
 /// Get the payload from a JWS.
-///
-/// ## Parameters
-///
-/// - `jws` - The JWS to read the payload from.
-///
-/// ## Returns
-///
-/// The payload as a `BitArray`.
 pub fn payload(jws: Jws(state, origin)) -> BitArray {
   case jws {
     UnsignedJws(payload:, ..) -> payload
@@ -650,14 +486,6 @@ pub fn payload(jws: Jws(state, origin)) -> BitArray {
 }
 
 /// Get the type (typ) from a JWS header.
-///
-/// ## Parameters
-///
-/// - `jws` - The JWS to read the type from.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the type, or `Error(Nil)` if not set.
 pub fn typ(jws: Jws(state, origin)) -> Result(String, Nil) {
   option.to_result(jws.header.typ, Nil)
 }
@@ -667,19 +495,6 @@ pub fn typ(jws: Jws(state, origin)) -> Result(String, Nil) {
 /// JWK metadata (`use`, `key_ops`) is enforced when present:
 /// - Keys with `use=enc` are rejected
 /// - Keys with `key_ops` that don't include `sign` are rejected
-///
-/// ## Parameters
-///
-/// - `jws` - The unsigned JWS to sign.
-/// - `key` - The JWK to sign with. Must match the JWS algorithm.
-/// - `payload` - The payload bytes to sign.
-///
-/// ## Returns
-///
-/// `Ok(Jws(Signed, Built))` with the signed JWS ready for serialization,
-/// `Error(InvalidState)` on key type mismatch, metadata incompatibility, or
-/// invalid UTF-8 in unencoded payload, or `Error(CryptoError)` if the signing
-/// operation fails.
 pub fn sign(
   jws: Jws(Unsigned, Built),
   key key: jwk.Jwk,
@@ -844,18 +659,6 @@ fn validate_optional_crit(
 ///
 /// When multiple keys are configured, keys with matching `kid` are tried first.
 ///
-/// ## Parameters
-///
-/// - `verifier` - A `Verifier` created via `verifier()` with pinned algorithm
-///   and keys.
-/// - `jws` - The signed JWS to verify.
-///
-/// ## Returns
-///
-/// `Ok(True)` if the signature is valid for one of the verifier's keys,
-/// `Ok(False)` if no key produced a valid signature, or `Error(GoseError)`
-/// if the token's algorithm doesn't match the verifier's expected algorithm.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -897,19 +700,6 @@ fn try_verify_keys(
 /// Verify a JWS with a detached payload using the verifier.
 ///
 /// Use this when the payload was not included in the serialized JWS.
-///
-/// ## Parameters
-///
-/// - `verifier` - A `Verifier` created via `verifier()` with pinned algorithm
-///   and keys.
-/// - `jws` - The signed JWS with a detached payload to verify.
-/// - `payload` - The detached payload bytes to verify against.
-///
-/// ## Returns
-///
-/// `Ok(True)` if the signature is valid for one of the verifier's keys,
-/// `Ok(False)` if no key produced a valid signature, or `Error(GoseError)`
-/// if the token's algorithm doesn't match the verifier's expected algorithm.
 ///
 /// ## Example
 ///
@@ -997,16 +787,6 @@ fn header_to_json(header: JwsHeader, unencoded_payload: Bool) -> BitArray {
 /// Returns a signed JWS that can be verified with a `Verifier`.
 /// An empty payload segment (`header..signature`) is treated as a detached
 /// payload; use `verify_detached` to verify with the out-of-band payload.
-///
-/// ## Parameters
-///
-/// - `token` - The compact serialization string
-///   (`header.payload.signature`).
-///
-/// ## Returns
-///
-/// `Ok(Jws(Signed, Parsed))` with the parsed JWS ready for verification,
-/// or `Error(ParseError)` if the token is malformed or the header is invalid.
 pub fn parse_compact(
   token: String,
 ) -> Result(Jws(Signed, Parsed), gose.GoseError) {
@@ -1031,16 +811,6 @@ pub fn parse_compact(
 /// Returns an error if the payload contains `.` characters when using b64=false,
 /// as this would create an invalid compact serialization (RFC 7797).
 /// Use JSON serialization instead for payloads containing periods.
-///
-/// ## Parameters
-///
-/// - `jws` - The signed JWS to serialize.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the compact serialization string, or
-/// `Error(InvalidState)` if unprotected headers are present (not supported
-/// in compact format) or the unencoded payload contains `.` characters.
 ///
 /// ## Example
 ///
@@ -1089,15 +859,6 @@ pub fn serialize_compact(
 ///
 /// For detached payloads, the payload field is omitted.
 /// If unprotected headers are present, includes the `header` field.
-///
-/// ## Parameters
-///
-/// - `jws` - The signed JWS to serialize.
-///
-/// ## Returns
-///
-/// A `json.Json` value representing the JWS in JSON Flattened Serialization.
-/// Use `json.to_string` to convert to a JSON string.
 ///
 /// ## Example
 ///
@@ -1150,15 +911,6 @@ pub fn serialize_json_flattened(jws: Jws(Signed, Built)) -> json.Json {
 /// For detached payloads, the payload field is omitted.
 /// If unprotected headers are present, includes the `header` field in the signature entry.
 ///
-/// ## Parameters
-///
-/// - `jws` - The signed JWS to serialize.
-///
-/// ## Returns
-///
-/// A `json.Json` value representing the JWS in JSON General Serialization.
-/// Use `json.to_string` to convert to a JSON string.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -1207,17 +959,6 @@ pub fn serialize_json_general(jws: Jws(Signed, Built)) -> json.Json {
 }
 
 /// Parse a JWS from JSON format (supports both General and Flattened).
-///
-/// ## Parameters
-///
-/// - `json_str` - A JSON string in either General or Flattened JWS
-///   Serialization format.
-///
-/// ## Returns
-///
-/// `Ok(Jws(Signed, Parsed))` with the parsed JWS ready for verification,
-/// or `Error(ParseError)` if the JSON is malformed, the header is invalid,
-/// or the General format contains multiple signatures.
 pub fn parse_json(
   json_str: String,
 ) -> Result(Jws(Signed, Parsed), gose.GoseError) {

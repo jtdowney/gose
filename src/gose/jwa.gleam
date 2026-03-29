@@ -152,14 +152,6 @@ pub type Enc {
 }
 
 /// Convert a JWS algorithm to its RFC string representation.
-///
-/// ## Parameters
-///
-/// - `alg` - The JWS algorithm variant to convert.
-///
-/// ## Returns
-///
-/// The RFC 7518 string identifier (e.g. `"HS256"`, `"EdDSA"`).
 pub fn jws_alg_to_string(alg: JwsAlg) -> String {
   case alg {
     JwsHmac(HmacSha256) -> "HS256"
@@ -180,15 +172,6 @@ pub fn jws_alg_to_string(alg: JwsAlg) -> String {
 }
 
 /// Parse a JWS algorithm from its RFC string representation.
-///
-/// ## Parameters
-///
-/// - `alg` - The RFC 7518 string identifier (e.g. `"HS256"`, `"EdDSA"`).
-///
-/// ## Returns
-///
-/// `Ok(JwsAlg)` with the parsed algorithm variant, or `Error(ParseError)`
-/// if the string is not a recognized JWS algorithm.
 pub fn jws_alg_from_string(alg: String) -> Result(JwsAlg, gose.GoseError) {
   case alg {
     "HS256" -> Ok(JwsHmac(HmacSha256))
@@ -210,14 +193,6 @@ pub fn jws_alg_from_string(alg: String) -> Result(JwsAlg, gose.GoseError) {
 }
 
 /// Convert a JWE key encryption algorithm to its RFC string representation.
-///
-/// ## Parameters
-///
-/// - `alg` - The JWE key encryption algorithm variant to convert.
-///
-/// ## Returns
-///
-/// The RFC 7518 string identifier (e.g. `"dir"`, `"RSA-OAEP-256"`).
 pub fn jwe_alg_to_string(alg: JweAlg) -> String {
   case alg {
     JweDirect -> "dir"
@@ -245,15 +220,6 @@ pub fn jwe_alg_to_string(alg: JweAlg) -> String {
 }
 
 /// Parse a JWE key encryption algorithm from its RFC string representation.
-///
-/// ## Parameters
-///
-/// - `alg` - The RFC 7518 string identifier (e.g. `"dir"`, `"RSA-OAEP"`).
-///
-/// ## Returns
-///
-/// `Ok(JweAlg)` with the parsed algorithm variant, or `Error(ParseError)`
-/// if the string is not a recognized JWE algorithm.
 pub fn jwe_alg_from_string(alg: String) -> Result(JweAlg, gose.GoseError) {
   case alg {
     "dir" -> Ok(JweDirect)
@@ -282,14 +248,6 @@ pub fn jwe_alg_from_string(alg: String) -> Result(JweAlg, gose.GoseError) {
 }
 
 /// Convert a content encryption algorithm to its RFC string representation.
-///
-/// ## Parameters
-///
-/// - `alg` - The content encryption algorithm variant to convert.
-///
-/// ## Returns
-///
-/// The RFC 7518 string identifier (e.g. `"A256GCM"`, `"C20P"`).
 pub fn enc_to_string(alg: Enc) -> String {
   case alg {
     AesGcm(Aes128) -> "A128GCM"
@@ -304,15 +262,6 @@ pub fn enc_to_string(alg: Enc) -> String {
 }
 
 /// Parse a content encryption algorithm from its RFC string representation.
-///
-/// ## Parameters
-///
-/// - `alg` - The RFC 7518 string identifier (e.g. `"A256GCM"`, `"C20P"`).
-///
-/// ## Returns
-///
-/// `Ok(Enc)` with the parsed encryption algorithm variant, or
-/// `Error(ParseError)` if the string is not a recognized encryption algorithm.
 pub fn enc_from_string(alg: String) -> Result(Enc, gose.GoseError) {
   case alg {
     "A128GCM" -> Ok(AesGcm(Aes128))
@@ -328,14 +277,6 @@ pub fn enc_from_string(alg: String) -> Result(Enc, gose.GoseError) {
 }
 
 /// Returns the key size in bytes for an AES key size variant.
-///
-/// ## Parameters
-///
-/// - `size` - The AES key size variant to query.
-///
-/// ## Returns
-///
-/// The key size in bytes (16, 24, or 32).
 pub fn aes_key_size_in_bytes(size: AesKeySize) -> Int {
   case size {
     Aes128 -> 16
@@ -345,14 +286,6 @@ pub fn aes_key_size_in_bytes(size: AesKeySize) -> Int {
 }
 
 /// Returns the recommended symmetric key size in bytes for an HMAC algorithm.
-///
-/// ## Parameters
-///
-/// - `alg` - The HMAC algorithm variant to query.
-///
-/// ## Returns
-///
-/// The key size in bytes (32, 48, or 64).
 pub fn hmac_alg_octet_key_size(alg: HmacAlg) -> Int {
   case alg {
     HmacSha256 -> 32
@@ -364,13 +297,6 @@ pub fn hmac_alg_octet_key_size(alg: HmacAlg) -> Int {
 /// Returns the content encryption key (CEK) size in bytes for a content
 /// encryption algorithm.
 ///
-/// ## Parameters
-///
-/// - `enc` - The content encryption algorithm to query.
-///
-/// ## Returns
-///
-/// The key size in bytes. Every `Enc` variant has a defined key size.
 /// For `AesCbcHmac`, the CEK is double the AES key size because
 /// it is split into separate HMAC and AES-CBC keys.
 pub fn enc_octet_key_size(enc: Enc) -> Int {
@@ -383,14 +309,6 @@ pub fn enc_octet_key_size(enc: Enc) -> Int {
 }
 
 /// Returns the nonce size in bytes for a ChaCha20 key wrapping variant.
-///
-/// ## Parameters
-///
-/// - `variant` - The ChaCha20 key wrapping variant (`C20PKw` or `XC20PKw`).
-///
-/// ## Returns
-///
-/// The nonce size in bytes (12 for C20PKW, 24 for XC20PKW).
 pub fn chacha20_kw_nonce_size(variant: ChaCha20Kw) -> Int {
   case variant {
     C20PKw -> 12

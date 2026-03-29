@@ -19,7 +19,7 @@ A Gleam implementation of JOSE (JSON Object Signing and Encryption) standards:
 
 ## Should you use this?
 
-My professional opinion as a long-time security engineering practitioner is that you should basically never use JWT, JWS, or JWE in a greenfield system. This library was created for the purpose of integrting with existing systems that already use these standards (like ACME). I wouldn't recommend it if you were starting something new where you control the environment.
+My professional opinion as a long-time security engineering practitioner is that you should basically never use JWT, JWS, or JWE in a greenfield system. This library was created for the purpose of integrating with existing systems that already use these standards (like ACME). I wouldn't recommend it if you were starting something new where you control the environment.
 
 ## Installation
 

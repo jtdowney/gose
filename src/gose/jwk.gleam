@@ -242,15 +242,6 @@ pub fn material_xdh(mat: KeyMaterial) -> Result(XdhKeyMaterial, gose.GoseError) 
 ///
 /// Auto-detects key type (RSA, EC, EdDSA, XDH) and format (PKCS#1, PKCS#8, SPKI).
 /// Supports both private and public keys.
-///
-/// ## Parameters
-///
-/// - `der` - The DER-encoded key bytes.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with the parsed key, or `Error(ParseError)` if the DER data
-/// is not a recognized key format.
 pub fn from_der(der: BitArray) -> Result(Jwk, gose.GoseError) {
   parse_rsa_der(der)
   |> result.lazy_or(fn() { parse_eddsa_der(der) })
@@ -347,16 +338,6 @@ fn parse_xdh_der(der: BitArray) -> Result(Jwk, Nil) {
 ///
 /// The public key is derived from the private key.
 /// This is the inverse of `to_octet_bits` for EdDSA private keys.
-///
-/// ## Parameters
-///
-/// - `curve` - The EdDSA curve (Ed25519 or Ed448).
-/// - `private_bits` - The raw private key bits.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with an EdDSA private key and derived public key, or
-/// `Error(ParseError)` if the bits are invalid for the given curve.
 pub fn from_eddsa_bits(
   curve: eddsa.Curve,
   private_bits: BitArray,
@@ -372,16 +353,6 @@ pub fn from_eddsa_bits(
 /// Create an EdDSA public key from raw bytes.
 ///
 /// This is the inverse of `to_octet_bits` for EdDSA public keys.
-///
-/// ## Parameters
-///
-/// - `curve` - The EdDSA curve (Ed25519 or Ed448).
-/// - `public_bits` - The raw public key bits.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with an EdDSA public key, or `Error(ParseError)` if the bits
-/// are invalid for the given curve.
 pub fn from_eddsa_public_bits(
   curve: eddsa.Curve,
   public_bits: BitArray,
@@ -395,15 +366,6 @@ pub fn from_eddsa_public_bits(
 ///
 /// Used for HMAC signing (HS256/384/512) and direct encryption.
 /// Returns an error if the secret is empty.
-///
-/// ## Parameters
-///
-/// - `secret` - The raw key bytes.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with a symmetric key wrapping the provided bytes, or
-/// `Error(InvalidState)` if the secret is empty.
 ///
 /// ## Example
 ///
@@ -422,15 +384,6 @@ pub fn from_octet_bits(secret: BitArray) -> Result(Jwk, gose.GoseError) {
 ///
 /// Auto-detects key type (RSA, EC, EdDSA, XDH) and format (PKCS#1, PKCS#8, SPKI).
 /// Supports both private and public keys.
-///
-/// ## Parameters
-///
-/// - `pem` - The PEM-encoded key string.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with the parsed key, or `Error(ParseError)` if the PEM data
-/// is not a recognized key format.
 pub fn from_pem(pem: String) -> Result(Jwk, gose.GoseError) {
   parse_rsa_pem(pem)
   |> result.lazy_or(fn() { parse_eddsa_pem(pem) })
@@ -485,16 +438,6 @@ fn parse_xdh_pem(pem: String) -> Result(Jwk, Nil) {
 ///
 /// The public key is derived from the private key.
 /// This is the inverse of `to_octet_bits` for XDH private keys.
-///
-/// ## Parameters
-///
-/// - `curve` - The XDH curve (X25519 or X448).
-/// - `private_bits` - The raw private key bits.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with an XDH private key and derived public key, or
-/// `Error(ParseError)` if the bits are invalid for the given curve.
 pub fn from_xdh_bits(
   curve: xdh.Curve,
   private_bits: BitArray,
@@ -510,16 +453,6 @@ pub fn from_xdh_bits(
 /// Create an XDH public key from raw bytes.
 ///
 /// This is the inverse of `to_octet_bits` for XDH public keys.
-///
-/// ## Parameters
-///
-/// - `curve` - The XDH curve (X25519 or X448).
-/// - `public_bits` - The raw public key bits.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with an XDH public key, or `Error(ParseError)` if the bits
-/// are invalid for the given curve.
 pub fn from_xdh_public_bits(
   curve: xdh.Curve,
   public_bits: BitArray,
@@ -532,14 +465,6 @@ pub fn from_xdh_public_bits(
 /// Generate a new EC key pair for the given curve.
 ///
 /// Supported curves: P256, P384, P521, Secp256k1.
-///
-/// ## Parameters
-///
-/// - `curve` - The EC curve to use.
-///
-/// ## Returns
-///
-/// A `Jwk` containing the generated EC private key.
 pub fn generate_ec(curve: ec.Curve) -> Jwk {
   let #(private, public) = ec.generate_key_pair(curve)
   new_jwk(Ec(EcPrivate(key: private, public:, curve:)))
@@ -548,14 +473,6 @@ pub fn generate_ec(curve: ec.Curve) -> Jwk {
 /// Generate a new EdDSA key pair for the given curve.
 ///
 /// Supported curves: Ed25519, Ed448.
-///
-/// ## Parameters
-///
-/// - `curve` - The EdDSA curve to use.
-///
-/// ## Returns
-///
-/// A `Jwk` containing the generated EdDSA private key.
 pub fn generate_eddsa(curve: eddsa.Curve) -> Jwk {
   let #(private, public) = eddsa.generate_key_pair(curve)
   new_jwk(Eddsa(EddsaPrivate(key: private, public:, curve:)))
@@ -567,14 +484,6 @@ pub fn generate_eddsa(curve: eddsa.Curve) -> Jwk {
 /// - `HmacSha256` → 32 bytes
 /// - `HmacSha384` → 48 bytes
 /// - `HmacSha512` → 64 bytes
-///
-/// ## Parameters
-///
-/// - `alg` - The HMAC algorithm variant.
-///
-/// ## Returns
-///
-/// A `Jwk` containing a symmetric key of the correct size.
 pub fn generate_hmac_key(alg: jwa.HmacAlg) -> Jwk {
   let size = jwa.hmac_alg_octet_key_size(alg)
   let secret = crypto.random_bytes(size)
@@ -592,14 +501,6 @@ pub fn generate_hmac_key(alg: jwa.HmacAlg) -> Jwk {
 /// - `AesCbcHmac(Aes256)` → 64 bytes (32 + 32 for MAC)
 /// - `ChaCha20Poly1305` → 32 bytes
 /// - `XChaCha20Poly1305` → 32 bytes
-///
-/// ## Parameters
-///
-/// - `enc` - The content encryption algorithm.
-///
-/// ## Returns
-///
-/// A `Jwk` containing a symmetric key of the correct size.
 pub fn generate_enc_key(enc: jwa.Enc) -> Jwk {
   let size = jwa.enc_octet_key_size(enc)
   let secret = crypto.random_bytes(size)
@@ -612,14 +513,6 @@ pub fn generate_enc_key(enc: jwa.Enc) -> Jwk {
 /// - `Aes128` → 16 bytes
 /// - `Aes192` → 24 bytes
 /// - `Aes256` → 32 bytes
-///
-/// ## Parameters
-///
-/// - `size` - The AES key size.
-///
-/// ## Returns
-///
-/// A `Jwk` containing a symmetric key of the correct size.
 pub fn generate_aes_kw_key(size: jwa.AesKeySize) -> Jwk {
   let byte_count = jwa.aes_key_size_in_bytes(size)
   let secret = crypto.random_bytes(byte_count)
@@ -629,25 +522,12 @@ pub fn generate_aes_kw_key(size: jwa.AesKeySize) -> Jwk {
 /// Generate a symmetric key for ChaCha20-Poly1305 Key Wrap (C20PKW / XC20PKW).
 ///
 /// Always generates a 32-byte key, as both ChaCha20 and XChaCha20 use 256-bit keys.
-///
-/// ## Returns
-///
-/// A `Jwk` containing a 32-byte symmetric key.
 pub fn generate_chacha20_kw_key() -> Jwk {
   let secret = crypto.random_bytes(32)
   new_jwk(OctetKey(secret:))
 }
 
 /// Generate a new RSA key pair with the given key size in bits.
-///
-/// ## Parameters
-///
-/// - `bits` - The RSA key size in bits (e.g. 2048, 4096).
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with the generated RSA key pair, or `Error(CryptoError)` if
-/// key generation fails.
 pub fn generate_rsa(bits: Int) -> Result(Jwk, gose.GoseError) {
   case rsa.generate_key_pair(bits) {
     Ok(#(private, public)) ->
@@ -659,31 +539,12 @@ pub fn generate_rsa(bits: Int) -> Result(Jwk, gose.GoseError) {
 /// Generate a new XDH key pair for key agreement.
 ///
 /// Supported curves: X25519, X448.
-///
-/// ## Parameters
-///
-/// - `curve` - The XDH curve to use.
-///
-/// ## Returns
-///
-/// A `Jwk` containing the generated XDH private key.
 pub fn generate_xdh(curve: xdh.Curve) -> Jwk {
   let #(private, public) = xdh.generate_key_pair(curve)
   new_jwk(Xdh(XdhPrivate(key: private, public:, curve:)))
 }
 
 /// Create an EC public key from curve and x,y coordinates (big-endian bytes).
-///
-/// ## Parameters
-///
-/// - `curve` - The EC curve (P256, P384, P521, Secp256k1).
-/// - `x` - The x coordinate as big-endian bytes.
-/// - `y` - The y coordinate as big-endian bytes.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with an EC public key, or `Error(GoseError)` if the
-/// coordinates are invalid for the curve.
 pub fn ec_public_key_from_coordinates(
   curve: ec.Curve,
   x x: BitArray,
@@ -694,15 +555,6 @@ pub fn ec_public_key_from_coordinates(
 }
 
 /// Set the algorithm (`alg`) metadata parameter on a key.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to update.
-/// - `alg` - The algorithm to associate with the key.
-///
-/// ## Returns
-///
-/// A new `Jwk` with the `alg` parameter set.
 pub fn with_alg(key: Jwk, alg: Alg) -> Jwk {
   Jwk(..key, alg: Some(alg))
 }
@@ -713,19 +565,8 @@ pub fn with_alg(key: Jwk, alg: Alg) -> Jwk {
 /// - `Signing` use implies `Sign` and/or `Verify` operations
 /// - `Encrypting` use implies `Encrypt`, `Decrypt`, `WrapKey`, `UnwrapKey`, `DeriveKey`, `DeriveBits`
 ///
-/// Returns an error if the list is empty or if the operations are incompatible
-/// with the key's existing `key_use`.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to update.
-/// - `ops` - The list of key operations to allow.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with the operations parameter set, or `Error(InvalidState)`
-/// if the list is empty, contains duplicates, or is incompatible with
-/// `key_use`.
+/// Returns an error if the list is empty, contains duplicates, or is
+/// incompatible with the key's existing `key_use`.
 pub fn with_key_ops(key: Jwk, ops: List(KeyOp)) -> Result(Jwk, gose.GoseError) {
   case ops {
     [] -> Error(gose.InvalidState("key_ops must not be empty"))
@@ -746,16 +587,6 @@ pub fn with_key_ops(key: Jwk, ops: List(KeyOp)) -> Result(Jwk, gose.GoseError) {
 /// the specified use, or if the use is incompatible with the key type per RFC
 /// 8037 (EdDSA keys can only be used for signing, XDH keys can only be used for
 /// encryption).
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to update.
-/// - `use_` - The intended use (`Signing` or `Encrypting`).
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with the use parameter set, or `Error(InvalidState)` if the
-/// use is incompatible with `key_ops` or key type.
 pub fn with_key_use(key: Jwk, use_: KeyUse) -> Result(Jwk, gose.GoseError) {
   use _ <- result.try(validate_key_use_ops(Some(use_), key.key_ops))
   use _ <- result.try(validate_rfc8037_key_use(key.material, Some(use_)))
@@ -783,15 +614,6 @@ fn validate_rfc8037_key_use(
 }
 
 /// Set the key ID (`kid`) metadata parameter on a key.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to update.
-/// - `kid` - The key identifier string.
-///
-/// ## Returns
-///
-/// A new `Jwk` with the `kid` parameter set.
 pub fn with_kid(key: Jwk, kid: String) -> Jwk {
   Jwk(..key, kid: Some(kid))
 }
@@ -830,15 +652,6 @@ fn validate_key_use_ops(
 }
 
 /// Get the algorithm (`alg`) parameter.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// `Ok(Alg)` with the algorithm, or `Error(Nil)` if no algorithm was set
-/// on the key.
 pub fn alg(key: Jwk) -> Result(Alg, Nil) {
   option.to_result(key.alg, Nil)
 }
@@ -846,15 +659,6 @@ pub fn alg(key: Jwk) -> Result(Alg, Nil) {
 /// Get the curve used by an EC key.
 ///
 /// Returns an error if the key is not an EC key.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// `Ok(ec.Curve)` with the EC curve, or `Error(InvalidState)` if the key
-/// is not an EC key.
 pub fn ec_curve(key: Jwk) -> Result(ec.Curve, gose.GoseError) {
   material_ec(key.material)
   |> result.map(fn(ec) {
@@ -870,15 +674,6 @@ pub fn ec_curve(key: Jwk) -> Result(ec.Curve, gose.GoseError) {
 /// and EC public keys.
 ///
 /// Returns an error if the key is not an EC key.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// `Ok(ec.PublicKey)` with the EC public key, or `Error(InvalidState)` if
-/// the key is not an EC key.
 pub fn ec_public_key(key: Jwk) -> Result(ec.PublicKey, gose.GoseError) {
   material_ec(key.material)
   |> result.map(fn(ec) {
@@ -895,15 +690,6 @@ pub fn ec_public_key(key: Jwk) -> Result(ec.PublicKey, gose.GoseError) {
 /// the coordinate size for the curve.
 ///
 /// Returns an error if the key is not an EC key.
-///
-/// ## Parameters
-///
-/// - `key` - The EC key to extract coordinates from.
-///
-/// ## Returns
-///
-/// `Ok(#(BitArray, BitArray))` with the `(x, y)` coordinate pair, or
-/// `Error(InvalidState)` if the key is not an EC key.
 pub fn ec_public_key_coordinates(
   key: Jwk,
 ) -> Result(#(BitArray, BitArray), gose.GoseError) {
@@ -915,15 +701,6 @@ pub fn ec_public_key_coordinates(
 /// Get the curve used by an EdDSA key.
 ///
 /// Returns an error if the key is not an EdDSA key.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// `Ok(eddsa.Curve)` with the EdDSA curve, or `Error(InvalidState)` if
-/// the key is not an EdDSA key.
 pub fn eddsa_curve(key: Jwk) -> Result(eddsa.Curve, gose.GoseError) {
   material_eddsa(key.material)
   |> result.map(fn(eddsa) {
@@ -939,15 +716,6 @@ pub fn eddsa_curve(key: Jwk) -> Result(eddsa.Curve, gose.GoseError) {
 /// and EdDSA public keys.
 ///
 /// Returns an error if the key is not an EdDSA key.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// `Ok(eddsa.PublicKey)` with the EdDSA public key, or
-/// `Error(InvalidState)` if the key is not an EdDSA key.
 pub fn eddsa_public_key(key: Jwk) -> Result(eddsa.PublicKey, gose.GoseError) {
   material_eddsa(key.material)
   |> result.map(fn(eddsa) {
@@ -959,29 +727,11 @@ pub fn eddsa_public_key(key: Jwk) -> Result(eddsa.PublicKey, gose.GoseError) {
 }
 
 /// Get the key operations parameter.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// `Ok(List(KeyOp))` with the operations, or `Error(Nil)` if no operations
-/// were set on the key.
 pub fn key_ops(key: Jwk) -> Result(List(KeyOp), Nil) {
   option.to_result(key.key_ops, Nil)
 }
 
 /// Get the key type (kty) for this key.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// The `KeyType` variant (`OctKeyType`, `RsaKeyType`, `EcKeyType`, or
-/// `OkpKeyType`).
 pub fn key_type(key: Jwk) -> KeyType {
   case key.material {
     OctetKey(..) -> OctKeyType
@@ -992,29 +742,11 @@ pub fn key_type(key: Jwk) -> KeyType {
 }
 
 /// Get the public key use parameter.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// `Ok(KeyUse)` with the use (`Signing` or `Encrypting`), or `Error(Nil)`
-/// if no use was set on the key.
 pub fn key_use(key: Jwk) -> Result(KeyUse, Nil) {
   option.to_result(key.key_use, Nil)
 }
 
 /// Get the key ID (kid) parameter.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the key ID, or `Error(Nil)` if no key ID was set on
-/// the key.
 pub fn kid(key: Jwk) -> Result(String, Nil) {
   option.to_result(key.kid, Nil)
 }
@@ -1022,15 +754,6 @@ pub fn kid(key: Jwk) -> Result(String, Nil) {
 /// Get the size of an octet (symmetric) key in bytes.
 ///
 /// Returns an error if the key is not an octet key.
-///
-/// ## Parameters
-///
-/// - `key` - The octet key to measure.
-///
-/// ## Returns
-///
-/// `Ok(Int)` with the key size in bytes, or `Error(InvalidState)` if the
-/// key is not an octet key.
 pub fn octet_key_size(key: Jwk) -> Result(Int, gose.GoseError) {
   case material_octet_secret(key.material) {
     Ok(secret) -> Ok(bit_array.byte_size(secret))
@@ -1044,15 +767,6 @@ pub fn octet_key_size(key: Jwk) -> Result(Int, gose.GoseError) {
 /// and RSA public keys.
 ///
 /// Returns an error if the key is not an RSA key.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// `Ok(rsa.PublicKey)` with the RSA public key, or `Error(InvalidState)`
-/// if the key is not an RSA key.
 pub fn rsa_public_key(key: Jwk) -> Result(rsa.PublicKey, gose.GoseError) {
   material_rsa(key.material)
   |> result.map(fn(rsa) {
@@ -1066,15 +780,6 @@ pub fn rsa_public_key(key: Jwk) -> Result(rsa.PublicKey, gose.GoseError) {
 /// Get the curve used by an XDH key.
 ///
 /// Returns an error if the key is not an XDH key.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// `Ok(xdh.Curve)` with the XDH curve, or `Error(InvalidState)` if the
-/// key is not an XDH key.
 pub fn xdh_curve(key: Jwk) -> Result(xdh.Curve, gose.GoseError) {
   material_xdh(key.material)
   |> result.map(fn(xdh) {
@@ -1090,15 +795,6 @@ pub fn xdh_curve(key: Jwk) -> Result(xdh.Curve, gose.GoseError) {
 /// and XDH public keys.
 ///
 /// Returns an error if the key is not an XDH key.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to query.
-///
-/// ## Returns
-///
-/// `Ok(xdh.PublicKey)` with the XDH public key, or `Error(InvalidState)`
-/// if the key is not an XDH key.
 pub fn xdh_public_key(key: Jwk) -> Result(xdh.PublicKey, gose.GoseError) {
   material_xdh(key.material)
   |> result.map(fn(xdh) {
@@ -1113,20 +809,12 @@ pub fn xdh_public_key(key: Jwk) -> Result(xdh.PublicKey, gose.GoseError) {
 ///
 /// For private keys, extracts the corresponding public key.
 /// For public keys, returns the key unchanged.
+/// Returns an error for symmetric octet keys.
 ///
 /// When extracting a public key, `key_ops` are filtered to public-safe operations:
 /// - `Sign` is mapped to `Verify`
 /// - `Decrypt` and `UnwrapKey` are removed (private-only)
 /// - Other operations are preserved
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to extract the public key from.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with the public key, or `Error(InvalidState)` if the key is
-/// a symmetric octet key.
 ///
 /// ## Example
 ///
@@ -1199,16 +887,6 @@ fn map_public_key_op(op: KeyOp) -> Result(KeyOp, Nil) {
 ///
 /// RFC 7638 specifies SHA-256 as the default hash, but allows other algorithms.
 ///
-/// ## Parameters
-///
-/// - `key` - The key to compute the thumbprint for.
-/// - `algorithm` - The hash algorithm to use (e.g. `hash.Sha256`).
-///
-/// ## Returns
-///
-/// `Ok(String)` with the base64url-encoded thumbprint, or
-/// `Error(CryptoError)` if the hash algorithm is not supported.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -1274,14 +952,6 @@ fn thumbprint_json(key: Jwk) -> Result(String, gose.GoseError) {
 }
 
 /// Convert an algorithm (JWS or JWE) to its RFC string representation.
-///
-/// ## Parameters
-///
-/// - `alg` - The algorithm variant to convert.
-///
-/// ## Returns
-///
-/// The RFC string name (e.g. `"RS256"`, `"A128KW"`).
 pub fn alg_to_string(alg: Alg) -> String {
   case alg {
     Jws(jws_alg) -> jwa.jws_alg_to_string(jws_alg)
@@ -1293,15 +963,6 @@ pub fn alg_to_string(alg: Alg) -> String {
 ///
 /// Supports RSA, EC, EdDSA, and XDH keys (both private and public).
 /// Uses PKCS#8 for private keys and SPKI for public keys.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to serialize.
-///
-/// ## Returns
-///
-/// `Ok(BitArray)` with the DER-encoded key, or `Error(InvalidState)` if
-/// the key is a symmetric octet key or serialization fails.
 pub fn to_der(key: Jwk) -> Result(BitArray, gose.GoseError) {
   case key.material {
     Rsa(RsaPrivate(key: private, ..)) ->
@@ -1350,14 +1011,6 @@ pub fn to_der(key: Jwk) -> Result(BitArray, gose.GoseError) {
 }
 
 /// Serialize a JWK to its JSON representation.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to serialize.
-///
-/// ## Returns
-///
-/// A `json.Json` value representing the key in JWK JSON format.
 pub fn to_json(key: Jwk) -> json.Json {
   let base_fields = case key.material {
     Eddsa(EddsaPrivate(key: private, public:, curve:)) -> {
@@ -1571,15 +1224,6 @@ fn metadata_fields(key: Jwk) -> List(#(String, json.Json)) {
 /// - Octet keys: returns the secret bytes
 /// - EdDSA/XDH private keys: returns the private key bytes (d)
 /// - EdDSA/XDH public keys: returns the public key bytes (x)
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to export.
-///
-/// ## Returns
-///
-/// `Ok(BitArray)` with the raw key bytes, or `Error(InvalidState)` for RSA
-/// and EC keys which have no single-value byte representation.
 pub fn to_octet_bits(key: Jwk) -> Result(BitArray, gose.GoseError) {
   case key.material {
     OctetKey(secret:) -> Ok(secret)
@@ -1596,15 +1240,6 @@ pub fn to_octet_bits(key: Jwk) -> Result(BitArray, gose.GoseError) {
 ///
 /// Supports RSA, EC, EdDSA, and XDH keys (both private and public).
 /// Uses PKCS#8 for private keys and SPKI for public keys.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to serialize.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the PEM-encoded key, or `Error(InvalidState)` if the
-/// key is a symmetric octet key or serialization fails.
 pub fn to_pem(key: Jwk) -> Result(String, gose.GoseError) {
   case key.material {
     Rsa(RsaPrivate(key: private, ..)) ->
@@ -1653,15 +1288,6 @@ pub fn to_pem(key: Jwk) -> Result(String, gose.GoseError) {
 }
 
 /// Parse an algorithm from its RFC string representation.
-///
-/// ## Parameters
-///
-/// - `s` - The RFC algorithm name (e.g. `"RS256"`, `"A128KW"`).
-///
-/// ## Returns
-///
-/// `Ok(Alg)` with the parsed algorithm, or `Error(ParseError)` if the
-/// string is not a recognized algorithm name.
 pub fn alg_from_string(s: String) -> Result(Alg, gose.GoseError) {
   jwa.jws_alg_from_string(s)
   |> result.map(Jws)
@@ -1706,15 +1332,6 @@ pub fn from_dynamic(dyn: decode.Dynamic) -> Result(Jwk, gose.GoseError) {
 }
 
 /// Parse a JWK from JSON.
-///
-/// ## Parameters
-///
-/// - `json_str` - A JSON string containing the JWK.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with the parsed key, or `Error(ParseError)` if the JSON is
-/// invalid or not a recognized JWK.
 pub fn from_json(json_str: String) -> Result(Jwk, gose.GoseError) {
   use dyn <- result.try(
     json.parse(json_str, decode.dynamic)
@@ -1724,15 +1341,6 @@ pub fn from_json(json_str: String) -> Result(Jwk, gose.GoseError) {
 }
 
 /// Parse a JWK from JSON provided as a `BitArray`.
-///
-/// ## Parameters
-///
-/// - `json_bits` - A `BitArray` containing the JSON-encoded JWK.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with the parsed key, or `Error(ParseError)` if the JSON is
-/// invalid or not a recognized JWK.
 pub fn from_json_bits(json_bits: BitArray) -> Result(Jwk, gose.GoseError) {
   use dyn <- result.try(
     json.parse_bits(json_bits, decode.dynamic)
@@ -1745,11 +1353,6 @@ pub fn from_json_bits(json_bits: BitArray) -> Result(Jwk, gose.GoseError) {
 ///
 /// This lets you compose JWK decoding inside larger decode pipelines, for
 /// example with `decode.field`, `decode.list`, or `json.parse`.
-///
-/// ## Returns
-///
-/// A `Decoder(Jwk)` that succeeds on valid JWK JSON objects and fails on
-/// anything else.
 ///
 /// ## Example
 ///

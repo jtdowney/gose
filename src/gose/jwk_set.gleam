@@ -37,51 +37,22 @@ pub opaque type JwkSet {
 }
 
 /// Create a JWK Set from a list of keys.
-///
-/// ## Parameters
-///
-/// - `keys` - The list of JWKs to include in the set.
-///
-/// ## Returns
-///
-/// A new `JwkSet` containing the given keys.
 pub fn from_list(keys: List(jwk.Jwk)) -> JwkSet {
   JwkSet(keys:)
 }
 
 /// Create an empty JWK Set.
-///
-/// ## Returns
-///
-/// A new `JwkSet` with no keys.
 pub fn new() -> JwkSet {
   JwkSet(keys: [])
 }
 
 /// Serialize a JWK Set to its JSON representation.
-///
-/// ## Parameters
-///
-/// - `jwk_set` - The JWK Set to serialize.
-///
-/// ## Returns
-///
-/// A `json.Json` value containing `{"keys": [...]}` with each key
-/// serialized via `jwk.to_json()`.
 pub fn to_json(jwk_set: JwkSet) -> json.Json {
   let json_keys = list.map(jwk_set.keys, jwk.to_json)
   json.object([#("keys", json.preprocessed_array(json_keys))])
 }
 
 /// Get all keys from a JWK Set as a list.
-///
-/// ## Parameters
-///
-/// - `jwk_set` - The JWK Set to extract keys from.
-///
-/// ## Returns
-///
-/// The list of JWKs contained in the set.
 pub fn to_list(jwk_set: JwkSet) -> List(jwk.Jwk) {
   jwk_set.keys
 }
@@ -89,15 +60,7 @@ pub fn to_list(jwk_set: JwkSet) -> List(jwk.Jwk) {
 /// Parse a JWK Set from a JSON string.
 ///
 /// The `keys` array is required. Unknown top-level members are ignored per RFC.
-///
-/// ## Parameters
-///
-/// - `json_str` - The JSON string containing a JWK Set object.
-///
-/// ## Returns
-///
-/// `Ok(JwkSet)` with the parsed key set (silently skipping invalid keys),
-/// or `Error(ParseError)` if the `keys` array is missing or malformed.
+/// Invalid keys are silently skipped.
 pub fn from_json(json_str: String) -> Result(JwkSet, gose.GoseError) {
   parse_keys_array(json.parse(json_str, _))
   |> result.map(parse_keys_lenient)
@@ -106,15 +69,7 @@ pub fn from_json(json_str: String) -> Result(JwkSet, gose.GoseError) {
 /// Parse a JWK Set from a JSON BitArray.
 ///
 /// The `keys` array is required. Unknown top-level members are ignored per RFC.
-///
-/// ## Parameters
-///
-/// - `json_bits` - The JSON BitArray containing a JWK Set object.
-///
-/// ## Returns
-///
-/// `Ok(JwkSet)` with the parsed key set (silently skipping invalid keys),
-/// or `Error(ParseError)` if the `keys` array is missing or malformed.
+/// Invalid keys are silently skipped.
 pub fn from_json_bits(json_bits: BitArray) -> Result(JwkSet, gose.GoseError) {
   parse_keys_array(json.parse_bits(json_bits, _))
   |> result.map(parse_keys_lenient)
@@ -130,15 +85,6 @@ pub fn from_json_bits(json_bits: BitArray) -> Result(JwkSet, gose.GoseError) {
 /// with unrecognised key types, missing required members, or unsupported
 /// parameter values. Prefer `from_json` unless you need to guarantee
 /// every key in the set is valid.
-///
-/// ## Parameters
-///
-/// - `json_str` - The JSON string containing a JWK Set object.
-///
-/// ## Returns
-///
-/// `Ok(JwkSet)` with all parsed keys, or `Error(ParseError)` if the `keys`
-/// array is missing, malformed, or any individual key fails to parse.
 pub fn from_json_strict(json_str: String) -> Result(JwkSet, gose.GoseError) {
   parse_keys_array(json.parse(json_str, _))
   |> result.try(parse_keys_strict)
@@ -155,15 +101,6 @@ pub fn from_json_strict(json_str: String) -> Result(JwkSet, gose.GoseError) {
 /// with unrecognised key types, missing required members, or unsupported
 /// parameter values. Prefer `from_json_bits` unless you need to guarantee
 /// every key in the set is valid.
-///
-/// ## Parameters
-///
-/// - `json_bits` - The JSON BitArray containing a JWK Set object.
-///
-/// ## Returns
-///
-/// `Ok(JwkSet)` with all parsed keys, or `Error(ParseError)` if the `keys`
-/// array is missing, malformed, or any individual key fails to parse.
 pub fn from_json_strict_bits(
   json_bits: BitArray,
 ) -> Result(JwkSet, gose.GoseError) {
@@ -175,11 +112,6 @@ pub fn from_json_strict_bits(
 /// Return a lenient decoder for JWK Set values.
 ///
 /// Invalid keys are silently skipped, matching `from_json` behavior.
-///
-/// ## Returns
-///
-/// A `Decoder(JwkSet)` that parses the `keys` array, skipping any
-/// individual key that fails to parse.
 ///
 /// ## Example
 ///
@@ -199,11 +131,6 @@ pub fn decoder() -> decode.Decoder(JwkSet) {
 /// with unrecognised key types, missing required members, or unsupported
 /// parameter values. Prefer `decoder()` unless you need to guarantee
 /// every key in the set is valid.
-///
-/// ## Returns
-///
-/// A `Decoder(JwkSet)` that parses the `keys` array and fails if any
-/// individual key is invalid.
 ///
 /// ## Example
 ///
@@ -251,16 +178,6 @@ fn parse_keys_strict(
 }
 
 /// Find a key by its key ID (kid).
-///
-/// ## Parameters
-///
-/// - `jwk_set` - The JWK Set to search.
-/// - `kid` - The key ID to look up.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with the matching key, or `Error(Nil)` if no key with the
-/// given kid exists.
 pub fn get(jwk_set: JwkSet, kid: String) -> Result(jwk.Jwk, Nil) {
   list.find(jwk_set.keys, fn(key) {
     case jwk.kid(key) {
@@ -275,30 +192,13 @@ pub fn get(jwk_set: JwkSet, kid: String) -> Result(jwk.Jwk, Nil) {
 /// Keys are prepended, so if a key with the same `kid` already exists,
 /// the newer key shadows the older one — `get` will return the most
 /// recently inserted key.
-///
-/// ## Parameters
-///
-/// - `jwk_set` - The JWK Set to add the key to.
-/// - `key` - The JWK to insert.
-///
-/// ## Returns
-///
-/// A new `JwkSet` with the key prepended.
 pub fn insert(jwk_set: JwkSet, key key: jwk.Jwk) -> JwkSet {
   JwkSet(keys: [key, ..jwk_set.keys])
 }
 
 /// Remove a key by its key ID (kid).
 ///
-/// ## Parameters
-///
-/// - `jwk_set` - The JWK Set to remove from.
-/// - `kid` - The key ID of the key to remove.
-///
-/// ## Returns
-///
-/// A new `JwkSet` without the matching key. If no key with the given kid
-/// exists, returns the set unchanged.
+/// If no key with the given kid exists, returns the set unchanged.
 pub fn delete(jwk_set: JwkSet, kid kid: String) -> JwkSet {
   let filtered =
     list.filter(jwk_set.keys, fn(key) {
@@ -311,16 +211,6 @@ pub fn delete(jwk_set: JwkSet, kid kid: String) -> JwkSet {
 }
 
 /// Filter keys by a predicate function.
-///
-/// ## Parameters
-///
-/// - `jwk_set` - The JWK Set to filter.
-/// - `predicate` - A function applied to each key; keys returning `True` are kept.
-///
-/// ## Returns
-///
-/// A new `JwkSet` containing only the keys for which the predicate
-/// returns `True`.
 pub fn filter(jwk_set: JwkSet, keeping predicate: fn(jwk.Jwk) -> Bool) -> JwkSet {
   JwkSet(keys: list.filter(jwk_set.keys, predicate))
 }
@@ -328,14 +218,6 @@ pub fn filter(jwk_set: JwkSet, keeping predicate: fn(jwk.Jwk) -> Bool) -> JwkSet
 /// Get the first key in the set.
 ///
 /// Useful for single-key sets or when any key will suffice.
-///
-/// ## Parameters
-///
-/// - `jwk_set` - The JWK Set to query.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with the first key, or `Error(Nil)` if the set is empty.
 pub fn first(jwk_set: JwkSet) -> Result(jwk.Jwk, Nil) {
   list.first(jwk_set.keys)
 }

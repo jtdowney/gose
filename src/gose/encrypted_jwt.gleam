@@ -113,20 +113,6 @@ fn validate_decryption_keys(
 ///
 /// The decryptor pins the expected algorithms. Tokens with different
 /// algorithms will be rejected.
-///
-/// ## Parameters
-///
-/// - `alg` - The expected key encryption algorithm.
-/// - `enc` - The expected content encryption algorithm.
-/// - `keys` - One or more keys for decryption.
-/// - `options` - Validation options for JWT claims.
-///
-/// ## Returns
-///
-/// `Ok(Decryptor)` configured and ready for use with
-/// `decrypt_and_validate`, or `Error(JoseError(_))` if the key list is
-/// empty, any key's `use` field is set but not `Encrypting`, or any key's
-/// `key_ops` doesn't include `Decrypt` or `UnwrapKey`.
 pub fn key_decryptor(
   alg: jwa.JweAlg,
   enc: jwa.Enc,
@@ -142,17 +128,6 @@ pub fn key_decryptor(
 ///
 /// The decryptor pins the expected algorithms. Tokens with different
 /// algorithms will be rejected.
-///
-/// ## Parameters
-///
-/// - `alg` - The expected PBES2 algorithm.
-/// - `enc` - The expected content encryption algorithm.
-/// - `password` - The password for key derivation.
-/// - `options` - Validation options for JWT claims.
-///
-/// ## Returns
-///
-/// A `Decryptor` configured for use with `decrypt_and_validate`.
 pub fn password_decryptor(
   alg: jwa.Pbes2Alg,
   enc: jwa.Enc,
@@ -170,19 +145,6 @@ pub fn password_decryptor(
 ///
 /// Sets `typ: "JWT"` in the header. If the encryption key has a `kid`, it is
 /// included in the JWE header.
-///
-/// ## Parameters
-///
-/// - `claims` - The JWT claims to encrypt.
-/// - `alg` - The key encryption algorithm.
-/// - `enc` - The content encryption algorithm.
-/// - `key` - The encryption key.
-///
-/// ## Returns
-///
-/// `Ok(EncryptedJwt)` with the encrypted JWT ready for
-/// serialization, or `Error(JoseError(_))` if key validation or encryption
-/// fails.
 pub fn encrypt_with_key(
   claims: jwt.Claims,
   alg: jwa.JweAlg,
@@ -213,19 +175,6 @@ fn do_encrypt_with_key(
 /// Encrypt claims using PBES2 password-based encryption.
 ///
 /// Sets `typ: "JWT"` in the header.
-///
-/// ## Parameters
-///
-/// - `claims` - The JWT claims to encrypt.
-/// - `alg` - The PBES2 algorithm.
-/// - `enc` - The content encryption algorithm.
-/// - `password` - The password for key derivation.
-/// - `kid` - Optional key ID to include in the header.
-///
-/// ## Returns
-///
-/// `Ok(EncryptedJwt)` with the encrypted JWT ready for
-/// serialization, or `Error(JoseError(_))` if encryption fails.
 pub fn encrypt_with_password(
   claims: jwt.Claims,
   alg: jwa.Pbes2Alg,
@@ -277,15 +226,6 @@ fn claims_to_plaintext(claims: jwt.Claims) -> BitArray {
 }
 
 /// Serialize a decrypted encrypted JWT to compact format.
-///
-/// ## Parameters
-///
-/// - `jwt` - A `EncryptedJwt` from `encrypt_with_key`,
-///   `encrypt_with_password`, or `decrypt_and_validate`.
-///
-/// ## Returns
-///
-/// The JWE compact serialization string.
 pub fn serialize(jwt: EncryptedJwt) -> String {
   jwt.token
 }
@@ -296,16 +236,6 @@ pub type PeekHeaders {
 }
 
 /// Peek at the header fields from a token without decrypting.
-///
-/// ## Parameters
-///
-/// - `token` - The JWE compact serialization string.
-///
-/// ## Returns
-///
-/// `Ok(PeekHeaders)` with the algorithm, encryption, and optional key ID
-/// from the header, or `Error(MalformedToken(_))` if the token cannot be
-/// parsed.
 pub fn peek_headers(token: String) -> Result(PeekHeaders, jwt.JwtError) {
   parse_jwe(token)
   |> result.map(fn(parsed_jwe) {
@@ -332,18 +262,6 @@ fn parse_jwe(
 ///
 /// Still enforces algorithm pinning for security. **Note:** `kid_policy` only
 /// applies to key-based decryptors, not password-based decryptors.
-///
-/// ## Parameters
-///
-/// - `decryptor` - A `Decryptor` created by `key_decryptor` or
-///   `password_decryptor`.
-/// - `token` - The JWE compact serialization string.
-///
-/// ## Returns
-///
-/// `Ok(EncryptedJwt)` with the decrypted JWT and accessible
-/// claims, `Error(JweAlgorithmMismatch(_))` if the token's algorithms
-/// don't match, or `Error(DecryptionFailed(_))` if decryption fails.
 pub fn dangerously_decrypt_and_skip_validation(
   decryptor: Decryptor,
   token: String,
@@ -376,21 +294,6 @@ pub fn dangerously_decrypt_and_skip_validation(
 /// - Keys with matching `kid` are tried first (if token has `kid` header)
 /// - `kid_policy` controls kid header enforcement (see `KidPolicy` type)
 /// - With `NoKidRequirement`, all keys are tried with matching keys prioritized
-///
-/// ## Parameters
-///
-/// - `decryptor` - A `Decryptor` created by `key_decryptor` or
-///   `password_decryptor`.
-/// - `token` - The JWE compact serialization string.
-/// - `now` - The current timestamp for time-based claim validation.
-///
-/// ## Returns
-///
-/// `Ok(EncryptedJwt)` with the decrypted and validated JWT,
-/// `Error(JweAlgorithmMismatch(_))` if the token's algorithms don't match
-/// the decryptor's expected algorithms, `Error(DecryptionFailed(_))` if
-/// decryption fails, or a claim validation error (`TokenExpired`,
-/// `TokenNotYetValid`, etc.) if claim validation fails.
 pub fn decrypt_and_validate(
   decryptor: Decryptor,
   token: String,
@@ -417,16 +320,6 @@ pub fn decrypt_and_validate(
 ///
 /// This allows extracting claims directly into your own types using
 /// `gleam/dynamic/decode`. The decoder receives the raw claims JSON.
-///
-/// ## Parameters
-///
-/// - `jwt` - A decrypted and validated encrypted JWT.
-/// - `decoder` - A `gleam/dynamic/decode` decoder for the claims.
-///
-/// ## Returns
-///
-/// `Ok(a)` with the decoded claims value, or
-/// `Error(ClaimDecodingFailed(_))` if decoding fails.
 pub fn decode(
   jwt: EncryptedJwt,
   decoder: decode.Decoder(a),
@@ -436,27 +329,11 @@ pub fn decode(
 }
 
 /// Get the key encryption algorithm (`alg`) from a decrypted and validated encrypted JWT.
-///
-/// ## Parameters
-///
-/// - `jwt` - The decrypted and validated encrypted JWT.
-///
-/// ## Returns
-///
-/// The `JweAlg` from the token's header.
 pub fn alg(jwt: EncryptedJwt) -> jwa.JweAlg {
   jwt.alg
 }
 
 /// Get the content encryption algorithm (`enc`) from a decrypted and validated encrypted JWT.
-///
-/// ## Parameters
-///
-/// - `jwt` - The decrypted and validated encrypted JWT.
-///
-/// ## Returns
-///
-/// The `Enc` from the token's header.
 pub fn enc(jwt: EncryptedJwt) -> jwa.Enc {
   jwt.enc
 }
@@ -466,14 +343,6 @@ pub fn enc(jwt: EncryptedJwt) -> jwa.Enc {
 /// **Security Warning:** The `kid` value comes from the token and is untrusted
 /// input. If you use it to look up keys (from a database, filesystem, or key
 /// store), you must sanitize it first to prevent injection attacks.
-///
-/// ## Parameters
-///
-/// - `jwt` - The decrypted and validated encrypted JWT.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the key ID, or `Error(Nil)` if no kid was set.
 pub fn kid(jwt: EncryptedJwt) -> Result(String, Nil) {
   option.to_result(jwt.kid, Nil)
 }

@@ -249,16 +249,6 @@ pub fn default_validation() -> JwtValidationOptions {
 /// - Validate format/structure of the ID
 ///
 /// If the token has no `jti` claim, the validator is not called.
-///
-/// ## Parameters
-///
-/// - `options` - The validation options to update.
-/// - `validator` - A function that receives the `jti` value and returns
-///   `True` if valid.
-///
-/// ## Returns
-///
-/// The updated `JwtValidationOptions` with the custom jti validator.
 pub fn with_jti_validator(
   options: JwtValidationOptions,
   validator: fn(String) -> Bool,
@@ -271,15 +261,6 @@ pub fn with_jti_validator(
 /// If set, tokens with an `iat` claim older than `now - max_age_seconds` will
 /// be rejected with `TokenTooOld`. Requires the `iat` claim to be present.
 /// Tokens without `iat` are rejected with `MissingIssuedAt`.
-///
-/// ## Parameters
-///
-/// - `options` - The validation options to update.
-/// - `max_age_seconds` - The maximum allowed token age in seconds.
-///
-/// ## Returns
-///
-/// The updated `JwtValidationOptions` with the max token age set.
 pub fn with_max_token_age(
   options: JwtValidationOptions,
   max_age_seconds: Int,
@@ -337,18 +318,6 @@ fn build_verifier(
 /// - Any algorithm is incompatible with any key type
 /// - Any key's `use` field is set but not `Signing`
 /// - Any key's `key_ops` field is set but doesn't include `Verify`
-///
-/// ## Parameters
-///
-/// - `alg` - The expected JWS algorithm; tokens using a different algorithm are rejected.
-/// - `keys` - One or more keys to try during verification (supports key rotation).
-/// - `options` - Validation options controlling claim checks (expiration, issuer, etc.).
-///
-/// ## Returns
-///
-/// `Ok(Verifier)` ready for use with `verify_and_validate`, or
-/// `Error(JwtError)` if any key is incompatible with the algorithm or has
-/// incorrect usage constraints.
 pub fn verifier(
   alg: jwa.JwsAlg,
   keys keys: List(jwk.Jwk),
@@ -360,10 +329,6 @@ pub fn verifier(
 
 /// Create an empty claims set with no registered or custom claims.
 /// Use the `with_*` functions to populate claims before signing.
-///
-/// ## Returns
-///
-/// An empty `Claims` value with no registered or custom claims set.
 pub fn claims() -> Claims {
   Claims(
     iss: None,
@@ -378,15 +343,6 @@ pub fn claims() -> Claims {
 }
 
 /// Set a single audience (aud) claim.
-///
-/// ## Parameters
-///
-/// - `claims` - The claims set to update.
-/// - `aud` - The audience string.
-///
-/// ## Returns
-///
-/// The `Claims` with the `aud` claim set.
 pub fn with_audience(claims: Claims, aud: String) -> Claims {
   Claims(..claims, aud: Some([aud]))
 }
@@ -394,16 +350,6 @@ pub fn with_audience(claims: Claims, aud: String) -> Claims {
 /// Set multiple audiences (aud) claim.
 ///
 /// Returns an error if the audience list is empty.
-///
-/// ## Parameters
-///
-/// - `claims` - The claims set to update.
-/// - `aud` - The list of audience strings.
-///
-/// ## Returns
-///
-/// `Ok(Claims)` with the audience list set, or `Error(JwtError)` if the
-/// audience list is empty.
 pub fn with_audiences(
   claims: Claims,
   aud: List(String),
@@ -418,17 +364,6 @@ pub fn with_audiences(
 ///
 /// Returns an error if the key is a reserved claim name. Use the dedicated
 /// setters for registered claims (e.g., `with_issuer`, `with_subject`).
-///
-/// ## Parameters
-///
-/// - `claims` - The claims set to add the custom claim to.
-/// - `key` - The claim name (must not be a reserved claim like "iss", "sub", etc.).
-/// - `value` - The JSON value for the claim.
-///
-/// ## Returns
-///
-/// `Ok(Claims)` with the custom claim added, or `Error(JwtError)` if the
-/// key is a reserved claim name.
 pub fn with_claim(
   claims: Claims,
   key: String,
@@ -442,101 +377,39 @@ pub fn with_claim(
 }
 
 /// Set the expiration time (exp) claim.
-///
-/// ## Parameters
-///
-/// - `claims` - The claims set to update.
-/// - `exp` - The expiration timestamp.
-///
-/// ## Returns
-///
-/// The `Claims` with the `exp` claim set.
 pub fn with_expiration(claims: Claims, exp: Timestamp) -> Claims {
   let #(seconds, _) = timestamp.to_unix_seconds_and_nanoseconds(exp)
   Claims(..claims, exp: Some(seconds))
 }
 
 /// Set the issued at time (iat) claim.
-///
-/// ## Parameters
-///
-/// - `claims` - The claims set to update.
-/// - `iat` - The issued-at timestamp.
-///
-/// ## Returns
-///
-/// The `Claims` with the `iat` claim set.
 pub fn with_issued_at(claims: Claims, iat: Timestamp) -> Claims {
   let #(seconds, _) = timestamp.to_unix_seconds_and_nanoseconds(iat)
   Claims(..claims, iat: Some(seconds))
 }
 
 /// Set the issuer (iss) claim.
-///
-/// ## Parameters
-///
-/// - `claims` - The claims set to update.
-/// - `iss` - The issuer string.
-///
-/// ## Returns
-///
-/// The `Claims` with the `iss` claim set.
 pub fn with_issuer(claims: Claims, iss: String) -> Claims {
   Claims(..claims, iss: Some(iss))
 }
 
 /// Set the JWT ID (jti) claim.
-///
-/// ## Parameters
-///
-/// - `claims` - The claims set to update.
-/// - `jti` - The unique token identifier.
-///
-/// ## Returns
-///
-/// The `Claims` with the `jti` claim set.
 pub fn with_jwt_id(claims: Claims, jti: String) -> Claims {
   Claims(..claims, jti: Some(jti))
 }
 
 /// Set the not before time (nbf) claim.
-///
-/// ## Parameters
-///
-/// - `claims` - The claims set to update.
-/// - `nbf` - The not-before timestamp.
-///
-/// ## Returns
-///
-/// The `Claims` with the `nbf` claim set.
 pub fn with_not_before(claims: Claims, nbf: Timestamp) -> Claims {
   let #(seconds, _) = timestamp.to_unix_seconds_and_nanoseconds(nbf)
   Claims(..claims, nbf: Some(seconds))
 }
 
 /// Set the subject (sub) claim.
-///
-/// ## Parameters
-///
-/// - `claims` - The claims set to update.
-/// - `sub` - The subject string.
-///
-/// ## Returns
-///
-/// The `Claims` with the `sub` claim set.
 pub fn with_subject(claims: Claims, sub: String) -> Claims {
   Claims(..claims, sub: Some(sub))
 }
 
 /// Get the algorithm (`alg`) from a JWT.
-///
-/// ## Parameters
-///
-/// - `jwt` - The JWT to read the algorithm from.
-///
-/// ## Returns
-///
-/// The `JwsAlg` used to sign the token.
 pub fn alg(jwt: Jwt(state)) -> jwa.JwsAlg {
   let Jwt(alg:, ..) = jwt
   alg
@@ -547,14 +420,6 @@ pub fn alg(jwt: Jwt(state)) -> jwa.JwsAlg {
 /// **Security Warning:** The `kid` value comes from the token and is untrusted
 /// input. If you use it to look up keys (from a database, filesystem, or key
 /// store), you must sanitize it first to prevent injection attacks.
-///
-/// ## Parameters
-///
-/// - `jwt` - The JWT to read the key ID from.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the key ID, or `Error(Nil)` if no `kid` is set.
 pub fn kid(jwt: Jwt(state)) -> Result(String, Nil) {
   let Jwt(kid:, ..) = jwt
   option.to_result(kid, Nil)
@@ -562,7 +427,8 @@ pub fn kid(jwt: Jwt(state)) -> Result(String, Nil) {
 
 /// Sign a JWT with the provided key.
 ///
-/// Automatically sets `typ: "JWT"` in the header.
+/// Automatically sets `typ: "JWT"` in the header. The token is marked
+/// `Verified` because locally-signed tokens are implicitly trusted.
 ///
 /// ## Example
 ///
@@ -574,19 +440,6 @@ pub fn kid(jwt: Jwt(state)) -> Result(String, Nil) {
 /// let assert Ok(signed) = jwt.sign(jwa.JwsHmac(jwa.HmacSha256), claims, key)
 /// let token = jwt.serialize(signed)
 /// ```
-///
-/// ## Parameters
-///
-/// - `alg` - The JWS algorithm to use for signing.
-/// - `claims` - The claims set to include in the JWT payload.
-/// - `key` - The signing key (must be compatible with the algorithm).
-///
-/// ## Returns
-///
-/// `Ok(Jwt(Verified))` with the signed JWT ready to serialize with
-/// `serialize()`, or `Error(JwtError)` if signing fails due to key
-/// incompatibility or a crypto error. The token is marked `Verified`
-/// because locally-signed tokens are implicitly trusted.
 pub fn sign(
   alg: jwa.JwsAlg,
   claims: Claims,
@@ -641,18 +494,6 @@ fn apply_optional_kid(
 /// - Keys with matching `kid` are tried first (if token has `kid` header)
 /// - `kid_policy` controls kid header enforcement (see `KidPolicy` type)
 /// - With `NoKidRequirement`, all keys are tried with matching keys prioritized
-///
-/// ## Parameters
-///
-/// - `verifier` - A verifier created with `verifier()` that pins the algorithm and keys.
-/// - `token` - The JWT compact-serialized string to verify.
-/// - `now` - The current timestamp, used for time-based claim validation.
-///
-/// ## Returns
-///
-/// `Ok(Jwt(Verified))` with the verified JWT whose claims can be safely
-/// trusted, or `Error(JwtError)` if signature verification or claim
-/// validation fails.
 pub fn verify_and_validate(
   verifier: Verifier,
   token: String,
@@ -790,17 +631,6 @@ fn require_matching_algorithm(
 ///
 /// Still enforces algorithm pinning and `kid_policy` for security.
 /// When multiple keys are configured, keys with matching `kid` are tried first.
-///
-/// ## Parameters
-///
-/// - `verifier` - A verifier created with `verifier()` that pins the algorithm and keys.
-/// - `token` - The JWT compact-serialized string to verify.
-///
-/// ## Returns
-///
-/// `Ok(Jwt(Verified))` with the verified JWT and unchecked claims, or
-/// `Error(JwtError)` if signature verification fails or the algorithm
-/// doesn't match.
 pub fn verify_and_dangerously_skip_validation(
   verifier: Verifier,
   token: String,
@@ -862,14 +692,6 @@ pub fn validate_claims(
 }
 
 /// Serialize a verified JWT to compact format.
-///
-/// ## Parameters
-///
-/// - `jwt` - The verified JWT to serialize.
-///
-/// ## Returns
-///
-/// The JWT in compact format (`header.payload.signature`).
 pub fn serialize(jwt: Jwt(Verified)) -> String {
   jwt.token
 }
@@ -924,16 +746,6 @@ fn claims_to_json(claims: Claims) -> Json {
 /// let assert Ok(issuer) = jwt.dangerously_decode_unverified(parsed, decoder)
 /// // issuer is untrusted - only use for routing/lookup, not authorization
 /// ```
-///
-/// ## Parameters
-///
-/// - `jwt` - An unverified JWT obtained from `parse()`.
-/// - `decoder` - A `gleam/dynamic/decode` decoder for extracting claims from the raw JSON payload.
-///
-/// ## Returns
-///
-/// `Ok(a)` with the decoded value from the unverified claims, or
-/// `Error(JwtError)` if the payload cannot be decoded.
 pub fn dangerously_decode_unverified(
   jwt: Jwt(Unverified),
   decoder: decode.Decoder(a),
@@ -959,17 +771,6 @@ pub fn dangerously_decode_unverified(
 /// }
 /// let assert Ok(user) = jwt.decode(verified_jwt, decoder)
 /// ```
-///
-/// ## Parameters
-///
-/// - `jwt` - A verified JWT obtained from `verify_and_validate` or `sign`.
-/// - `decoder` - A `gleam/dynamic/decode` decoder for extracting claims from the raw JSON payload.
-///
-/// ## Returns
-///
-/// `Ok(a)` with the decoded value from the verified claims, or
-/// `Error(JwtError)` if the claims cannot be decoded with the provided
-/// decoder.
 pub fn decode(
   jwt: Jwt(Verified),
   decoder: decode.Decoder(a),
@@ -983,16 +784,6 @@ pub fn decode(
 ///
 /// Returns an unverified JWT that needs to be verified with
 /// `verify_and_validate` or `verify_and_dangerously_skip_validation`.
-///
-/// ## Parameters
-///
-/// - `token` - The JWT compact-serialized string to parse.
-///
-/// ## Returns
-///
-/// `Ok(Jwt(Unverified))` with the parsed but unverified JWT, or
-/// `Error(JwtError)` if the token is malformed or uses unsupported JWT
-/// features.
 pub fn parse(token: String) -> Result(Jwt(Unverified), JwtError) {
   use signed <- result.try(parse_jws(token))
   use _ <- result.try(require_jwt_compatible_jws(signed))

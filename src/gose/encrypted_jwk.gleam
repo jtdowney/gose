@@ -27,10 +27,10 @@
 //// )
 ////
 //// // Import it back
-//// let decryptor = jwe.key_decryptor(
+//// let assert Ok(decryptor) = jwe.key_decryptor(
 ////   jwa.JweDirect,
 ////   jwa.AesGcm(jwa.Aes256),
-////   wrapping_key,
+////   [wrapping_key],
 //// )
 //// let assert Ok(recovered) = encrypted_jwk.decrypt(decryptor, encrypted)
 //// ```
@@ -78,16 +78,6 @@ import gose/jwk
 /// Works for all algorithms. Create a decryptor with `jwe.key_decryptor`
 /// for key-based algorithms or `jwe.password_decryptor` for PBES2.
 ///
-/// ## Parameters
-///
-/// - `decryptor` - A decryptor created with `jwe.key_decryptor` or `jwe.password_decryptor`.
-/// - `encrypted` - The encrypted JWE in compact format.
-///
-/// ## Returns
-///
-/// `Ok(Jwk)` with the decrypted and parsed key, or `Error(GoseError)` if
-/// decryption or parsing fails.
-///
 /// ## Example
 ///
 /// ```gleam
@@ -123,18 +113,6 @@ pub fn decrypt(
 /// - `JweEcdhEs(_)`: EC or XDH key
 ///
 /// If the encryption key has a `kid`, it is included in the JWE header.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to export.
-/// - `alg` - The JWE key encryption algorithm to use.
-/// - `enc` - The content encryption algorithm to use.
-/// - `encryption_key` - The key used to encrypt the JWK.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the encrypted JWE in compact format, or
-/// `Error(GoseError)` if serialization or encryption fails.
 pub fn encrypt_with_key(
   key: jwk.Jwk,
   alg alg: jwa.JweAlg,
@@ -160,18 +138,6 @@ pub fn encrypt_with_key(
 /// This is the most common method for protecting stored keys with a password.
 /// The JWK is serialized to JSON, then encrypted using the specified PBES2
 /// algorithm and content encryption algorithm.
-///
-/// ## Parameters
-///
-/// - `key` - The JWK to export.
-/// - `alg` - The PBES2 algorithm variant to use.
-/// - `enc` - The content encryption algorithm to use.
-/// - `password` - The password to protect the key with.
-///
-/// ## Returns
-///
-/// `Ok(String)` with the encrypted JWE in compact format, or
-/// `Error(GoseError)` if serialization or encryption fails.
 pub fn encrypt_with_password(
   key: jwk.Jwk,
   alg alg: jwa.Pbes2Alg,
