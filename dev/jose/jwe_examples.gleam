@@ -221,13 +221,9 @@ fn ecdh_es_direct() {
   // Decrypt
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
-    jwe.key_decryptor(
-      gose.EcdhEs(gose.EcdhEsDirect),
-      gose.AesGcm(gose.Aes256),
-      [
-        key,
-      ],
-    )
+    jwe.key_decryptor(gose.EcdhEs(gose.EcdhEsDirect), gose.AesGcm(gose.Aes256), [
+      key,
+    ])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
   let assert Ok(message) = bit_array.to_string(decrypted)
   io.println("Decrypted: " <> message)
@@ -242,10 +238,7 @@ fn ecdh_es_with_key_wrap() {
 
   // Encrypt
   let assert Ok(token) =
-    jwe.new_ecdh_es(
-      gose.EcdhEsAesKw(gose.Aes256),
-      gose.AesGcm(gose.Aes256),
-    )
+    jwe.new_ecdh_es(gose.EcdhEsAesKw(gose.Aes256), gose.AesGcm(gose.Aes256))
     |> jwe.with_apu(<<"Alice":utf8>>)
     |> jwe.with_apv(<<"Bob":utf8>>)
     |> jwe.encrypt(key, plaintext)
@@ -276,10 +269,7 @@ fn password_based_encryption() {
 
   // Encrypt
   let assert Ok(token) =
-    jwe.new_pbes2(
-      gose.Pbes2Sha256Aes128Kw,
-      gose.AesGcm(gose.Aes128),
-    )
+    jwe.new_pbes2(gose.Pbes2Sha256Aes128Kw, gose.AesGcm(gose.Aes128))
     |> jwe.with_p2c(1000)
     |> result.try(jwe.encrypt_with_password(_, password, plaintext))
     |> result.try(jwe.serialize_compact)

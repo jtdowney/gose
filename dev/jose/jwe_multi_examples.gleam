@@ -53,21 +53,17 @@ fn two_aes_kw_recipients() {
   let assert Ok(parsed) = jwe_multi.parse_json(json_str)
 
   let assert Ok(dec) =
-    jwe_multi.decryptor(
-      gose.AesKeyWrap(gose.AesKw, gose.Aes256),
-      enc,
-      keys: [k1],
-    )
+    jwe_multi.decryptor(gose.AesKeyWrap(gose.AesKw, gose.Aes256), enc, keys: [
+      k1,
+    ])
   let assert Ok(pt) = jwe_multi.decrypt(dec, parsed)
   let assert Ok(text) = bit_array.to_string(pt)
   io.println("Recipient 1 decrypted: " <> text)
 
   let assert Ok(dec) =
-    jwe_multi.decryptor(
-      gose.AesKeyWrap(gose.AesKw, gose.Aes128),
-      enc,
-      keys: [k2],
-    )
+    jwe_multi.decryptor(gose.AesKeyWrap(gose.AesKw, gose.Aes128), enc, keys: [
+      k2,
+    ])
   let assert Ok(pt) = jwe_multi.decrypt(dec, parsed)
   let assert Ok(text) = bit_array.to_string(pt)
   io.println("Recipient 2 decrypted: " <> text)
@@ -129,11 +125,9 @@ fn mixed_recipients() {
   let assert Ok(parsed) = jwe_multi.parse_json(json_str)
 
   let assert Ok(dec) =
-    jwe_multi.decryptor(
-      gose.AesKeyWrap(gose.AesKw, gose.Aes256),
-      enc,
-      keys: [aes_key],
-    )
+    jwe_multi.decryptor(gose.AesKeyWrap(gose.AesKw, gose.Aes256), enc, keys: [
+      aes_key,
+    ])
   let assert Ok(pt) = jwe_multi.decrypt(dec, parsed)
   let assert Ok(text) = bit_array.to_string(pt)
   io.println("AES-KW recipient decrypted: " <> text)

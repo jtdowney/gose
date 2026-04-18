@@ -50,10 +50,9 @@ fn two_signers() {
   let assert Ok(parsed) = jws_multi.parse_json(json_str)
 
   let assert Ok(ec_verifier) =
-    jws_multi.verifier(
-      gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
-      keys: [ec_key],
-    )
+    jws_multi.verifier(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)), keys: [
+      ec_key,
+    ])
   let assert Ok(Nil) = jws_multi.verify(ec_verifier, parsed)
   io.println("ES256 signature verified")
 
@@ -78,10 +77,7 @@ fn single_signer_json() {
 
   let assert Ok(body) =
     jws_multi.new(payload:)
-    |> jws_multi.sign(
-      gose.Mac(gose.Hmac(gose.HmacSha256)),
-      key: hmac_key,
-    )
+    |> jws_multi.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), key: hmac_key)
   let message = jws_multi.assemble(body)
 
   let json_str = jws_multi.serialize_json(message) |> json.to_string
@@ -89,10 +85,7 @@ fn single_signer_json() {
 
   let assert Ok(parsed) = jws_multi.parse_json(json_str)
   let assert Ok(verifier) =
-    jws_multi.verifier(
-      gose.Mac(gose.Hmac(gose.HmacSha256)),
-      keys: [hmac_key],
-    )
+    jws_multi.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), keys: [hmac_key])
   let assert Ok(Nil) = jws_multi.verify(verifier, parsed)
   io.println("HMAC signature verified")
   io.println("")

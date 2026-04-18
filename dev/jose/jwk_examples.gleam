@@ -346,10 +346,7 @@ fn encrypted_jwk_export() {
   let plaintext = bit_array.from_string(json.to_string(key_json))
 
   let assert Ok(encrypted) =
-    jwe.new_pbes2(
-      gose.Pbes2Sha256Aes128Kw,
-      gose.AesGcm(gose.Aes256),
-    )
+    jwe.new_pbes2(gose.Pbes2Sha256Aes128Kw, gose.AesGcm(gose.Aes256))
     |> jwe.with_cty("jwk+json")
     |> jwe.with_p2c(1000)
     |> result.try(jwe.encrypt_with_password(_, "my-secure-password", plaintext))

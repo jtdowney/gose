@@ -41,8 +41,7 @@ fn direct_encryption() {
 
   // Decrypt
   let assert Ok(parsed) = encrypt.parse(data)
-  let assert Ok(dec) =
-    encrypt.decryptor(gose.Direct, content_alg, keys: [k])
+  let assert Ok(dec) = encrypt.decryptor(gose.Direct, content_alg, keys: [k])
   let assert Ok(pt) = encrypt.decrypt(dec, parsed)
   let assert Ok(text) = bit_array.to_string(pt)
   io.println("Decrypted: " <> text)
@@ -116,8 +115,7 @@ fn multi_recipient() {
 
   // Encrypt
   let assert Ok(message) = encrypt.new(content_alg)
-  let assert Ok(aes_r) =
-    encrypt.new_aes_kw_recipient(gose.Aes128, key: aes_key)
+  let assert Ok(aes_r) = encrypt.new_aes_kw_recipient(gose.Aes128, key: aes_key)
   let assert Ok(ec_r) =
     encrypt.new_ecdh_es_aes_kw_recipient(gose.Aes128, key: ec_key)
   let message =

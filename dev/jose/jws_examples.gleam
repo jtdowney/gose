@@ -58,9 +58,7 @@ fn rsa_signing() {
 
   // Sign
   let assert Ok(token) =
-    jws.new(
-      gose.DigitalSignature(gose.RsaPkcs1(gose.RsaPkcs1Sha256)),
-    )
+    jws.new(gose.DigitalSignature(gose.RsaPkcs1(gose.RsaPkcs1Sha256)))
     |> jws.with_kid("rsa-key-001")
     |> jws.sign(key, payload)
     |> result.try(jws.serialize_compact)
@@ -72,10 +70,9 @@ fn rsa_signing() {
   let assert Ok(pub_key) = gose.public_key(key)
   let assert Ok(parsed) = jws.parse_compact(token)
   let assert Ok(verifier) =
-    jws.verifier(
-      gose.DigitalSignature(gose.RsaPkcs1(gose.RsaPkcs1Sha256)),
-      [pub_key],
-    )
+    jws.verifier(gose.DigitalSignature(gose.RsaPkcs1(gose.RsaPkcs1Sha256)), [
+      pub_key,
+    ])
   let assert Ok(Nil) = jws.verify(verifier, parsed)
   io.println("Verified with public key")
   io.println("")
@@ -99,12 +96,9 @@ fn ecdsa_signing() {
   // Verify
   let assert Ok(parsed) = jws.parse_compact(token)
   let assert Ok(verifier) =
-    jws.verifier(
-      gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
-      [
-        key,
-      ],
-    )
+    jws.verifier(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)), [
+      key,
+    ])
   let assert Ok(Nil) = jws.verify(verifier, parsed)
   io.println("Signature verified")
   io.println("")

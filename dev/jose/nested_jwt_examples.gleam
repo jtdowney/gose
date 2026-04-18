@@ -58,11 +58,7 @@ fn nested_jwt_symmetric() {
     |> jwt.with_expiration(exp)
 
   let assert Ok(signed_jwt) =
-    jwt.sign(
-      gose.Mac(gose.Hmac(gose.HmacSha256)),
-      claims,
-      signing_key,
-    )
+    jwt.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), claims, signing_key)
   let inner_token = jwt.serialize(signed_jwt)
   io.println("Inner signed JWT created")
 
@@ -161,13 +157,9 @@ fn nested_jwt_asymmetric() {
   // Recipient: decrypt with private key
   let assert Ok(parsed_jwe) = jwe.parse_compact(nested_token)
   let assert Ok(decryptor) =
-    jwe.key_decryptor(
-      gose.EcdhEs(gose.EcdhEsDirect),
-      gose.AesGcm(gose.Aes256),
-      [
-        recipient_encryption_key,
-      ],
-    )
+    jwe.key_decryptor(gose.EcdhEs(gose.EcdhEsDirect), gose.AesGcm(gose.Aes256), [
+      recipient_encryption_key,
+    ])
   let assert Ok(inner_bits) = jwe.decrypt(decryptor, parsed_jwe)
   let assert Ok(decrypted_inner_token) = bit_array.to_string(inner_bits)
 

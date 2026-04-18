@@ -189,11 +189,7 @@ fn key_rotation() {
 
   // Sign
   let assert Ok(signed) =
-    jwt.sign(
-      gose.Mac(gose.Hmac(gose.HmacSha256)),
-      claims,
-      old_key,
-    )
+    jwt.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), claims, old_key)
 
   let token = jwt.serialize(signed)
 
@@ -242,11 +238,7 @@ fn validation_options() {
     )
 
   let assert Ok(verifier) =
-    jwt.verifier(
-      gose.Mac(gose.Hmac(gose.HmacSha256)),
-      [key],
-      options,
-    )
+    jwt.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key], options)
   let assert Ok(verified) = jwt.verify_and_validate(verifier, token, now)
 
   let decoder = {
@@ -554,11 +546,7 @@ fn dangerous_escape_hatches() {
     |> jwt.with_subject("user-42")
     |> jwt.with_expiration(past)
   let assert Ok(signed) =
-    jwt.sign(
-      gose.Mac(gose.Hmac(gose.HmacSha256)),
-      claims:,
-      key: k,
-    )
+    jwt.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), claims:, key: k)
   let token = jwt.serialize(signed)
 
   // Inspect claims BEFORE any verification happens. Never trust these values
