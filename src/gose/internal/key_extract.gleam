@@ -4,9 +4,7 @@
 import gose/key
 import kryptos/rsa
 
-pub fn rsa_private_key(
-  material: key.KeyMaterial,
-) -> Result(rsa.PrivateKey, Nil) {
+pub fn rsa_private_key(material: key.KeyMaterial) -> Result(rsa.PrivateKey, Nil) {
   case material {
     key.Rsa(key.RsaPrivate(key: private, ..)) -> Ok(private)
     _ -> Error(Nil)

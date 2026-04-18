@@ -378,9 +378,7 @@ pub fn new_chacha20_kw(
 /// let assert Ok(encrypted) = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
 ///   |> jwe.encrypt(key, <<"hello":utf8>>)
 /// ```
-pub fn new_direct(
-  enc: algorithm.ContentAlg,
-) -> Jwe(Unencrypted, Direct, Built) {
+pub fn new_direct(enc: algorithm.ContentAlg) -> Jwe(Unencrypted, Direct, Built) {
   Jwe(
     header: JweHeader(
       alg: algorithm.Direct,
@@ -1561,10 +1559,7 @@ fn try_keys(
   }
 }
 
-fn header_to_json(
-  header: JweHeader,
-  alg_fields: ResolvedAlgFields,
-) -> BitArray {
+fn header_to_json(header: JweHeader, alg_fields: ResolvedAlgFields) -> BitArray {
   let alg_field = #(
     "alg",
     json.string(jose_algorithm.key_encryption_alg_to_string(header.alg)),
@@ -2281,9 +2276,7 @@ fn parse_optional_base64(
 /// When unprotected headers are present, includes the `unprotected` and/or `header` fields.
 ///
 /// For multiple recipients, use `gose/jose/jwe_multi`.
-pub fn serialize_json_flattened(
-  jwe: Jwe(Encrypted, family, Built),
-) -> json.Json {
+pub fn serialize_json_flattened(jwe: Jwe(Encrypted, family, Built)) -> json.Json {
   let assert EncryptedJwe(
     protected_b64:,
     encrypted_key:,

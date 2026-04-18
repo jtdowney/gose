@@ -187,9 +187,7 @@ pub fn material_octet_secret(
 }
 
 @internal
-pub fn material_rsa(
-  mat: KeyMaterial,
-) -> Result(RsaKeyMaterial, gose.GoseError) {
+pub fn material_rsa(mat: KeyMaterial) -> Result(RsaKeyMaterial, gose.GoseError) {
   case mat {
     Rsa(rsa) -> Ok(rsa)
     OctetKey(..) | Ec(..) | Eddsa(..) | Xdh(..) ->
@@ -218,9 +216,7 @@ pub fn material_eddsa(
 }
 
 @internal
-pub fn material_xdh(
-  mat: KeyMaterial,
-) -> Result(XdhKeyMaterial, gose.GoseError) {
+pub fn material_xdh(mat: KeyMaterial) -> Result(XdhKeyMaterial, gose.GoseError) {
   case mat {
     Xdh(xdh) -> Ok(xdh)
     OctetKey(..) | Rsa(..) | Ec(..) | Eddsa(..) ->
@@ -266,9 +262,7 @@ fn eddsa_public_key_internal(public: eddsa.PublicKey) -> Key(kid) {
   new_key(Eddsa(EddsaPublic(key: public, curve:)))
 }
 
-fn rsa_private_key_internal(
-  pair: #(rsa.PrivateKey, rsa.PublicKey),
-) -> Key(kid) {
+fn rsa_private_key_internal(pair: #(rsa.PrivateKey, rsa.PublicKey)) -> Key(kid) {
   let #(private, public) = pair
   new_key(Rsa(RsaPrivate(key: private, public:)))
 }

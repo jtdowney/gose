@@ -1065,8 +1065,7 @@ fn thumbprint_json(k: key.Key(kid)) -> Result(String, gose.GoseError) {
         <> "\"}",
       )
     }
-    key.Rsa(key.RsaPrivate(public:, ..))
-    | key.Rsa(key.RsaPublic(key: public)) -> {
+    key.Rsa(key.RsaPrivate(public:, ..)) | key.Rsa(key.RsaPublic(key: public)) -> {
       let e =
         rsa.public_key_exponent_bytes(public)
         |> utils.strip_leading_zeros

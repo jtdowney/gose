@@ -148,9 +148,7 @@ pub fn headers_from_cbor(
 }
 
 @internal
-pub fn headers_to_cbor(
-  headers: List(Header),
-) -> List(#(cbor.Value, cbor.Value)) {
+pub fn headers_to_cbor(headers: List(Header)) -> List(#(cbor.Value, cbor.Value)) {
   list.map(headers, header_to_cbor)
 }
 
