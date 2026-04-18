@@ -4,22 +4,21 @@
 //// ## Example
 ////
 //// ```gleam
-//// import gose/algorithm
+//// import gose
 //// import gose/cose/sign1
-//// import gose/key
 //// import kryptos/ec
 ////
-//// let k = key.generate_ec(ec.P256)
+//// let k = gose.generate_ec(ec.P256)
 //// let payload = <<"hello":utf8>>
 ////
 //// let assert Ok(signed) =
-////   sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+////   sign1.new(gose.Ecdsa(gose.EcdsaP256))
 ////   |> sign1.sign(k, payload)
 ////
 //// let data = sign1.serialize(signed)
 //// let assert Ok(parsed) = sign1.parse(data)
 //// let assert Ok(verifier) =
-////   sign1.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+////   sign1.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
 //// let assert Ok(Nil) = sign1.verify(verifier, parsed)
 //// ```
 ////
@@ -38,14 +37,11 @@ import gleam/list
 import gleam/option.{type Option}
 import gleam/result
 import gose
-import gose/algorithm
 import gose/cbor
 import gose/cose
-import gose/cose/algorithm as cose_algorithm
 import gose/internal/cose_structure
 import gose/internal/key_helpers
 import gose/internal/signing
-import gose/key
 
 /// Phantom type for a COSE_Sign1 message that has not yet been signed.
 pub type Unsigned
@@ -72,12 +68,12 @@ pub opaque type Sign1(state) {
 
 /// Holds an algorithm and set of keys for verifying a COSE_Sign1 message.
 pub opaque type Verifier {
-  Verifier(alg: algorithm.DigitalSignatureAlg, keys: List(key.Key(BitArray)))
+  Verifier(alg: gose.DigitalSignatureAlg, keys: List(gose.Key(BitArray)))
 }
 
 /// Create a new unsigned COSE_Sign1 message with the given signature algorithm in the protected header.
-pub fn new(alg: algorithm.DigitalSignatureAlg) -> Sign1(Unsigned) {
-  let alg_id = cose_algorithm.signature_alg_to_int(alg)
+pub fn new(alg: gose.DigitalSignatureAlg) -> Sign1(Unsigned) {
+  let alg_id = cose.signature_alg_to_int(alg)
   UnsignedSign1(
     protected: [cose.Alg(alg_id)],
     unprotected: [],
@@ -89,7 +85,7 @@ pub fn new(alg: algorithm.DigitalSignatureAlg) -> Sign1(Unsigned) {
 /// Sign the payload with the given key, producing a signed COSE_Sign1 message.
 pub fn sign(
   message: Sign1(Unsigned),
-  key key: key.Key(BitArray),
+  key key: gose.Key(BitArray),
   payload payload: BitArray,
 ) -> Result(Sign1(Signed), gose.GoseError) {
   let assert UnsignedSign1(protected:, unprotected:, detached:, aad:) = message
@@ -167,10 +163,10 @@ pub fn payload(message: Sign1(Signed)) -> Result(BitArray, Nil) {
 
 /// Build a verifier pinned to a single algorithm and one or more keys.
 pub fn verifier(
-  alg: algorithm.DigitalSignatureAlg,
-  keys keys: List(key.Key(BitArray)),
+  alg: gose.DigitalSignatureAlg,
+  keys keys: List(gose.Key(BitArray)),
 ) -> Result(Verifier, gose.GoseError) {
-  let signing_alg = algorithm.DigitalSignature(alg)
+  let signing_alg = gose.DigitalSignature(alg)
   use <- key_helpers.require_non_empty_keys(keys)
   use _ <- result.try(
     list.try_each(keys, key_helpers.validate_key_for_signing_verification(
@@ -196,7 +192,7 @@ pub fn verify_with_aad(
   aad aad: BitArray,
 ) -> Result(Nil, gose.GoseError) {
   let Verifier(alg: expected_alg, keys:) = verifier
-  let expected_signing_alg = algorithm.DigitalSignature(expected_alg)
+  let expected_signing_alg = gose.DigitalSignature(expected_alg)
   let assert SignedSign1(
     protected:,
     protected_serialized:,
@@ -247,7 +243,7 @@ pub fn verify_detached_with_aad(
   aad aad: BitArray,
 ) -> Result(Nil, gose.GoseError) {
   let Verifier(alg: expected_alg, keys:) = verifier
-  let expected_signing_alg = algorithm.DigitalSignature(expected_alg)
+  let expected_signing_alg = gose.DigitalSignature(expected_alg)
   let assert SignedSign1(
     protected:,
     protected_serialized:,

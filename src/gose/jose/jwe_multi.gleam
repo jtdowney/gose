@@ -5,25 +5,24 @@
 ////
 //// ```gleam
 //// import gleam/json
-//// import gose/algorithm
+//// import gose
 //// import gose/jose/jwe_multi
-//// import gose/key
 ////
-//// let k1 = key.generate_aes_kw_key(algorithm.Aes256)
-//// let k2 = key.generate_aes_kw_key(algorithm.Aes128)
+//// let k1 = gose.generate_aes_kw_key(gose.Aes256)
+//// let k2 = gose.generate_aes_kw_key(gose.Aes128)
 //// let plaintext = <<"hello":utf8>>
 ////
-//// let message = jwe_multi.new(algorithm.AesGcm(algorithm.Aes256))
+//// let message = jwe_multi.new(gose.AesGcm(gose.Aes256))
 //// let assert Ok(message) =
 ////   jwe_multi.add_recipient(
 ////     message,
-////     algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes256),
+////     gose.AesKeyWrap(gose.AesKw, gose.Aes256),
 ////     key: k1,
 ////   )
 //// let assert Ok(message) =
 ////   jwe_multi.add_recipient(
 ////     message,
-////     algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes128),
+////     gose.AesKeyWrap(gose.AesKw, gose.Aes128),
 ////     key: k2,
 ////   )
 //// let assert Ok(encrypted) = jwe_multi.encrypt(message, plaintext:)
@@ -32,8 +31,8 @@
 //// let assert Ok(parsed) = jwe_multi.parse_json(json_str)
 //// let assert Ok(dec) =
 ////   jwe_multi.decryptor(
-////     algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes256),
-////     algorithm.AesGcm(algorithm.Aes256),
+////     gose.AesKeyWrap(gose.AesKw, gose.Aes256),
+////     gose.AesGcm(gose.Aes256),
 ////     keys: [k1],
 ////   )
 //// let assert Ok(plaintext) = jwe_multi.decrypt(dec, parsed)
@@ -58,18 +57,16 @@ import gleam/list
 import gleam/option.{type Option}
 import gleam/result
 import gose
-import gose/algorithm
 import gose/internal/content_encryption
 import gose/internal/key_encryption
 import gose/internal/key_helpers
 import gose/internal/utils
-import gose/jose/algorithm as jose_algorithm
-import gose/key
+import gose/jose
 import kryptos/crypto
 import kryptos/hash
 
 type PendingRecipient {
-  PendingRecipient(alg: algorithm.KeyEncryptionAlg, key: key.Key(String))
+  PendingRecipient(alg: gose.KeyEncryptionAlg, key: gose.Key(String))
 }
 
 type EncryptedRecipient {
@@ -100,12 +97,9 @@ type EncryptedRecipient {
 
 /// A multi-recipient JWE message parameterized by encryption state.
 pub opaque type MultiJwe(state) {
-  UnencryptedMultiJwe(
-    enc: algorithm.ContentAlg,
-    recipients: List(PendingRecipient),
-  )
+  UnencryptedMultiJwe(enc: gose.ContentAlg, recipients: List(PendingRecipient))
   EncryptedMultiJwe(
-    enc: algorithm.ContentAlg,
+    enc: gose.ContentAlg,
     protected_b64: String,
     recipients: List(EncryptedRecipient),
     iv: BitArray,
@@ -123,22 +117,22 @@ pub type Encrypted
 /// A decryptor pinned to expected algorithms and keys.
 pub opaque type Decryptor {
   Decryptor(
-    key_alg: algorithm.KeyEncryptionAlg,
-    content_alg: algorithm.ContentAlg,
-    keys: List(key.Key(String)),
+    key_alg: gose.KeyEncryptionAlg,
+    content_alg: gose.ContentAlg,
+    keys: List(gose.Key(String)),
   )
 }
 
 /// Create a new multi-recipient JWE with the given content encryption algorithm.
-pub fn new(enc: algorithm.ContentAlg) -> MultiJwe(Unencrypted) {
+pub fn new(enc: gose.ContentAlg) -> MultiJwe(Unencrypted) {
   UnencryptedMultiJwe(enc:, recipients: [])
 }
 
 /// Add a recipient with the given key encryption algorithm and key.
 pub fn add_recipient(
   message: MultiJwe(Unencrypted),
-  alg: algorithm.KeyEncryptionAlg,
-  key key: key.Key(String),
+  alg: gose.KeyEncryptionAlg,
+  key key: gose.Key(String),
 ) -> Result(MultiJwe(Unencrypted), gose.GoseError) {
   let assert UnencryptedMultiJwe(enc:, recipients:) = message
   use <- reject_direct_algorithms(alg)
@@ -259,9 +253,9 @@ pub fn parse_json(
 
 /// Build a decryptor pinned to expected algorithms and keys.
 pub fn decryptor(
-  key_alg: algorithm.KeyEncryptionAlg,
-  content_alg: algorithm.ContentAlg,
-  keys keys: List(key.Key(String)),
+  key_alg: gose.KeyEncryptionAlg,
+  content_alg: gose.ContentAlg,
+  keys keys: List(gose.Key(String)),
 ) -> Result(Decryptor, gose.GoseError) {
   use <- key_helpers.require_non_empty_keys(keys)
   use _ <- result.try(
@@ -290,7 +284,7 @@ pub fn decrypt(
     actual_enc,
   ))
 
-  let expected_alg_str = jose_algorithm.key_encryption_alg_to_string(key_alg)
+  let expected_alg_str = jose.key_encryption_alg_to_string(key_alg)
   let matching =
     list.filter(recipients, fn(r) { r.alg_str == expected_alg_str })
 
@@ -310,17 +304,17 @@ pub fn decrypt(
 }
 
 fn reject_direct_algorithms(
-  alg: algorithm.KeyEncryptionAlg,
+  alg: gose.KeyEncryptionAlg,
   continue: fn() -> Result(a, gose.GoseError),
 ) -> Result(a, gose.GoseError) {
   let is_direct = case alg {
-    algorithm.Direct | algorithm.EcdhEs(algorithm.EcdhEsDirect) -> True
-    algorithm.AesKeyWrap(..)
-    | algorithm.ChaCha20KeyWrap(_)
-    | algorithm.RsaEncryption(_)
-    | algorithm.EcdhEs(algorithm.EcdhEsAesKw(_))
-    | algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(_))
-    | algorithm.Pbes2(_) -> False
+    gose.Direct | gose.EcdhEs(gose.EcdhEsDirect) -> True
+    gose.AesKeyWrap(..)
+    | gose.ChaCha20KeyWrap(_)
+    | gose.RsaEncryption(_)
+    | gose.EcdhEs(gose.EcdhEsAesKw(_))
+    | gose.EcdhEs(gose.EcdhEsChaCha20Kw(_))
+    | gose.Pbes2(_) -> False
   }
   use <- bool.guard(
     when: is_direct,
@@ -332,16 +326,16 @@ fn reject_direct_algorithms(
 }
 
 fn reject_pbes2_algorithms(
-  alg: algorithm.KeyEncryptionAlg,
+  alg: gose.KeyEncryptionAlg,
   continue: fn() -> Result(a, gose.GoseError),
 ) -> Result(a, gose.GoseError) {
   let is_pbes2 = case alg {
-    algorithm.Pbes2(_) -> True
-    algorithm.Direct
-    | algorithm.AesKeyWrap(..)
-    | algorithm.ChaCha20KeyWrap(_)
-    | algorithm.RsaEncryption(_)
-    | algorithm.EcdhEs(_) -> False
+    gose.Pbes2(_) -> True
+    gose.Direct
+    | gose.AesKeyWrap(..)
+    | gose.ChaCha20KeyWrap(_)
+    | gose.RsaEncryption(_)
+    | gose.EcdhEs(_) -> False
   }
   use <- bool.guard(
     when: is_pbes2,
@@ -352,8 +346,8 @@ fn reject_pbes2_algorithms(
   continue()
 }
 
-fn enc_header_json(enc: algorithm.ContentAlg) -> BitArray {
-  json.object([#("enc", json.string(jose_algorithm.content_alg_to_string(enc)))])
+fn enc_header_json(enc: gose.ContentAlg) -> BitArray {
+  json.object([#("enc", json.string(jose.content_alg_to_string(enc)))])
   |> json.to_string
   |> bit_array.from_string
 }
@@ -362,15 +356,15 @@ fn wrap_cek_for_recipient(
   recipient: PendingRecipient,
   cek: BitArray,
 ) -> Result(EncryptedRecipient, gose.GoseError) {
-  let alg_str = jose_algorithm.key_encryption_alg_to_string(recipient.alg)
+  let alg_str = jose.key_encryption_alg_to_string(recipient.alg)
   case recipient.alg {
-    algorithm.EcdhEs(algorithm.EcdhEsAesKw(size)) ->
+    gose.EcdhEs(gose.EcdhEsAesKw(size)) ->
       wrap_ecdh_es_aes_kw(alg_str, recipient.key, cek, size)
-    algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(variant)) ->
+    gose.EcdhEs(gose.EcdhEsChaCha20Kw(variant)) ->
       wrap_ecdh_es_chacha20_kw(alg_str, recipient.key, cek, variant)
-    algorithm.AesKeyWrap(algorithm.AesGcmKw, size) ->
+    gose.AesKeyWrap(gose.AesGcmKw, size) ->
       wrap_aes_gcm_kw(alg_str, recipient.key, cek, size)
-    algorithm.ChaCha20KeyWrap(variant) ->
+    gose.ChaCha20KeyWrap(variant) ->
       wrap_chacha20_kw(alg_str, recipient.key, cek, variant)
     _ -> {
       use encrypted_key <- result.try(wrap_cek(
@@ -385,9 +379,9 @@ fn wrap_cek_for_recipient(
 
 fn wrap_ecdh_es_aes_kw(
   alg_str: String,
-  key: key.Key(String),
+  key: gose.Key(String),
   cek: BitArray,
-  size: algorithm.AesKeySize,
+  size: gose.AesKeySize,
 ) -> Result(EncryptedRecipient, gose.GoseError) {
   use #(wrapped, epk) <- result.try(key_encryption.wrap_ecdh_es_kw(
     key,
@@ -408,9 +402,9 @@ fn wrap_ecdh_es_aes_kw(
 
 fn wrap_ecdh_es_chacha20_kw(
   alg_str: String,
-  key: key.Key(String),
+  key: gose.Key(String),
   cek: BitArray,
-  variant: algorithm.ChaCha20Kw,
+  variant: gose.ChaCha20Kw,
 ) -> Result(EncryptedRecipient, gose.GoseError) {
   use #(encrypted_cek, epk, kw_iv, kw_tag) <- result.try(
     key_encryption.wrap_ecdh_es_chacha20_kw(
@@ -435,13 +429,13 @@ fn wrap_ecdh_es_chacha20_kw(
 
 fn wrap_aes_gcm_kw(
   alg_str: String,
-  key: key.Key(String),
+  key: gose.Key(String),
   cek: BitArray,
-  size: algorithm.AesKeySize,
+  size: gose.AesKeySize,
 ) -> Result(EncryptedRecipient, gose.GoseError) {
   use kek <- result.try(key_encryption.get_octet_key(
     key,
-    algorithm.aes_key_size(size),
+    gose.aes_key_size(size),
   ))
   let kw_iv = crypto.random_bytes(12)
   use #(encrypted_cek, kw_tag) <- result.try(key_encryption.wrap_aes_gcm(
@@ -460,12 +454,12 @@ fn wrap_aes_gcm_kw(
 
 fn wrap_chacha20_kw(
   alg_str: String,
-  key: key.Key(String),
+  key: gose.Key(String),
   cek: BitArray,
-  variant: algorithm.ChaCha20Kw,
+  variant: gose.ChaCha20Kw,
 ) -> Result(EncryptedRecipient, gose.GoseError) {
   use kek <- result.try(key_encryption.get_octet_key(key, 32))
-  let nonce_size = algorithm.chacha20_kw_nonce_size(variant)
+  let nonce_size = gose.chacha20_kw_nonce_size(variant)
   let kw_iv = crypto.random_bytes(nonce_size)
   use #(encrypted_cek, kw_tag) <- result.try(
     key_encryption.wrap_chacha20_by_variant(kek, cek:, nonce: kw_iv, variant:),
@@ -479,99 +473,96 @@ fn wrap_chacha20_kw(
 }
 
 fn wrap_cek(
-  alg: algorithm.KeyEncryptionAlg,
-  key: key.Key(String),
+  alg: gose.KeyEncryptionAlg,
+  key: gose.Key(String),
   cek: BitArray,
 ) -> Result(BitArray, gose.GoseError) {
   case alg {
-    algorithm.AesKeyWrap(algorithm.AesKw, size) ->
+    gose.AesKeyWrap(gose.AesKw, size) ->
       key_encryption.wrap_aes_kw(key, cek:, size:)
-    algorithm.RsaEncryption(rsa_alg) -> wrap_rsa(rsa_alg, key, cek)
-    algorithm.AesKeyWrap(algorithm.AesGcmKw, _)
-    | algorithm.ChaCha20KeyWrap(_)
-    | algorithm.EcdhEs(_)
-    | algorithm.Direct
-    | algorithm.Pbes2(_) ->
+    gose.RsaEncryption(rsa_alg) -> wrap_rsa(rsa_alg, key, cek)
+    gose.AesKeyWrap(gose.AesGcmKw, _)
+    | gose.ChaCha20KeyWrap(_)
+    | gose.EcdhEs(_)
+    | gose.Direct
+    | gose.Pbes2(_) ->
       Error(gose.InvalidState(
         "unsupported algorithm for multi-recipient JWE: "
-        <> jose_algorithm.key_encryption_alg_to_string(alg),
+        <> jose.key_encryption_alg_to_string(alg),
       ))
   }
 }
 
 fn wrap_rsa(
-  alg: algorithm.RsaEncryptionAlg,
-  key: key.Key(String),
+  alg: gose.RsaEncryptionAlg,
+  key: gose.Key(String),
   cek: BitArray,
 ) -> Result(BitArray, gose.GoseError) {
   case alg {
-    algorithm.RsaPkcs1v15 -> key_encryption.wrap_rsa_pkcs1v15(key, cek)
-    algorithm.RsaOaepSha1 ->
+    gose.RsaPkcs1v15 -> key_encryption.wrap_rsa_pkcs1v15(key, cek)
+    gose.RsaOaepSha1 ->
       key_encryption.wrap_rsa_oaep(key, cek:, hash_alg: hash.Sha1)
-    algorithm.RsaOaepSha256 ->
+    gose.RsaOaepSha256 ->
       key_encryption.wrap_rsa_oaep(key, cek:, hash_alg: hash.Sha256)
   }
 }
 
 fn unwrap_cek(
-  alg: algorithm.KeyEncryptionAlg,
-  key: key.Key(String),
+  alg: gose.KeyEncryptionAlg,
+  key: gose.Key(String),
   recipient: EncryptedRecipient,
-  enc: algorithm.ContentAlg,
+  enc: gose.ContentAlg,
 ) -> Result(BitArray, gose.GoseError) {
   case alg {
-    algorithm.AesKeyWrap(algorithm.AesKw, size) ->
+    gose.AesKeyWrap(gose.AesKw, size) ->
       key_encryption.unwrap_aes_kw(
         key,
         encrypted_key: recipient.encrypted_key,
         size:,
       )
-    algorithm.AesKeyWrap(algorithm.AesGcmKw, size) ->
+    gose.AesKeyWrap(gose.AesGcmKw, size) ->
       unwrap_aes_gcm_kw(key, recipient, size)
-    algorithm.ChaCha20KeyWrap(variant) ->
-      unwrap_chacha20_kw(key, recipient, variant)
-    algorithm.RsaEncryption(algorithm.RsaPkcs1v15) ->
+    gose.ChaCha20KeyWrap(variant) -> unwrap_chacha20_kw(key, recipient, variant)
+    gose.RsaEncryption(gose.RsaPkcs1v15) ->
       key_encryption.unwrap_rsa_pkcs1v15_safe(
         key,
         encrypted_key: recipient.encrypted_key,
         enc:,
       )
-    algorithm.RsaEncryption(algorithm.RsaOaepSha1) ->
+    gose.RsaEncryption(gose.RsaOaepSha1) ->
       key_encryption.unwrap_rsa_oaep(
         key,
         encrypted_key: recipient.encrypted_key,
         hash_alg: hash.Sha1,
       )
-    algorithm.RsaEncryption(algorithm.RsaOaepSha256) ->
+    gose.RsaEncryption(gose.RsaOaepSha256) ->
       key_encryption.unwrap_rsa_oaep(
         key,
         encrypted_key: recipient.encrypted_key,
         hash_alg: hash.Sha256,
       )
-    algorithm.EcdhEs(algorithm.EcdhEsAesKw(size)) ->
+    gose.EcdhEs(gose.EcdhEsAesKw(size)) ->
       unwrap_ecdh_es_aes_kw(key, recipient, size)
-    algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(variant)) ->
+    gose.EcdhEs(gose.EcdhEsChaCha20Kw(variant)) ->
       unwrap_ecdh_es_chacha20_kw(key, recipient, variant)
-    algorithm.Direct
-    | algorithm.EcdhEs(algorithm.EcdhEsDirect)
-    | algorithm.Pbes2(_) ->
+    gose.Direct | gose.EcdhEs(gose.EcdhEsDirect) | gose.Pbes2(_) ->
       Error(gose.InvalidState(
         "unsupported algorithm for multi-recipient JWE decryption: "
-        <> jose_algorithm.key_encryption_alg_to_string(alg),
+        <> jose.key_encryption_alg_to_string(alg),
       ))
   }
 }
 
 fn unwrap_aes_gcm_kw(
-  key: key.Key(String),
+  key: gose.Key(String),
   recipient: EncryptedRecipient,
-  size: algorithm.AesKeySize,
+  size: gose.AesKeySize,
 ) -> Result(BitArray, gose.GoseError) {
   let assert KwWithIvTagRecipient(encrypted_key:, kw_iv:, kw_tag:, ..) =
     recipient
   use kek <- result.try(key_encryption.get_octet_key(
     key,
-    algorithm.aes_key_size(size),
+    gose.aes_key_size(size),
   ))
   key_encryption.unwrap_aes_gcm(
     kek,
@@ -583,9 +574,9 @@ fn unwrap_aes_gcm_kw(
 }
 
 fn unwrap_chacha20_kw(
-  key: key.Key(String),
+  key: gose.Key(String),
   recipient: EncryptedRecipient,
-  variant: algorithm.ChaCha20Kw,
+  variant: gose.ChaCha20Kw,
 ) -> Result(BitArray, gose.GoseError) {
   let assert KwWithIvTagRecipient(encrypted_key:, kw_iv:, kw_tag:, ..) =
     recipient
@@ -600,15 +591,13 @@ fn unwrap_chacha20_kw(
 }
 
 fn unwrap_ecdh_es_aes_kw(
-  key: key.Key(String),
+  key: gose.Key(String),
   recipient: EncryptedRecipient,
-  size: algorithm.AesKeySize,
+  size: gose.AesKeySize,
 ) -> Result(BitArray, gose.GoseError) {
   let assert EcdhEsRecipient(encrypted_key:, epk:, apu:, apv:, ..) = recipient
   let alg_id =
-    jose_algorithm.key_encryption_alg_to_string(
-      algorithm.EcdhEs(algorithm.EcdhEsAesKw(size)),
-    )
+    jose.key_encryption_alg_to_string(gose.EcdhEs(gose.EcdhEsAesKw(size)))
   key_encryption.unwrap_ecdh_es_kw(
     key,
     encrypted_key:,
@@ -621,9 +610,9 @@ fn unwrap_ecdh_es_aes_kw(
 }
 
 fn unwrap_ecdh_es_chacha20_kw(
-  key: key.Key(String),
+  key: gose.Key(String),
   recipient: EncryptedRecipient,
-  variant: algorithm.ChaCha20Kw,
+  variant: gose.ChaCha20Kw,
 ) -> Result(BitArray, gose.GoseError) {
   let assert EcdhEsKwWithIvTagRecipient(
     encrypted_key:,
@@ -635,8 +624,8 @@ fn unwrap_ecdh_es_chacha20_kw(
     ..,
   ) = recipient
   let alg_id =
-    jose_algorithm.key_encryption_alg_to_string(
-      algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(variant)),
+    jose.key_encryption_alg_to_string(
+      gose.EcdhEs(gose.EcdhEsChaCha20Kw(variant)),
     )
   key_encryption.unwrap_ecdh_es_chacha20_kw(
     key,
@@ -750,7 +739,7 @@ fn build_kw_fields(
 
 fn parse_enc_from_protected(
   protected_b64: String,
-) -> Result(algorithm.ContentAlg, gose.GoseError) {
+) -> Result(gose.ContentAlg, gose.GoseError) {
   use protected_bytes <- result.try(utils.decode_base64_url(
     protected_b64,
     name: "protected header",
@@ -763,7 +752,7 @@ fn parse_enc_from_protected(
     json.parse_bits(protected_bytes, decoder)
     |> result.replace_error(gose.ParseError("missing enc in protected header")),
   )
-  jose_algorithm.content_alg_from_string(enc_str)
+  jose.content_alg_from_string(enc_str)
 }
 
 fn parse_raw_recipient(
@@ -921,9 +910,9 @@ fn decode_optional_encrypted_key(
 
 fn try_decrypt_recipients(
   recipients: List(EncryptedRecipient),
-  keys: List(key.Key(String)),
-  key_alg: algorithm.KeyEncryptionAlg,
-  enc: algorithm.ContentAlg,
+  keys: List(gose.Key(String)),
+  key_alg: gose.KeyEncryptionAlg,
+  enc: gose.ContentAlg,
   iv: BitArray,
   aead_aad: BitArray,
   ciphertext: BitArray,
@@ -965,9 +954,9 @@ fn try_decrypt_recipients(
 
 fn try_keys_for_recipient(
   recipient: EncryptedRecipient,
-  keys: List(key.Key(String)),
-  key_alg: algorithm.KeyEncryptionAlg,
-  enc: algorithm.ContentAlg,
+  keys: List(gose.Key(String)),
+  key_alg: gose.KeyEncryptionAlg,
+  enc: gose.ContentAlg,
   iv: BitArray,
   aead_aad: BitArray,
   ciphertext: BitArray,
@@ -987,10 +976,10 @@ fn try_keys_for_recipient(
 }
 
 fn try_keys(
-  keys: List(key.Key(String)),
+  keys: List(gose.Key(String)),
   recipient: EncryptedRecipient,
-  key_alg: algorithm.KeyEncryptionAlg,
-  enc: algorithm.ContentAlg,
+  key_alg: gose.KeyEncryptionAlg,
+  enc: gose.ContentAlg,
   iv: BitArray,
   aead_aad: BitArray,
   ciphertext: BitArray,
@@ -1045,9 +1034,9 @@ fn try_keys(
 
 fn unwrap_and_decrypt(
   recipient: EncryptedRecipient,
-  key: key.Key(String),
-  key_alg: algorithm.KeyEncryptionAlg,
-  enc: algorithm.ContentAlg,
+  key: gose.Key(String),
+  key_alg: gose.KeyEncryptionAlg,
+  enc: gose.ContentAlg,
   iv: BitArray,
   aead_aad: BitArray,
   ciphertext: BitArray,

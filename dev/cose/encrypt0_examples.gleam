@@ -1,9 +1,8 @@
 import gleam/bit_array
 import gleam/io
 import gleam/string
-import gose/algorithm
+import gose
 import gose/cose/encrypt0
-import gose/key
 
 pub fn main() {
   io.println(string.repeat("=", 60))
@@ -25,8 +24,8 @@ pub fn main() {
 fn aes128_gcm() {
   io.println("--- AES-128-GCM ---")
 
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let encryption_key = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let encryption_key = gose.generate_enc_key(alg)
   let plaintext = <<"Hello, COSE encryption!":utf8>>
 
   // Encrypt
@@ -50,8 +49,8 @@ fn aes128_gcm() {
 fn aes256_gcm() {
   io.println("--- AES-256-GCM ---")
 
-  let alg = algorithm.AesGcm(algorithm.Aes256)
-  let encryption_key = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes256)
+  let encryption_key = gose.generate_enc_key(alg)
   let plaintext = <<"AES-256 encrypted message":utf8>>
 
   // Encrypt
@@ -75,8 +74,8 @@ fn aes256_gcm() {
 fn chacha20_poly1305() {
   io.println("--- ChaCha20-Poly1305 ---")
 
-  let alg = algorithm.ChaCha20Poly1305
-  let encryption_key = key.generate_enc_key(alg)
+  let alg = gose.ChaCha20Poly1305
+  let encryption_key = gose.generate_enc_key(alg)
   let plaintext = <<"ChaCha20 encrypted message":utf8>>
 
   // Encrypt
@@ -100,8 +99,8 @@ fn chacha20_poly1305() {
 fn serialize_and_parse() {
   io.println("--- Tagged Serialization Roundtrip ---")
 
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let encryption_key = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let encryption_key = gose.generate_enc_key(alg)
   let plaintext = <<"Tagged serialization test":utf8>>
 
   // Encrypt
@@ -125,8 +124,8 @@ fn serialize_and_parse() {
 fn aad() {
   io.println("--- External AAD ---")
 
-  let alg = algorithm.AesGcm(algorithm.Aes256)
-  let encryption_key = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes256)
+  let encryption_key = gose.generate_enc_key(alg)
   let plaintext = <<"Payload with AAD":utf8>>
   let aad = <<"additional-context":utf8>>
 

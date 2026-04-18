@@ -8,8 +8,8 @@
 //// ```gleam
 //// // Build a key set
 //// let key =
-////   key.generate_ec(ec.P256)
-////   |> key.with_kid("key-1")
+////   gose.generate_ec(ec.P256)
+////   |> gose.with_kid("key-1")
 //// let set =
 ////   key_set.new()
 ////   |> key_set.insert(key)
@@ -30,15 +30,14 @@ import gleam/list
 import gleam/result
 import gose
 import gose/jose/jwk
-import gose/key
 
 /// A JSON Web Key Set containing zero or more JWKs.
 pub opaque type JwkSet {
-  JwkSet(keys: List(key.Key(String)))
+  JwkSet(keys: List(gose.Key(String)))
 }
 
 /// Create a JWK Set from a list of keys.
-pub fn from_list(keys: List(key.Key(String))) -> JwkSet {
+pub fn from_list(keys: List(gose.Key(String))) -> JwkSet {
   JwkSet(keys:)
 }
 
@@ -54,7 +53,7 @@ pub fn to_json(jwk_set: JwkSet) -> json.Json {
 }
 
 /// Get all keys from a JWK Set as a list.
-pub fn to_list(jwk_set: JwkSet) -> List(key.Key(String)) {
+pub fn to_list(jwk_set: JwkSet) -> List(gose.Key(String)) {
   jwk_set.keys
 }
 
@@ -162,7 +161,7 @@ fn parse_keys_lenient(keys_dyn: List(decode.Dynamic)) -> JwkSet {
 
 fn parse_keys_strict(
   keys_dyn: List(decode.Dynamic),
-) -> Result(List(key.Key(String)), gose.GoseError) {
+) -> Result(List(gose.Key(String)), gose.GoseError) {
   list.index_fold(keys_dyn, Ok([]), fn(acc, key_dyn, index) {
     use keys <- result.try(acc)
     case jwk.from_dynamic(key_dyn) {
@@ -179,9 +178,9 @@ fn parse_keys_strict(
 }
 
 /// Find a key by its key ID (kid).
-pub fn get(jwk_set: JwkSet, kid kid: String) -> Result(key.Key(String), Nil) {
+pub fn get(jwk_set: JwkSet, kid kid: String) -> Result(gose.Key(String), Nil) {
   list.find(jwk_set.keys, fn(key) {
-    case key.kid(key) {
+    case gose.kid(key) {
       Ok(k) -> k == kid
       Error(_) -> False
     }
@@ -193,7 +192,7 @@ pub fn get(jwk_set: JwkSet, kid kid: String) -> Result(key.Key(String), Nil) {
 /// Keys are prepended, so if a key with the same `kid` already exists,
 /// the newer key shadows the older one and `get` will return the most
 /// recently inserted key.
-pub fn insert(jwk_set: JwkSet, key key: key.Key(String)) -> JwkSet {
+pub fn insert(jwk_set: JwkSet, key key: gose.Key(String)) -> JwkSet {
   JwkSet(keys: [key, ..jwk_set.keys])
 }
 
@@ -203,7 +202,7 @@ pub fn insert(jwk_set: JwkSet, key key: key.Key(String)) -> JwkSet {
 pub fn delete(jwk_set: JwkSet, kid kid: String) -> JwkSet {
   let filtered =
     list.filter(jwk_set.keys, fn(key) {
-      case key.kid(key) {
+      case gose.kid(key) {
         Ok(k) -> k != kid
         Error(_) -> True
       }
@@ -214,7 +213,7 @@ pub fn delete(jwk_set: JwkSet, kid kid: String) -> JwkSet {
 /// Filter keys by a predicate function.
 pub fn filter(
   jwk_set: JwkSet,
-  keeping predicate: fn(key.Key(String)) -> Bool,
+  keeping predicate: fn(gose.Key(String)) -> Bool,
 ) -> JwkSet {
   JwkSet(keys: list.filter(jwk_set.keys, predicate))
 }
@@ -222,6 +221,6 @@ pub fn filter(
 /// Get the first key in the set.
 ///
 /// Useful for single-key sets or when any key will suffice.
-pub fn first(jwk_set: JwkSet) -> Result(key.Key(String), Nil) {
+pub fn first(jwk_set: JwkSet) -> Result(gose.Key(String), Nil) {
   list.first(jwk_set.keys)
 }

@@ -5,32 +5,31 @@
 ////
 //// ```gleam
 //// import gleam/json
-//// import gose/algorithm
+//// import gose
 //// import gose/jose/jws_multi
-//// import gose/key
 //// import kryptos/ec
 //// import kryptos/eddsa
 ////
 //// let payload = <<"hello":utf8>>
-//// let k1 = key.generate_ec(ec.P256)
-//// let k2 = key.generate_eddsa(eddsa.Ed25519)
+//// let k1 = gose.generate_ec(ec.P256)
+//// let k2 = gose.generate_eddsa(eddsa.Ed25519)
 ////
 //// let assert Ok(body) =
 ////   jws_multi.new(payload:)
 ////   |> jws_multi.sign(
-////     algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
+////     gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
 ////     key: k1,
 ////   )
 //// let assert Ok(body) =
 ////   body
-////   |> jws_multi.sign(algorithm.DigitalSignature(algorithm.Eddsa), key: k2)
+////   |> jws_multi.sign(gose.DigitalSignature(gose.Eddsa), key: k2)
 //// let multi = jws_multi.assemble(body)
 ////
 //// let json_str = jws_multi.serialize_json(multi) |> json.to_string
 //// let assert Ok(parsed) = jws_multi.parse_json(json_str)
 //// let assert Ok(v) =
 ////   jws_multi.verifier(
-////     algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
+////     gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
 ////     keys: [k1],
 ////   )
 //// let assert Ok(Nil) = jws_multi.verify(v, parsed)
@@ -56,12 +55,10 @@ import gleam/list
 import gleam/option
 import gleam/result
 import gose
-import gose/algorithm
 import gose/internal/key_helpers
 import gose/internal/signing
 import gose/internal/utils
-import gose/jose/algorithm as jose_algorithm
-import gose/key
+import gose/jose
 
 /// Phantom state: body under construction, no signatures yet.
 pub type Building
@@ -80,11 +77,7 @@ pub opaque type Body(state) {
 }
 
 type Signature {
-  Signature(
-    alg: algorithm.SigningAlg,
-    protected_b64: String,
-    signature: BitArray,
-  )
+  Signature(alg: gose.SigningAlg, protected_b64: String, signature: BitArray)
 }
 
 /// A multi-signer JWS message (JSON General Serialization).
@@ -99,7 +92,7 @@ pub opaque type MultiJws {
 
 /// A verifier pinned to a single algorithm and one or more keys.
 pub opaque type Verifier {
-  Verifier(alg: algorithm.SigningAlg, keys: List(key.Key(String)))
+  Verifier(alg: gose.SigningAlg, keys: List(gose.Key(String)))
 }
 
 /// Create a new body pinned to the payload all signers will sign.
@@ -125,8 +118,8 @@ pub fn with_detached(body: Body(Building)) -> Body(Building) {
 /// `with_*` mutations at compile time.
 pub fn sign(
   body: Body(state),
-  alg alg: algorithm.SigningAlg,
-  key key: key.Key(String),
+  alg alg: gose.SigningAlg,
+  key key: gose.Key(String),
 ) -> Result(Body(Signed), gose.GoseError) {
   use _ <- result.try(key_helpers.validate_signing_key_type(alg, key))
   use _ <- result.try(key_helpers.validate_key_use(key, key_helpers.ForSigning))
@@ -246,8 +239,8 @@ pub fn parse_json(json_str: String) -> Result(MultiJws, gose.GoseError) {
 
 /// Build a verifier pinned to a single algorithm and one or more keys.
 pub fn verifier(
-  alg: algorithm.SigningAlg,
-  keys keys: List(key.Key(String)),
+  alg: gose.SigningAlg,
+  keys keys: List(gose.Key(String)),
 ) -> Result(Verifier, gose.GoseError) {
   use <- key_helpers.require_non_empty_keys(keys)
   use _ <- result.try(
@@ -315,8 +308,8 @@ fn do_verify(
   }
 }
 
-fn simple_header_json(alg: algorithm.SigningAlg) -> BitArray {
-  json.object([#("alg", json.string(jose_algorithm.signing_alg_to_string(alg)))])
+fn simple_header_json(alg: gose.SigningAlg) -> BitArray {
+  json.object([#("alg", json.string(jose.signing_alg_to_string(alg)))])
   |> json.to_string
   |> bit_array.from_string
 }
@@ -339,7 +332,7 @@ fn parse_raw_signature(
 
 fn parse_alg_from_header(
   header_bytes: BitArray,
-) -> Result(algorithm.SigningAlg, gose.GoseError) {
+) -> Result(gose.SigningAlg, gose.GoseError) {
   let decoder = {
     use alg_str <- decode.field("alg", decode.string)
     decode.success(alg_str)
@@ -348,12 +341,12 @@ fn parse_alg_from_header(
     json.parse_bits(header_bytes, decoder)
     |> result.replace_error(gose.ParseError("missing alg in protected header")),
   )
-  jose_algorithm.signing_alg_from_string(alg_str)
+  jose.signing_alg_from_string(alg_str)
 }
 
 fn do_verify_keys(
-  alg: algorithm.SigningAlg,
-  keys: List(key.Key(String)),
+  alg: gose.SigningAlg,
+  keys: List(gose.Key(String)),
   message: BitArray,
   signature: BitArray,
 ) -> Result(Nil, gose.GoseError) {

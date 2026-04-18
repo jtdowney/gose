@@ -1,11 +1,8 @@
 import gleam/bit_array
 import gose
-import gose/algorithm
 import gose/cbor
 import gose/cose
-import gose/cose/key as cose_key
 import gose/cose/sign1
-import gose/key
 import gose/test_helpers/fixtures
 import gose/test_helpers/generators
 import kryptos/ec
@@ -15,7 +12,7 @@ pub fn serialize_parse_roundtrip_test() {
   let k = fixtures.ec_p256_key()
   let payload = <<"roundtrip test":utf8>>
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.sign(k, payload)
 
   let data = sign1.serialize(signed)
@@ -27,7 +24,7 @@ pub fn serialize_tagged_parse_roundtrip_test() {
   let k = fixtures.ec_p256_key()
   let payload = <<"tagged test":utf8>>
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.sign(k, payload)
 
   let data = sign1.serialize_tagged(signed)
@@ -39,7 +36,7 @@ pub fn serialize_untagged_parse_test() {
   let k = fixtures.ed25519_key()
   let payload = <<"untagged":utf8>>
   let assert Ok(signed) =
-    sign1.new(algorithm.Eddsa)
+    sign1.new(gose.Eddsa)
     |> sign1.sign(k, payload)
 
   let data = sign1.serialize(signed)
@@ -50,7 +47,7 @@ pub fn serialize_untagged_parse_test() {
 pub fn sign_serialize_parse_verify_roundtrip_test() {
   let k = fixtures.ec_p256_key()
   let payload = <<"verify me":utf8>>
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let assert Ok(signed) =
     sign1.new(alg)
@@ -67,7 +64,7 @@ pub fn verify_algorithm_mismatch_test() {
   let payload = <<"mismatch":utf8>>
 
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.sign(k, payload)
 
   let data = sign1.serialize(signed)
@@ -75,7 +72,7 @@ pub fn verify_algorithm_mismatch_test() {
 
   let rsa_key = fixtures.rsa_private_key()
   let assert Ok(v) =
-    sign1.verifier(algorithm.RsaPkcs1(algorithm.RsaPkcs1Sha256), keys: [
+    sign1.verifier(gose.RsaPkcs1(gose.RsaPkcs1Sha256), keys: [
       rsa_key,
     ])
   let assert Error(gose.InvalidState(_)) = sign1.verify(v, parsed)
@@ -83,9 +80,9 @@ pub fn verify_algorithm_mismatch_test() {
 
 pub fn verify_wrong_key_test() {
   let k = fixtures.ec_p256_key()
-  let other_key = key.generate_ec(ec.P256)
+  let other_key = gose.generate_ec(ec.P256)
   let payload = <<"wrong key":utf8>>
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let assert Ok(signed) =
     sign1.new(alg)
@@ -100,7 +97,7 @@ pub fn verify_wrong_key_test() {
 pub fn verify_eddsa_roundtrip_test() {
   let k = fixtures.ed25519_key()
   let payload = <<"eddsa verify":utf8>>
-  let alg = algorithm.Eddsa
+  let alg = gose.Eddsa
 
   let assert Ok(signed) =
     sign1.new(alg)
@@ -116,7 +113,7 @@ pub fn sign_with_aad_test() {
   let k = fixtures.ec_p256_key()
   let payload = <<"aad test":utf8>>
   let aad = <<"extra context":utf8>>
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let assert Ok(signed) =
     sign1.new(alg)
@@ -134,7 +131,7 @@ pub fn wrong_aad_verify_fails_test() {
   let payload = <<"aad test":utf8>>
   let correct_aad = <<"correct context":utf8>>
   let wrong_aad = <<"wrong context":utf8>>
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let assert Ok(signed) =
     sign1.new(alg)
@@ -151,7 +148,7 @@ pub fn wrong_aad_verify_fails_test() {
 pub fn sign_detached_roundtrip_test() {
   let k = fixtures.ec_p256_key()
   let payload = <<"detached payload":utf8>>
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let assert Ok(signed) =
     sign1.new(alg)
@@ -168,7 +165,7 @@ pub fn sign_detached_with_aad_roundtrip_test() {
   let k = fixtures.ec_p256_key()
   let payload = <<"detached payload":utf8>>
   let aad = <<"extra context":utf8>>
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let assert Ok(signed) =
     sign1.new(alg)
@@ -187,7 +184,7 @@ pub fn verify_detached_with_wrong_aad_fails_test() {
   let payload = <<"detached payload":utf8>>
   let correct_aad = <<"correct context":utf8>>
   let wrong_aad = <<"wrong context":utf8>>
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let assert Ok(signed) =
     sign1.new(alg)
@@ -203,7 +200,7 @@ pub fn verify_detached_with_wrong_aad_fails_test() {
 }
 
 pub fn verifier_empty_keys_test() {
-  assert sign1.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [])
+  assert sign1.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [])
     == Error(gose.InvalidState("at least one key required"))
 }
 
@@ -212,9 +209,9 @@ pub fn parse_invalid_cbor_test() {
 }
 
 pub fn verifier_wrong_key_type_test() {
-  let hmac_key = key.generate_hmac_key(algorithm.HmacSha256)
+  let hmac_key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Error(gose.InvalidState(_)) =
-    sign1.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [hmac_key])
+    sign1.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [hmac_key])
 }
 
 pub fn property_sign_verify_roundtrip_test() {
@@ -226,7 +223,7 @@ pub fn property_sign_verify_roundtrip_test() {
     ]),
   )
   let generators.JwsAlgWithKey(alg, k) = alg_with_key
-  let assert algorithm.DigitalSignature(sig_alg) = alg
+  let assert gose.DigitalSignature(sig_alg) = alg
   let payload = <<"property test payload":utf8>>
 
   let assert Ok(signed) =
@@ -246,14 +243,13 @@ pub fn verify_rejects_detached_payload_test() {
   let payload = <<"hello":utf8>>
 
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.sign(k, payload)
 
   let detached = make_detached_sign1(signed)
   let assert Ok(parsed) = sign1.parse(detached)
 
-  let assert Ok(v) =
-    sign1.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+  let assert Ok(v) = sign1.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
   assert sign1.verify(v, parsed)
     == Error(gose.InvalidState(
       "message has detached payload; use verify_detached",
@@ -265,14 +261,13 @@ pub fn verify_detached_succeeds_test() {
   let payload = <<"hello":utf8>>
 
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.sign(k, payload)
 
   let detached = make_detached_sign1(signed)
   let assert Ok(parsed) = sign1.parse(detached)
 
-  let assert Ok(v) =
-    sign1.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+  let assert Ok(v) = sign1.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
   assert sign1.verify_detached(v, parsed, payload) == Ok(Nil)
 }
 
@@ -281,11 +276,10 @@ pub fn verify_detached_rejects_embedded_test() {
   let payload = <<"hello":utf8>>
 
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.sign(k, payload)
 
-  let assert Ok(v) =
-    sign1.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+  let assert Ok(v) = sign1.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
   assert sign1.verify_detached(v, signed, payload)
     == Error(gose.InvalidState("message has embedded payload; use verify"))
 }
@@ -311,7 +305,7 @@ pub fn parse_rejects_overlapping_headers_test() {
 pub fn with_kid_roundtrip_test() {
   let k = fixtures.ec_p256_key()
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.with_kid(<<"key-1":utf8>>)
     |> sign1.sign(k, <<"payload":utf8>>)
   assert sign1.kid(signed) == Ok(<<"key-1":utf8>>)
@@ -320,7 +314,7 @@ pub fn with_kid_roundtrip_test() {
 pub fn kid_survives_serialize_parse_test() {
   let k = fixtures.ec_p256_key()
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.with_kid(<<"key-1":utf8>>)
     |> sign1.sign(k, <<"payload":utf8>>)
   let assert Ok(parsed) = sign1.parse(sign1.serialize(signed))
@@ -330,7 +324,7 @@ pub fn kid_survives_serialize_parse_test() {
 pub fn kid_missing_returns_error_test() {
   let k = fixtures.ec_p256_key()
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.sign(k, <<"payload":utf8>>)
   assert sign1.kid(signed)
     == Error(gose.ParseError("missing header label 4 (kid)"))
@@ -339,7 +333,7 @@ pub fn kid_missing_returns_error_test() {
 pub fn with_content_type_roundtrip_test() {
   let k = fixtures.ec_p256_key()
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.with_content_type(ct: cose.Json)
     |> sign1.sign(k, <<"payload":utf8>>)
   assert sign1.content_type(signed) == Ok(cose.Json)
@@ -348,7 +342,7 @@ pub fn with_content_type_roundtrip_test() {
 pub fn with_critical_roundtrip_test() {
   let k = fixtures.ec_p256_key()
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.with_critical(labels: [42])
     |> sign1.sign(k, <<"payload":utf8>>)
   assert sign1.critical(signed) == Ok([42])
@@ -357,7 +351,7 @@ pub fn with_critical_roundtrip_test() {
 pub fn protected_headers_exposes_alg_test() {
   let k = fixtures.ec_p256_key()
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.sign(k, <<"payload":utf8>>)
   assert cose.algorithm(sign1.protected_headers(signed)) == Ok(-7)
 }
@@ -365,7 +359,7 @@ pub fn protected_headers_exposes_alg_test() {
 pub fn unprotected_headers_exposes_kid_test() {
   let k = fixtures.ec_p256_key()
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.with_kid(<<"k1":utf8>>)
     |> sign1.sign(k, <<"payload":utf8>>)
   assert cose.kid(sign1.unprotected_headers(signed)) == Ok(<<"k1":utf8>>)
@@ -381,7 +375,7 @@ fn make_detached_sign1(signed: sign1.Sign1(sign1.Signed)) -> BitArray {
 pub fn verify_rejects_unsupported_crit_test() {
   let k = fixtures.ec_p256_key()
   let payload = <<"crit test":utf8>>
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let assert Ok(signed) =
     sign1.new(alg)
@@ -414,7 +408,7 @@ pub fn cose_wg_sign_pass_03_test() {
         #(cbor.Int(-4), cbor.Bytes(d)),
       ]),
     )
-  let assert Ok(k) = cose_key.from_cbor(cose_key_cbor)
+  let assert Ok(k) = cose.key_from_cbor(cose_key_cbor)
 
   let assert Ok(cbor_bytes) =
     bit_array.base16_decode(
@@ -425,14 +419,14 @@ pub fn cose_wg_sign_pass_03_test() {
   assert sign1.payload(parsed) == Ok(<<"This is the content.":utf8>>)
 
   let assert Ok(verifier) =
-    sign1.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+    sign1.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
   assert sign1.verify(verifier, message: parsed) == Ok(Nil)
 }
 
 pub fn verifier_multiple_keys_with_kid_test() {
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
-  let key1 = key.generate_ec(ec.P256) |> key.with_kid_bits(<<"key-1":utf8>>)
-  let key2 = key.generate_ec(ec.P256) |> key.with_kid_bits(<<"key-2":utf8>>)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
+  let key1 = gose.generate_ec(ec.P256) |> gose.with_kid_bits(<<"key-1":utf8>>)
+  let key2 = gose.generate_ec(ec.P256) |> gose.with_kid_bits(<<"key-2":utf8>>)
 
   let assert Ok(signed) =
     sign1.new(alg)

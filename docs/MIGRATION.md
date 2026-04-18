@@ -14,19 +14,19 @@ This guide covers JOSE migration. v2 also adds COSE ([RFC 9052](https://www.rfc-
 
 ## Import changes
 
-| v1                          | v2                                                     |
-| --------------------------- | ------------------------------------------------------ |
+| v1                          | v2                                                                                                 |
+| --------------------------- | -------------------------------------------------------------------------------------------------- |
 | `import gose/jwa`           | `import gose/algorithm` (algorithm types) + `import gose/jose/algorithm` (JOSE string conversions) |
-| `import gose/jwk`           | `import gose/key`                                      |
-| (none)                      | `import gose/jose/jwk` (JWK JSON, alg string conversions, thumbprints) |
-| `import gose/jws`           | `import gose/jose/jws`                                 |
-| `import gose/jwe`           | `import gose/jose/jwe`                                 |
-| `import gose/jwt`           | `import gose/jose/jwt`                                 |
-| `import gose/jwk_set`       | `import gose/jose/key_set`                             |
-| `import gose/encrypted_jwk` | `import gose/jose/encrypted_key`                       |
-| `import gose/encrypted_jwt` | `import gose/jose/encrypted_jwt`                       |
-| (none)                      | `import gose/jose/jws_multi` (multi-signature JWS)     |
-| (none)                      | `import gose/jose/jwe_multi` (multi-recipient JWE)     |
+| `import gose/jwk`           | `import gose/key`                                                                                  |
+| (none)                      | `import gose/jose/jwk` (JWK JSON, alg string conversions, thumbprints)                             |
+| `import gose/jws`           | `import gose/jose/jws`                                                                             |
+| `import gose/jwe`           | `import gose/jose/jwe`                                                                             |
+| `import gose/jwt`           | `import gose/jose/jwt`                                                                             |
+| `import gose/jwk_set`       | `import gose/jose/key_set`                                                                         |
+| `import gose/encrypted_jwk` | `import gose/jose/encrypted_key`                                                                   |
+| `import gose/encrypted_jwt` | `import gose/jose/encrypted_jwt`                                                                   |
+| (none)                      | `import gose/jose/jws_multi` (multi-signature JWS)                                                 |
+| (none)                      | `import gose/jose/jwe_multi` (multi-recipient JWE)                                                 |
 
 ## Key management split
 
@@ -328,3 +328,172 @@ case jws.verify(verifier, parsed) {
 - Algorithm pinning behavior
 - Platform support (Erlang, Node.js)
 - Dependencies (`kryptos`, `gleam_json`, `gleam_stdlib`, `gleam_time`)
+
+## Preparing for v3
+
+v2.1 deprecates five modules and v3.0 removes them. Function calls and type annotations that go through the old paths keep working (with a deprecation warning) until v3.0, but **constructor call sites must be rewritten in v2.1**. Gleam type aliases do not re-export constructors, so the shim cannot keep `key.Signing`, `algorithm.Mac(_)`, etc. alive. The rewrites are mechanical; v1 to v2 callers following the instructions above land on v2.1 and can run the passes below in the same sweep.
+
+- `gose/key` to `gose` (key creation, generation, metadata, DER/PEM)
+- `gose/algorithm` to `gose` (algorithm identifier types)
+- `gose/jose/algorithm` to `gose/jose` (JOSE alg/enc string conversions)
+- `gose/cose/key` to `gose/cose` (COSE_Key CBOR serialization)
+- `gose/cose/algorithm` to `gose/cose` (COSE alg/enc integer conversions)
+
+The internal `KeyMaterial` type also had two constructors renamed to free up names for the new public API: `Ec(_)` to `Elliptic(_)` and `Eddsa(_)` to `Edwards(_)`. `KeyMaterial` is `@internal`, so this only matters if you pattern-match on it from outside the package.
+
+### `gose/key` to `gose`
+
+The full key API now lives on the top-level `gose` module:
+
+```gleam
+// v2.0
+import gose/key
+
+let k = key.generate_ec(ec.P256) |> key.with_kid("my-key")
+
+// v2.1 / v3
+import gose
+
+let k = gose.generate_ec(ec.P256) |> gose.with_kid("my-key")
+```
+
+Gleam type aliases re-export the type but not its constructors, so these must be rewritten even if you keep a `key` alias for the function calls:
+
+| v2.0                                                                   | v2.1 / v3                                                                   |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `key.Key(String)`, `key.KeyUse`, `key.KeyOp`, `key.Alg`, `key.KeyType` | `gose.Key(String)`, `gose.KeyUse`, `gose.KeyOp`, `gose.Alg`, `gose.KeyType` |
+| `key.Signing`, `key.Encrypting`                                        | `gose.Signing`, `gose.Encrypting`                                           |
+| `key.Sign`, `key.Verify`, `key.Encrypt`, `key.Decrypt`                 | `gose.Sign`, `gose.Verify`, `gose.Encrypt`, `gose.Decrypt`                  |
+| `key.WrapKey`, `key.UnwrapKey`, `key.DeriveKey`, `key.DeriveBits`      | `gose.WrapKey`, `gose.UnwrapKey`, `gose.DeriveKey`, `gose.DeriveBits`       |
+| `key.SigningAlg(_)`, `key.KeyEncryptionAlg(_)`, `key.ContentAlg(_)`    | `gose.SigningAlg(_)`, `gose.KeyEncryptionAlg(_)`, `gose.ContentAlg(_)`      |
+| `key.OctKeyType`, `key.RsaKeyType`, `key.EcKeyType`, `key.OkpKeyType`  | `gose.OctKeyType`, `gose.RsaKeyType`, `gose.EcKeyType`, `gose.OkpKeyType`   |
+
+End-to-end:
+
+```gleam
+// v2.0
+import gose/key
+import kryptos/ec
+
+fn build_signer(kid: String) -> Result(key.Key(String), gose.GoseError) {
+  key.generate_ec(ec.P256)
+  |> key.with_kid(kid)
+  |> key.with_key_use(key.Signing)
+}
+
+// v2.1 / v3
+import gose
+import kryptos/ec
+
+fn build_signer(kid: String) -> Result(gose.Key(String), gose.GoseError) {
+  gose.generate_ec(ec.P256)
+  |> gose.with_kid(kid)
+  |> gose.with_key_use(gose.Signing)
+}
+```
+
+### `gose/cose/key` to `gose/cose`
+
+The COSE*Key serialization surface folded into `gose/cose`. The functions are renamed with a `key*` prefix to disambiguate them from the message helpers in the same module:
+
+| v2.0                          | v2.1 / v3                     |
+| ----------------------------- | ----------------------------- |
+| `gose/cose/key.Key`           | `gose/cose.Key`               |
+| `gose/cose/key.to_cbor`       | `gose/cose.key_to_cbor`       |
+| `gose/cose/key.from_cbor`     | `gose/cose.key_from_cbor`     |
+| `gose/cose/key.to_cbor_map`   | `gose/cose.key_to_cbor_map`   |
+| `gose/cose/key.from_cbor_map` | `gose/cose.key_from_cbor_map` |
+
+```gleam
+// v2.0
+import gose
+import gose/cose/key
+import kryptos/ec
+
+let k = gose.generate_ec(ec.P256) |> gose.with_kid_bits(<<"my-key":utf8>>)
+let assert Ok(bytes) = key.to_cbor(k)
+let assert Ok(parsed) = key.from_cbor(bytes)
+
+// v2.1 / v3
+import gose
+import gose/cose
+import kryptos/ec
+
+let k = gose.generate_ec(ec.P256) |> gose.with_kid_bits(<<"my-key":utf8>>)
+let assert Ok(bytes) = cose.key_to_cbor(k)
+let assert Ok(parsed) = cose.key_from_cbor(bytes)
+```
+
+Both spellings of `Key` resolve to the same underlying `gose.Key(BitArray)`, so values flow between either form — only type annotations and function call sites change.
+
+### `gose/algorithm` to `gose`
+
+All algorithm identifier types (`AesKeySize`, `HmacAlg`, `EcdsaAlg`, `SigningAlg`, `KeyEncryptionAlg`, `ContentAlg`, etc.) live on the top-level `gose` module:
+
+```gleam
+// v2.0
+import gose/algorithm
+
+let alg = algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256))
+
+// v2.1 / v3
+import gose
+
+let alg = gose.Mac(gose.Hmac(gose.HmacSha256))
+```
+
+As with the key types, Gleam type aliases re-export the type but not its constructors. Every constructor (`gose.Aes128`, `gose.Hmac(_)`, `gose.HmacSha256`, `gose.Ecdsa(_)`, `gose.Mac(_)`, `gose.AesGcm(_)`, etc.) must be re-imported from `gose`.
+
+### `gose/jose/algorithm` to `gose/jose`
+
+The JOSE algorithm string conversions moved to a new `gose/jose` module:
+
+| v2.0                                            | v2.1 / v3                             |
+| ----------------------------------------------- | ------------------------------------- |
+| `jose_algorithm.signing_alg_to_string`          | `jose.signing_alg_to_string`          |
+| `jose_algorithm.signing_alg_from_string`        | `jose.signing_alg_from_string`        |
+| `jose_algorithm.key_encryption_alg_to_string`   | `jose.key_encryption_alg_to_string`   |
+| `jose_algorithm.key_encryption_alg_from_string` | `jose.key_encryption_alg_from_string` |
+| `jose_algorithm.content_alg_to_string`          | `jose.content_alg_to_string`          |
+| `jose_algorithm.content_alg_from_string`        | `jose.content_alg_from_string`        |
+
+```gleam
+// v2.0
+import gose/jose/algorithm as jose_algorithm
+
+let s = jose_algorithm.signing_alg_to_string(alg)
+
+// v2.1 / v3
+import gose/jose
+
+let s = jose.signing_alg_to_string(alg)
+```
+
+### `gose/cose/algorithm` to `gose/cose`
+
+The COSE algorithm integer conversions folded into `gose/cose` alongside the existing header and key serialization helpers. Names are unchanged; only the module path changes:
+
+| v2.0                                         | v2.1 / v3                          |
+| -------------------------------------------- | ---------------------------------- |
+| `cose_algorithm.signature_alg_to_int`        | `cose.signature_alg_to_int`        |
+| `cose_algorithm.signature_alg_from_int`      | `cose.signature_alg_from_int`      |
+| `cose_algorithm.mac_alg_to_int`              | `cose.mac_alg_to_int`              |
+| `cose_algorithm.mac_alg_from_int`            | `cose.mac_alg_from_int`            |
+| `cose_algorithm.signing_alg_to_int`          | `cose.signing_alg_to_int`          |
+| `cose_algorithm.signing_alg_from_int`        | `cose.signing_alg_from_int`        |
+| `cose_algorithm.key_encryption_alg_to_int`   | `cose.key_encryption_alg_to_int`   |
+| `cose_algorithm.key_encryption_alg_from_int` | `cose.key_encryption_alg_from_int` |
+| `cose_algorithm.content_alg_to_int`          | `cose.content_alg_to_int`          |
+| `cose_algorithm.content_alg_from_int`        | `cose.content_alg_from_int`        |
+
+```gleam
+// v2.0
+import gose/cose/algorithm as cose_algorithm
+
+let id = cose_algorithm.signing_alg_to_int(alg)
+
+// v2.1 / v3
+import gose/cose
+
+let id = cose.signing_alg_to_int(alg)
+```

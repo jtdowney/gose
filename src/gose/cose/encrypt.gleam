@@ -4,15 +4,14 @@
 //// ## Example
 ////
 //// ```gleam
-//// import gose/algorithm
+//// import gose
 //// import gose/cose/encrypt
-//// import gose/key
 ////
-//// let k = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes128))
+//// let k = gose.generate_enc_key(gose.AesGcm(gose.Aes128))
 //// let plaintext = <<"hello COSE":utf8>>
 ////
-//// let assert Ok(message) = encrypt.new(algorithm.AesGcm(algorithm.Aes128))
-//// let assert Ok(r) = encrypt.new_aes_kw_recipient(algorithm.Aes128, key: k)
+//// let assert Ok(message) = encrypt.new(gose.AesGcm(gose.Aes128))
+//// let assert Ok(r) = encrypt.new_aes_kw_recipient(gose.Aes128, key: k)
 //// let message = encrypt.add_recipient(message, r)
 //// let assert Ok(encrypted) = encrypt.encrypt(message, plaintext)
 ////
@@ -20,8 +19,8 @@
 //// let assert Ok(parsed) = encrypt.parse(data)
 //// let assert Ok(decryptor) =
 ////   encrypt.decryptor(
-////     algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes128),
-////     algorithm.AesGcm(algorithm.Aes128),
+////     gose.AesKeyWrap(gose.AesKw, gose.Aes128),
+////     gose.AesGcm(gose.Aes128),
 ////     keys: [k],
 ////   )
 //// let assert Ok(decrypted) = encrypt.decrypt(decryptor, parsed)
@@ -33,16 +32,12 @@ import gleam/list
 import gleam/option
 import gleam/result
 import gose
-import gose/algorithm
 import gose/cbor
 import gose/cose
-import gose/cose/algorithm as cose_algorithm
-import gose/cose/key as cose_key
 import gose/internal/content_encryption
 import gose/internal/cose_structure
 import gose/internal/key_encryption
 import gose/internal/key_helpers
-import gose/key
 import kryptos/block
 import kryptos/crypto
 import kryptos/hash
@@ -68,8 +63,8 @@ pub type EcdhEsDirectVariant {
 /// A pending recipient to be added to a COSE_Encrypt message.
 type PendingRecipient {
   PendingRecipient(
-    alg: algorithm.KeyEncryptionAlg,
-    key: key.Key(BitArray),
+    alg: gose.KeyEncryptionAlg,
+    key: gose.Key(BitArray),
     ecdh_es_variant: option.Option(EcdhEsDirectVariant),
     apu: option.Option(BitArray),
     apv: option.Option(BitArray),
@@ -106,7 +101,7 @@ type EncryptedRecipient {
 /// A COSE_Encrypt message parameterized by encryption state.
 pub opaque type Encrypt(state) {
   UnencryptedEncrypt(
-    content_alg: algorithm.ContentAlg,
+    content_alg: gose.ContentAlg,
     protected: List(cose.Header),
     unprotected: List(cose.Header),
     recipients: List(PendingRecipient),
@@ -124,18 +119,16 @@ pub opaque type Encrypt(state) {
 /// A decryptor pinned to expected key encryption and content encryption algorithms.
 pub opaque type Decryptor {
   Decryptor(
-    key_alg: algorithm.KeyEncryptionAlg,
-    content_alg: algorithm.ContentAlg,
-    keys: List(key.Key(BitArray)),
+    key_alg: gose.KeyEncryptionAlg,
+    content_alg: gose.ContentAlg,
+    keys: List(gose.Key(BitArray)),
     ecdh_es_variant: option.Option(EcdhEsDirectVariant),
   )
 }
 
 /// Create a new COSE_Encrypt message with the given content encryption algorithm.
-pub fn new(
-  enc: algorithm.ContentAlg,
-) -> Result(Encrypt(Unencrypted), gose.GoseError) {
-  use alg_id <- result.try(cose_algorithm.content_alg_to_int(enc))
+pub fn new(enc: gose.ContentAlg) -> Result(Encrypt(Unencrypted), gose.GoseError) {
+  use alg_id <- result.try(cose.content_alg_to_int(enc))
   Ok(
     UnencryptedEncrypt(
       content_alg: enc,
@@ -149,30 +142,30 @@ pub fn new(
 
 /// Build a direct-shared-secret recipient.
 pub fn new_direct_recipient(
-  key key: key.Key(BitArray),
+  key key: gose.Key(BitArray),
 ) -> Result(Recipient(Direct), gose.GoseError) {
-  let alg = algorithm.Direct
+  let alg = gose.Direct
   use _ <- result.try(key_helpers.validate_key_for_jwe_encryption(alg, key))
   Ok(new_pending(alg:, key:, ecdh_es_variant: option.None))
 }
 
 /// Build an AES Key Wrap recipient.
 pub fn new_aes_kw_recipient(
-  size: algorithm.AesKeySize,
-  key key: key.Key(BitArray),
+  size: gose.AesKeySize,
+  key key: gose.Key(BitArray),
 ) -> Result(Recipient(AesKw), gose.GoseError) {
-  let alg = algorithm.AesKeyWrap(algorithm.AesKw, size)
+  let alg = gose.AesKeyWrap(gose.AesKw, size)
   use _ <- result.try(key_helpers.validate_key_for_jwe_encryption(alg, key))
   Ok(new_pending(alg:, key:, ecdh_es_variant: option.None))
 }
 
 /// Build an RSA-OAEP recipient.
 pub fn new_rsa_recipient(
-  rsa_alg: algorithm.RsaEncryptionAlg,
-  key key: key.Key(BitArray),
+  rsa_alg: gose.RsaEncryptionAlg,
+  key key: gose.Key(BitArray),
 ) -> Result(Recipient(Rsa), gose.GoseError) {
-  let alg = algorithm.RsaEncryption(rsa_alg)
-  use _ <- result.try(cose_algorithm.key_encryption_alg_to_int(alg))
+  let alg = gose.RsaEncryption(rsa_alg)
+  use _ <- result.try(cose.key_encryption_alg_to_int(alg))
   use _ <- result.try(key_helpers.validate_key_for_jwe_encryption(alg, key))
   Ok(new_pending(alg:, key:, ecdh_es_variant: option.None))
 }
@@ -180,26 +173,26 @@ pub fn new_rsa_recipient(
 /// Build an ECDH-ES direct recipient with a specific HKDF variant.
 pub fn new_ecdh_es_direct_recipient(
   variant: EcdhEsDirectVariant,
-  key key: key.Key(BitArray),
+  key key: gose.Key(BitArray),
 ) -> Result(Recipient(EcdhEs), gose.GoseError) {
-  let alg = algorithm.EcdhEs(algorithm.EcdhEsDirect)
+  let alg = gose.EcdhEs(gose.EcdhEsDirect)
   use _ <- result.try(key_helpers.validate_key_for_jwe_encryption(alg, key))
   Ok(new_pending(alg:, key:, ecdh_es_variant: option.Some(variant)))
 }
 
 /// Build an ECDH-ES + AES-KW recipient.
 pub fn new_ecdh_es_aes_kw_recipient(
-  size: algorithm.AesKeySize,
-  key key: key.Key(BitArray),
+  size: gose.AesKeySize,
+  key key: gose.Key(BitArray),
 ) -> Result(Recipient(EcdhEs), gose.GoseError) {
-  let alg = algorithm.EcdhEs(algorithm.EcdhEsAesKw(size))
+  let alg = gose.EcdhEs(gose.EcdhEsAesKw(size))
   use _ <- result.try(key_helpers.validate_key_for_jwe_encryption(alg, key))
   Ok(new_pending(alg:, key:, ecdh_es_variant: option.None))
 }
 
 fn new_pending(
-  alg alg: algorithm.KeyEncryptionAlg,
-  key key: key.Key(BitArray),
+  alg alg: gose.KeyEncryptionAlg,
+  key key: gose.Key(BitArray),
   ecdh_es_variant ecdh_es_variant: option.Option(EcdhEsDirectVariant),
 ) -> Recipient(family) {
   Recipient(pending: PendingRecipient(
@@ -328,17 +321,17 @@ pub fn encrypt(
 /// For `EcdhEs(EcdhEsDirect)`, use `ecdh_es_direct_decryptor` instead so the
 /// HKDF variant (HKDF-256 or HKDF-512) is chosen explicitly.
 pub fn decryptor(
-  key_alg: algorithm.KeyEncryptionAlg,
-  content_alg: algorithm.ContentAlg,
-  keys keys: List(key.Key(BitArray)),
+  key_alg: gose.KeyEncryptionAlg,
+  content_alg: gose.ContentAlg,
+  keys keys: List(gose.Key(BitArray)),
 ) -> Result(Decryptor, gose.GoseError) {
   use <- bool.guard(
-    when: key_alg == algorithm.EcdhEs(algorithm.EcdhEsDirect),
+    when: key_alg == gose.EcdhEs(gose.EcdhEsDirect),
     return: Error(gose.InvalidState(
       "use ecdh_es_direct_decryptor to choose HKDF variant",
     )),
   )
-  use _ <- result.try(cose_algorithm.key_encryption_alg_to_int(key_alg))
+  use _ <- result.try(cose.key_encryption_alg_to_int(key_alg))
   use <- key_helpers.require_non_empty_keys(keys)
   use _ <- result.try(
     list.try_each(keys, key_helpers.validate_key_for_jwe_decryption(key_alg, _)),
@@ -352,10 +345,10 @@ pub fn decryptor(
 /// encrypted with ECDH-ES+HKDF-512 (COSE algorithm -26).
 pub fn ecdh_es_direct_decryptor(
   variant: EcdhEsDirectVariant,
-  content_alg: algorithm.ContentAlg,
-  keys keys: List(key.Key(BitArray)),
+  content_alg: gose.ContentAlg,
+  keys keys: List(gose.Key(BitArray)),
 ) -> Result(Decryptor, gose.GoseError) {
-  let key_alg = algorithm.EcdhEs(algorithm.EcdhEsDirect)
+  let key_alg = gose.EcdhEs(gose.EcdhEsDirect)
   use <- key_helpers.require_non_empty_keys(keys)
   use _ <- result.try(
     list.try_each(keys, key_helpers.validate_key_for_jwe_decryption(key_alg, _)),
@@ -520,13 +513,13 @@ fn validate_single_recipient_constraint(
   let has_direct =
     list.any(recipients, fn(r) {
       case r.alg {
-        algorithm.Direct | algorithm.EcdhEs(algorithm.EcdhEsDirect) -> True
-        algorithm.AesKeyWrap(..)
-        | algorithm.ChaCha20KeyWrap(_)
-        | algorithm.RsaEncryption(_)
-        | algorithm.EcdhEs(algorithm.EcdhEsAesKw(_))
-        | algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(_))
-        | algorithm.Pbes2(_) -> False
+        gose.Direct | gose.EcdhEs(gose.EcdhEsDirect) -> True
+        gose.AesKeyWrap(..)
+        | gose.ChaCha20KeyWrap(_)
+        | gose.RsaEncryption(_)
+        | gose.EcdhEs(gose.EcdhEsAesKw(_))
+        | gose.EcdhEs(gose.EcdhEsChaCha20Kw(_))
+        | gose.Pbes2(_) -> False
       }
     })
   use <- bool.guard(
@@ -539,18 +532,18 @@ fn validate_single_recipient_constraint(
 }
 
 fn generate_cek_and_wrap_recipients(
-  content_alg: algorithm.ContentAlg,
+  content_alg: gose.ContentAlg,
   recipients: List(PendingRecipient),
 ) -> Result(#(BitArray, List(EncryptedRecipient)), gose.GoseError) {
   case recipients {
-    [PendingRecipient(alg: algorithm.Direct, key:, ..)] -> {
+    [PendingRecipient(alg: gose.Direct, key:, ..)] -> {
       use cek <- result.try(key_encryption.unwrap_direct(key, content_alg))
       use recipient <- result.try(encrypt_direct_recipient())
       Ok(#(cek, [recipient]))
     }
     [
       PendingRecipient(
-        alg: algorithm.EcdhEs(algorithm.EcdhEsDirect),
+        alg: gose.EcdhEs(gose.EcdhEsDirect),
         key:,
         ecdh_es_variant: option.Some(variant),
         apu:,
@@ -568,8 +561,8 @@ fn generate_cek_and_wrap_recipients(
 }
 
 fn encrypt_ecdh_es_direct(
-  key: key.Key(BitArray),
-  content_alg: algorithm.ContentAlg,
+  key: gose.Key(BitArray),
+  content_alg: gose.ContentAlg,
   variant: EcdhEsDirectVariant,
   apu apu: option.Option(BitArray),
   apv apv: option.Option(BitArray),
@@ -577,11 +570,9 @@ fn encrypt_ecdh_es_direct(
   use #(shared_secret, epk) <- result.try(
     key_encryption.compute_ecdh_shared_secret(key),
   )
-  use content_alg_id <- result.try(cose_algorithm.content_alg_to_int(
-    content_alg,
-  ))
+  use content_alg_id <- result.try(cose.content_alg_to_int(content_alg))
   let alg_id = ecdh_variant_to_cose_id(variant)
-  let key_len = algorithm.content_alg_key_size(content_alg)
+  let key_len = gose.content_alg_key_size(content_alg)
   let protected = append_party_headers([cose.Alg(alg_id)], apu:, apv:)
   let recipient_protected = cose_structure.serialize_protected(protected)
   use cek <- result.try(derive_cose_ecdh_key(
@@ -649,11 +640,11 @@ fn wrap_recipient(
   cek: BitArray,
 ) -> Result(EncryptedRecipient, gose.GoseError) {
   case recipient.alg {
-    algorithm.AesKeyWrap(algorithm.AesKw, size) ->
+    gose.AesKeyWrap(gose.AesKw, size) ->
       encrypt_aes_kw_recipient(recipient.key, cek, size)
-    algorithm.RsaEncryption(rsa_alg) ->
+    gose.RsaEncryption(rsa_alg) ->
       encrypt_rsa_oaep_recipient(recipient.key, cek, rsa_alg)
-    algorithm.EcdhEs(algorithm.EcdhEsAesKw(size)) ->
+    gose.EcdhEs(gose.EcdhEsAesKw(size)) ->
       encrypt_ecdh_es_aes_kw_recipient(
         recipient.key,
         cek,
@@ -661,12 +652,12 @@ fn wrap_recipient(
         apu: recipient.apu,
         apv: recipient.apv,
       )
-    algorithm.Direct
-    | algorithm.AesKeyWrap(algorithm.AesGcmKw, _)
-    | algorithm.ChaCha20KeyWrap(_)
-    | algorithm.EcdhEs(algorithm.EcdhEsDirect)
-    | algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(_))
-    | algorithm.Pbes2(_) ->
+    gose.Direct
+    | gose.AesKeyWrap(gose.AesGcmKw, _)
+    | gose.ChaCha20KeyWrap(_)
+    | gose.EcdhEs(gose.EcdhEsDirect)
+    | gose.EcdhEs(gose.EcdhEsChaCha20Kw(_))
+    | gose.Pbes2(_) ->
       Error(gose.InvalidState(
         "unsupported key encryption algorithm for COSE_Encrypt",
       ))
@@ -701,15 +692,12 @@ fn encrypt_direct_recipient() -> Result(EncryptedRecipient, gose.GoseError) {
 }
 
 fn encrypt_aes_kw_recipient(
-  key: key.Key(BitArray),
+  key: gose.Key(BitArray),
   cek: BitArray,
-  size: algorithm.AesKeySize,
+  size: gose.AesKeySize,
 ) -> Result(EncryptedRecipient, gose.GoseError) {
   use alg_id <- result.try(
-    cose_algorithm.key_encryption_alg_to_int(algorithm.AesKeyWrap(
-      algorithm.AesKw,
-      size,
-    )),
+    cose.key_encryption_alg_to_int(gose.AesKeyWrap(gose.AesKw, size)),
   )
   use encrypted_cek <- result.try(key_encryption.wrap_aes_kw(key, cek:, size:))
   Ok(EncryptedRecipient(
@@ -721,12 +709,12 @@ fn encrypt_aes_kw_recipient(
 }
 
 fn encrypt_rsa_oaep_recipient(
-  key: key.Key(BitArray),
+  key: gose.Key(BitArray),
   cek: BitArray,
-  rsa_alg: algorithm.RsaEncryptionAlg,
+  rsa_alg: gose.RsaEncryptionAlg,
 ) -> Result(EncryptedRecipient, gose.GoseError) {
   use alg_id <- result.try(
-    cose_algorithm.key_encryption_alg_to_int(algorithm.RsaEncryption(rsa_alg)),
+    cose.key_encryption_alg_to_int(gose.RsaEncryption(rsa_alg)),
   )
   use hash_alg <- result.try(rsa_hash_for_alg(rsa_alg))
   use encrypted_cek <- result.try(key_encryption.wrap_rsa_oaep(
@@ -743,23 +731,21 @@ fn encrypt_rsa_oaep_recipient(
 }
 
 fn encrypt_ecdh_es_aes_kw_recipient(
-  key: key.Key(BitArray),
+  key: gose.Key(BitArray),
   cek: BitArray,
-  size: algorithm.AesKeySize,
+  size: gose.AesKeySize,
   apu apu: option.Option(BitArray),
   apv apv: option.Option(BitArray),
 ) -> Result(EncryptedRecipient, gose.GoseError) {
   use alg_id <- result.try(
-    cose_algorithm.key_encryption_alg_to_int(
-      algorithm.EcdhEs(algorithm.EcdhEsAesKw(size)),
-    ),
+    cose.key_encryption_alg_to_int(gose.EcdhEs(gose.EcdhEsAesKw(size))),
   )
   use #(shared_secret, epk) <- result.try(
     key_encryption.compute_ecdh_shared_secret(key),
   )
   let protected = append_party_headers([], apu:, apv:)
   let protected_serialized = cose_structure.serialize_protected(protected)
-  let kw_key_len = algorithm.aes_key_size(size)
+  let kw_key_len = gose.aes_key_size(size)
   use kek <- result.try(derive_cose_ecdh_key(
     shared_secret,
     hash_algorithm: hash.Sha256,
@@ -785,17 +771,17 @@ fn encrypt_ecdh_es_aes_kw_recipient(
   ))
 }
 
-fn aes_kw_cose_id(size: algorithm.AesKeySize) -> Int {
+fn aes_kw_cose_id(size: gose.AesKeySize) -> Int {
   case size {
-    algorithm.Aes128 -> -3
-    algorithm.Aes192 -> -4
-    algorithm.Aes256 -> -5
+    gose.Aes128 -> -3
+    gose.Aes192 -> -4
+    gose.Aes256 -> -5
   }
 }
 
 fn recipient_alg(
   recipient: EncryptedRecipient,
-) -> Result(algorithm.KeyEncryptionAlg, gose.GoseError) {
+) -> Result(gose.KeyEncryptionAlg, gose.GoseError) {
   cose_structure.extract_key_encryption_alg_from_headers(recipient.protected)
   |> result.lazy_or(fn() {
     cose_structure.extract_key_encryption_alg_from_headers(
@@ -806,9 +792,9 @@ fn recipient_alg(
 
 fn try_decrypt_recipients(
   recipients: List(EncryptedRecipient),
-  keys: List(key.Key(BitArray)),
-  key_alg: algorithm.KeyEncryptionAlg,
-  content_alg: algorithm.ContentAlg,
+  keys: List(gose.Key(BitArray)),
+  key_alg: gose.KeyEncryptionAlg,
+  content_alg: gose.ContentAlg,
   ecdh_es_variant: option.Option(EcdhEsDirectVariant),
   iv: BitArray,
   enc_structure: BitArray,
@@ -854,9 +840,9 @@ fn try_decrypt_recipients(
 
 fn try_keys_for_recipient(
   recipient: EncryptedRecipient,
-  keys: List(key.Key(BitArray)),
-  key_alg: algorithm.KeyEncryptionAlg,
-  content_alg: algorithm.ContentAlg,
+  keys: List(gose.Key(BitArray)),
+  key_alg: gose.KeyEncryptionAlg,
+  content_alg: gose.ContentAlg,
   ecdh_es_variant: option.Option(EcdhEsDirectVariant),
   iv: BitArray,
   enc_structure: BitArray,
@@ -882,10 +868,10 @@ fn try_keys_for_recipient(
 }
 
 fn try_keys(
-  keys: List(key.Key(BitArray)),
+  keys: List(gose.Key(BitArray)),
   recipient: EncryptedRecipient,
-  key_alg: algorithm.KeyEncryptionAlg,
-  content_alg: algorithm.ContentAlg,
+  key_alg: gose.KeyEncryptionAlg,
+  content_alg: gose.ContentAlg,
   ecdh_es_variant: option.Option(EcdhEsDirectVariant),
   iv: BitArray,
   enc_structure: BitArray,
@@ -931,9 +917,9 @@ fn try_keys(
 
 fn unwrap_and_decrypt(
   recipient: EncryptedRecipient,
-  key: key.Key(BitArray),
-  key_alg: algorithm.KeyEncryptionAlg,
-  content_alg: algorithm.ContentAlg,
+  key: gose.Key(BitArray),
+  key_alg: gose.KeyEncryptionAlg,
+  content_alg: gose.ContentAlg,
   ecdh_es_variant: option.Option(EcdhEsDirectVariant),
   iv: BitArray,
   enc_structure: BitArray,
@@ -959,20 +945,20 @@ fn unwrap_and_decrypt(
 
 fn unwrap_cek(
   recipient: EncryptedRecipient,
-  key: key.Key(BitArray),
-  key_alg: algorithm.KeyEncryptionAlg,
-  content_alg: algorithm.ContentAlg,
+  key: gose.Key(BitArray),
+  key_alg: gose.KeyEncryptionAlg,
+  content_alg: gose.ContentAlg,
   ecdh_es_variant: option.Option(EcdhEsDirectVariant),
 ) -> Result(BitArray, gose.GoseError) {
   case key_alg {
-    algorithm.Direct -> key_encryption.unwrap_direct(key, content_alg)
-    algorithm.AesKeyWrap(algorithm.AesKw, size) ->
+    gose.Direct -> key_encryption.unwrap_direct(key, content_alg)
+    gose.AesKeyWrap(gose.AesKw, size) ->
       key_encryption.unwrap_aes_kw(
         key,
         encrypted_key: recipient.ciphertext,
         size:,
       )
-    algorithm.RsaEncryption(rsa_alg) -> {
+    gose.RsaEncryption(rsa_alg) -> {
       use hash_alg <- result.try(rsa_hash_for_alg(rsa_alg))
       key_encryption.unwrap_rsa_oaep(
         key,
@@ -980,17 +966,17 @@ fn unwrap_cek(
         hash_alg:,
       )
     }
-    algorithm.EcdhEs(algorithm.EcdhEsDirect) -> {
+    gose.EcdhEs(gose.EcdhEsDirect) -> {
       // Safe: Decryptor constructors pair EcdhEsDirect with Some(variant).
       let assert option.Some(variant) = ecdh_es_variant
       unwrap_ecdh_es_direct(recipient, key, content_alg, variant)
     }
-    algorithm.EcdhEs(algorithm.EcdhEsAesKw(size)) ->
+    gose.EcdhEs(gose.EcdhEsAesKw(size)) ->
       unwrap_ecdh_es_aes_kw(recipient, key, size)
-    algorithm.AesKeyWrap(algorithm.AesGcmKw, _)
-    | algorithm.ChaCha20KeyWrap(_)
-    | algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(_))
-    | algorithm.Pbes2(_) ->
+    gose.AesKeyWrap(gose.AesGcmKw, _)
+    | gose.ChaCha20KeyWrap(_)
+    | gose.EcdhEs(gose.EcdhEsChaCha20Kw(_))
+    | gose.Pbes2(_) ->
       Error(gose.InvalidState(
         "unsupported key encryption algorithm for COSE_Encrypt",
       ))
@@ -999,18 +985,16 @@ fn unwrap_cek(
 
 fn unwrap_ecdh_es_direct(
   recipient: EncryptedRecipient,
-  key: key.Key(BitArray),
-  content_alg: algorithm.ContentAlg,
+  key: gose.Key(BitArray),
+  content_alg: gose.ContentAlg,
   variant: EcdhEsDirectVariant,
 ) -> Result(BitArray, gose.GoseError) {
   use epk <- result.try(extract_epk(recipient.unprotected))
   use shared_secret <- result.try(
     key_encryption.compute_ecdh_shared_secret_with_epk(key, epk),
   )
-  use content_alg_id <- result.try(cose_algorithm.content_alg_to_int(
-    content_alg,
-  ))
-  let key_len = algorithm.content_alg_key_size(content_alg)
+  use content_alg_id <- result.try(cose.content_alg_to_int(content_alg))
+  let key_len = gose.content_alg_key_size(content_alg)
   derive_cose_ecdh_key(
     shared_secret,
     hash_algorithm: ecdh_variant_hash_algorithm(variant),
@@ -1024,14 +1008,14 @@ fn unwrap_ecdh_es_direct(
 
 fn unwrap_ecdh_es_aes_kw(
   recipient: EncryptedRecipient,
-  key: key.Key(BitArray),
-  size: algorithm.AesKeySize,
+  key: gose.Key(BitArray),
+  size: gose.AesKeySize,
 ) -> Result(BitArray, gose.GoseError) {
   use epk <- result.try(extract_epk(recipient.unprotected))
   use shared_secret <- result.try(
     key_encryption.compute_ecdh_shared_secret_with_epk(key, epk),
   )
-  let kw_key_len = algorithm.aes_key_size(size)
+  let kw_key_len = gose.aes_key_size(size)
   use kek <- result.try(derive_cose_ecdh_key(
     shared_secret,
     hash_algorithm: hash.Sha256,
@@ -1047,12 +1031,12 @@ fn unwrap_ecdh_es_aes_kw(
 }
 
 fn rsa_hash_for_alg(
-  rsa_alg: algorithm.RsaEncryptionAlg,
+  rsa_alg: gose.RsaEncryptionAlg,
 ) -> Result(hash.HashAlgorithm, gose.GoseError) {
   case rsa_alg {
-    algorithm.RsaOaepSha1 -> Ok(hash.Sha1)
-    algorithm.RsaOaepSha256 -> Ok(hash.Sha256)
-    algorithm.RsaPkcs1v15 ->
+    gose.RsaOaepSha1 -> Ok(hash.Sha1)
+    gose.RsaOaepSha256 -> Ok(hash.Sha256)
+    gose.RsaPkcs1v15 ->
       Error(gose.InvalidState("RSA-PKCS1v15 is not supported in COSE"))
   }
 }
@@ -1176,7 +1160,7 @@ fn validate_no_private_epk(
 fn epk_to_cbor(epk: key_encryption.EphemeralPublicKey) -> cbor.Value {
   case epk {
     key_encryption.EcEphemeralKey(curve:, x:, y:) -> {
-      let crv_id = cose_key.ec_curve_to_cose(curve)
+      let crv_id = cose.ec_curve_to_cose(curve)
       cbor.Map([
         #(cbor.Int(1), cbor.Int(2)),
         #(cbor.Int(-1), cbor.Int(crv_id)),
@@ -1185,7 +1169,7 @@ fn epk_to_cbor(epk: key_encryption.EphemeralPublicKey) -> cbor.Value {
       ])
     }
     key_encryption.XdhEphemeralKey(curve:, x:) -> {
-      let crv_id = cose_key.xdh_curve_to_cose(curve)
+      let crv_id = cose.xdh_curve_to_cose(curve)
       cbor.Map([
         #(cbor.Int(1), cbor.Int(1)),
         #(cbor.Int(-1), cbor.Int(crv_id)),
@@ -1233,7 +1217,7 @@ fn parse_ec_epk(
   pairs: List(#(cbor.Value, cbor.Value)),
 ) -> Result(key_encryption.EphemeralPublicKey, gose.GoseError) {
   use crv_id <- result.try(lookup_int(pairs, -1, "missing EC curve in EPK"))
-  use curve <- result.try(cose_key.ec_curve_from_cose(crv_id))
+  use curve <- result.try(cose.ec_curve_from_cose(crv_id))
   use x <- result.try(lookup_bytes(pairs, -2, "missing EC x in EPK"))
   use y <- result.try(lookup_bytes(pairs, -3, "missing EC y in EPK"))
   Ok(key_encryption.EcEphemeralKey(curve:, x:, y:))
@@ -1243,7 +1227,7 @@ fn parse_okp_epk(
   pairs: List(#(cbor.Value, cbor.Value)),
 ) -> Result(key_encryption.EphemeralPublicKey, gose.GoseError) {
   use crv_id <- result.try(lookup_int(pairs, -1, "missing OKP curve in EPK"))
-  use curve <- result.try(cose_key.xdh_curve_from_cose(crv_id))
+  use curve <- result.try(cose.xdh_curve_from_cose(crv_id))
   use x <- result.try(lookup_bytes(pairs, -2, "missing OKP x in EPK"))
   Ok(key_encryption.XdhEphemeralKey(curve:, x:))
 }

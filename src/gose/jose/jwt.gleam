@@ -16,11 +16,10 @@
 //// import gleam/dynamic/decode
 //// import gleam/time/duration
 //// import gleam/time/timestamp
-//// import gose/algorithm
-//// import gose/key
+//// import gose
 //// import gose/jose/jwt
 ////
-//// let signing_key = key.generate_hmac_key(algorithm.HmacSha256)
+//// let signing_key = gose.generate_hmac_key(gose.HmacSha256)
 //// let now = timestamp.system_time()
 ////
 //// // Create claims and sign
@@ -31,7 +30,7 @@
 ////
 //// let assert Ok(signed) =
 ////   jwt.sign(
-////     algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+////     gose.Mac(gose.Hmac(gose.HmacSha256)),
 ////     claims:,
 ////     key: signing_key,
 ////   )
@@ -40,7 +39,7 @@
 //// // Verify and validate using Verifier (enforces algorithm pinning)
 //// let assert Ok(verifier) =
 ////   jwt.verifier(
-////     algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+////     gose.Mac(gose.Hmac(gose.HmacSha256)),
 ////     keys: [signing_key],
 ////     options: jwt.default_validation(),
 ////   )
@@ -65,10 +64,8 @@ import gleam/option.{type Option}
 import gleam/result
 import gleam/time/timestamp.{type Timestamp}
 import gose
-import gose/algorithm
 import gose/internal/key_helpers
 import gose/jose/jws
-import gose/key
 
 const reserved_claims = ["iss", "sub", "aud", "exp", "nbf", "iat", "jti"]
 
@@ -113,16 +110,13 @@ pub type JwtError {
   /// The `aud` claim does not contain the expected audience.
   AudienceMismatch(expected: String, actual: Option(List(String)))
   /// The token's JWS algorithm does not match the expected algorithm.
-  JwsAlgorithmMismatch(
-    expected: algorithm.SigningAlg,
-    actual: algorithm.SigningAlg,
-  )
+  JwsAlgorithmMismatch(expected: gose.SigningAlg, actual: gose.SigningAlg)
   /// The token's JWE algorithm or encryption does not match expected values.
   JweAlgorithmMismatch(
-    expected_alg: algorithm.KeyEncryptionAlg,
-    expected_enc: algorithm.ContentAlg,
-    actual_alg: algorithm.KeyEncryptionAlg,
-    actual_enc: algorithm.ContentAlg,
+    expected_alg: gose.KeyEncryptionAlg,
+    expected_enc: gose.ContentAlg,
+    actual_alg: gose.KeyEncryptionAlg,
+    actual_enc: gose.ContentAlg,
   )
   /// A `kid` header is required for key lookup but absent from the token.
   MissingKid
@@ -174,7 +168,7 @@ pub opaque type Claims {
 /// A JSON Web Token with phantom type for state tracking.
 pub opaque type Jwt(state) {
   Jwt(
-    alg: algorithm.SigningAlg,
+    alg: gose.SigningAlg,
     kid: Option(String),
     claims: Claims,
     claims_json: BitArray,
@@ -229,8 +223,8 @@ pub type JwtValidationOptions {
 /// - Each key's `key_ops` field (if set) includes `Verify`
 pub opaque type Verifier {
   Verifier(
-    alg: algorithm.SigningAlg,
-    keys: List(key.Key(String)),
+    alg: gose.SigningAlg,
+    keys: List(gose.Key(String)),
     options: JwtValidationOptions,
   )
 }
@@ -292,8 +286,8 @@ pub fn with_max_token_age(
 }
 
 fn build_verifier(
-  alg: algorithm.SigningAlg,
-  keys: List(key.Key(String)),
+  alg: gose.SigningAlg,
+  keys: List(gose.Key(String)),
   options: JwtValidationOptions,
 ) -> Result(Verifier, gose.GoseError) {
   use <- key_helpers.require_non_empty_keys(keys)
@@ -316,12 +310,12 @@ fn build_verifier(
 ///
 /// ```gleam
 /// let assert Ok(rs_verifier) = jwt.verifier(
-///   algorithm.DigitalSignature(algorithm.RsaPkcs1(algorithm.RsaPkcs1Sha256)),
+///   gose.DigitalSignature(gose.RsaPkcs1(gose.RsaPkcs1Sha256)),
 ///   keys: rsa_keys,
 ///   options: jwt.default_validation(),
 /// )
 /// let assert Ok(ec_verifier) = jwt.verifier(
-///   algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
+///   gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
 ///   keys: ec_keys,
 ///   options: jwt.default_validation(),
 /// )
@@ -345,8 +339,8 @@ fn build_verifier(
 /// - Any key's `use` field is set but not `Signing`
 /// - Any key's `key_ops` field is set but doesn't include `Verify`
 pub fn verifier(
-  alg: algorithm.SigningAlg,
-  keys keys: List(key.Key(String)),
+  alg: gose.SigningAlg,
+  keys keys: List(gose.Key(String)),
   options options: JwtValidationOptions,
 ) -> Result(Verifier, JwtError) {
   build_verifier(alg, keys, options)
@@ -436,7 +430,7 @@ pub fn with_subject(claims: Claims, sub: String) -> Claims {
 }
 
 /// Get the algorithm (`alg`) from a JWT.
-pub fn alg(jwt: Jwt(state)) -> algorithm.SigningAlg {
+pub fn alg(jwt: Jwt(state)) -> gose.SigningAlg {
   let Jwt(alg:, ..) = jwt
   alg
 }
@@ -463,15 +457,15 @@ pub fn kid(jwt: Jwt(state)) -> Result(String, Nil) {
 ///   |> jwt.with_subject("user123")
 ///   |> jwt.with_expiration(exp)
 ///
-/// let assert Ok(signed) = jwt.sign(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), claims, key)
+/// let assert Ok(signed) = jwt.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), claims, key)
 /// let token = jwt.serialize(signed)
 /// ```
 pub fn sign(
-  alg: algorithm.SigningAlg,
+  alg: gose.SigningAlg,
   claims claims: Claims,
-  key key: key.Key(String),
+  key key: gose.Key(String),
 ) -> Result(Jwt(Verified), JwtError) {
-  let kid = option.from_result(key.kid(key))
+  let kid = option.from_result(gose.kid(key))
   let payload = claims_to_json(claims)
   let payload_bits =
     json.to_string(payload)
@@ -488,9 +482,9 @@ pub fn sign(
 
 fn do_sign(
   unsigned: jws.Jws(jws.Unsigned, jws.Built),
-  key: key.Key(String),
+  key: gose.Key(String),
   claims_json: BitArray,
-  alg: algorithm.SigningAlg,
+  alg: gose.SigningAlg,
   kid: Option(String),
   claims: Claims,
 ) -> Result(Jwt(Verified), gose.GoseError) {
@@ -602,17 +596,17 @@ fn has_unprotected_alg(signed_jws: jws.Jws(jws.Signed, jws.Parsed)) -> Bool {
 /// header and the configured `KidPolicy`.
 @internal
 pub fn select_keys_by_policy(
-  keys: List(key.Key(String)),
+  keys: List(gose.Key(String)),
   token_kid: Option(String),
   kid_policy: KidPolicy,
-) -> Result(List(key.Key(String)), JwtError) {
+) -> Result(List(gose.Key(String)), JwtError) {
   case token_kid, kid_policy {
     option.None, NoKidRequirement -> Ok(keys)
     option.None, RequireKid -> Error(MissingKid)
     option.None, RequireKidMatch -> Error(MissingKid)
 
     option.Some(target), RequireKidMatch -> {
-      let matching = list.filter(keys, fn(key) { key.kid(key) == Ok(target) })
+      let matching = list.filter(keys, fn(key) { gose.kid(key) == Ok(target) })
       case matching {
         [] -> Error(UnknownKid(target))
         _ -> Ok(matching)
@@ -627,8 +621,8 @@ pub fn select_keys_by_policy(
 
 fn try_verify_with_keys(
   signed_jws: jws.Jws(jws.Signed, jws.Parsed),
-  expected_alg: algorithm.SigningAlg,
-  keys: List(key.Key(String)),
+  expected_alg: gose.SigningAlg,
+  keys: List(gose.Key(String)),
 ) -> Result(Nil, JwtError) {
   use verifier <- result.try(
     jws.verifier(expected_alg, keys:)
@@ -644,8 +638,8 @@ fn try_verify_with_keys(
 }
 
 fn require_matching_algorithm(
-  expected: algorithm.SigningAlg,
-  actual: algorithm.SigningAlg,
+  expected: gose.SigningAlg,
+  actual: gose.SigningAlg,
 ) -> Result(Nil, JwtError) {
   case expected == actual {
     True -> Ok(Nil)

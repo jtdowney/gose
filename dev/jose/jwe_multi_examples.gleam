@@ -2,9 +2,8 @@ import gleam/bit_array
 import gleam/io
 import gleam/json
 import gleam/string
-import gose/algorithm
+import gose
 import gose/jose/jwe_multi
-import gose/key
 import kryptos/ec
 import kryptos/xdh
 
@@ -26,9 +25,9 @@ pub fn main() {
 fn two_aes_kw_recipients() {
   io.println("--- Two AES Key Wrap Recipients ---")
 
-  let k1 = key.generate_aes_kw_key(algorithm.Aes256)
-  let k2 = key.generate_aes_kw_key(algorithm.Aes128)
-  let enc = algorithm.AesGcm(algorithm.Aes256)
+  let k1 = gose.generate_aes_kw_key(gose.Aes256)
+  let k2 = gose.generate_aes_kw_key(gose.Aes128)
+  let enc = gose.AesGcm(gose.Aes256)
   let plaintext = <<"shared secret for two recipients":utf8>>
 
   // Encrypt
@@ -36,13 +35,13 @@ fn two_aes_kw_recipients() {
   let assert Ok(message) =
     jwe_multi.add_recipient(
       message,
-      algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes256),
+      gose.AesKeyWrap(gose.AesKw, gose.Aes256),
       key: k1,
     )
   let assert Ok(message) =
     jwe_multi.add_recipient(
       message,
-      algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes128),
+      gose.AesKeyWrap(gose.AesKw, gose.Aes128),
       key: k2,
     )
   let assert Ok(encrypted) = jwe_multi.encrypt(message, plaintext:)
@@ -55,7 +54,7 @@ fn two_aes_kw_recipients() {
 
   let assert Ok(dec) =
     jwe_multi.decryptor(
-      algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes256),
+      gose.AesKeyWrap(gose.AesKw, gose.Aes256),
       enc,
       keys: [k1],
     )
@@ -65,7 +64,7 @@ fn two_aes_kw_recipients() {
 
   let assert Ok(dec) =
     jwe_multi.decryptor(
-      algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes128),
+      gose.AesKeyWrap(gose.AesKw, gose.Aes128),
       enc,
       keys: [k2],
     )
@@ -78,9 +77,9 @@ fn two_aes_kw_recipients() {
 fn ecdh_es_aes_kw_recipient() {
   io.println("--- ECDH-ES+A256KW Recipient (P-256) ---")
 
-  let ec_key = key.generate_ec(ec.P256)
-  let enc = algorithm.AesGcm(algorithm.Aes256)
-  let alg = algorithm.EcdhEs(algorithm.EcdhEsAesKw(algorithm.Aes256))
+  let ec_key = gose.generate_ec(ec.P256)
+  let enc = gose.AesGcm(gose.Aes256)
+  let alg = gose.EcdhEs(gose.EcdhEsAesKw(gose.Aes256))
   let plaintext = <<"ecdh-es key agreement with AES key wrap":utf8>>
 
   // Encrypt
@@ -103,9 +102,9 @@ fn ecdh_es_aes_kw_recipient() {
 fn mixed_recipients() {
   io.println("--- Mixed Recipients (AES-KW + ECDH-ES+C20PKW) ---")
 
-  let aes_key = key.generate_aes_kw_key(algorithm.Aes256)
-  let xdh_key = key.generate_xdh(xdh.X25519)
-  let enc = algorithm.AesGcm(algorithm.Aes256)
+  let aes_key = gose.generate_aes_kw_key(gose.Aes256)
+  let xdh_key = gose.generate_xdh(xdh.X25519)
+  let enc = gose.AesGcm(gose.Aes256)
   let plaintext = <<"mixed algorithm recipients":utf8>>
 
   // Encrypt
@@ -113,13 +112,13 @@ fn mixed_recipients() {
   let assert Ok(message) =
     jwe_multi.add_recipient(
       message,
-      algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes256),
+      gose.AesKeyWrap(gose.AesKw, gose.Aes256),
       key: aes_key,
     )
   let assert Ok(message) =
     jwe_multi.add_recipient(
       message,
-      algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(algorithm.C20PKw)),
+      gose.EcdhEs(gose.EcdhEsChaCha20Kw(gose.C20PKw)),
       key: xdh_key,
     )
   let assert Ok(encrypted) = jwe_multi.encrypt(message, plaintext:)
@@ -131,7 +130,7 @@ fn mixed_recipients() {
 
   let assert Ok(dec) =
     jwe_multi.decryptor(
-      algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes256),
+      gose.AesKeyWrap(gose.AesKw, gose.Aes256),
       enc,
       keys: [aes_key],
     )
@@ -141,7 +140,7 @@ fn mixed_recipients() {
 
   let assert Ok(dec) =
     jwe_multi.decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(algorithm.C20PKw)),
+      gose.EcdhEs(gose.EcdhEsChaCha20Kw(gose.C20PKw)),
       enc,
       keys: [xdh_key],
     )

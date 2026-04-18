@@ -7,10 +7,8 @@ import gleam/list
 import gleam/result
 import gleam/string
 import gose
-import gose/algorithm
 import gose/jose/jwk
 import gose/jose/jws
-import gose/key
 import gose/test_helpers/fixtures
 import gose/test_helpers/generators
 import gose/test_helpers/jwt_helpers
@@ -84,7 +82,7 @@ pub fn sign_verify_with_public_key_test() {
   let assert Ok(signed) =
     jws.new(alg)
     |> jws.sign(key, payload)
-  let assert Ok(public_key) = key.public_key(key)
+  let assert Ok(public_key) = gose.public_key(key)
   let assert Ok(verifier) = jws.verifier(alg, [public_key])
   assert jws.verify(verifier, signed) == Ok(Nil)
 }
@@ -163,9 +161,9 @@ pub fn json_general_roundtrip_test() {
 
 pub fn header_kid_roundtrip_test() {
   use kid <- qcheck.given(qcheck.non_empty_string())
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_kid(kid)
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
@@ -176,9 +174,9 @@ pub fn header_kid_roundtrip_test() {
 
 pub fn header_typ_roundtrip_test() {
   use typ <- qcheck.given(qcheck.non_empty_string())
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_typ(typ)
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
@@ -189,9 +187,9 @@ pub fn header_typ_roundtrip_test() {
 
 pub fn header_cty_roundtrip_test() {
   use cty <- qcheck.given(qcheck.non_empty_string())
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_cty(cty)
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
@@ -205,21 +203,21 @@ pub fn wrong_key_fails_verification_test() {
     qcheck.default_config() |> qcheck.with_test_count(25),
     qcheck.non_empty_byte_aligned_bit_array(),
   )
-  let key1 = key.generate_hmac_key(algorithm.HmacSha256)
-  let key2 = key.generate_hmac_key(algorithm.HmacSha256)
+  let key1 = gose.generate_hmac_key(gose.HmacSha256)
+  let key2 = gose.generate_hmac_key(gose.HmacSha256)
 
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key1, payload)
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key2])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key2])
   assert jws.verify(verifier, signed) == Error(gose.VerificationFailed)
 }
 
 pub fn jws_hs256_compact_snapshot_test() {
   let key = jwt_helpers.hmac_key()
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key, <<"hello world":utf8>>)
   let assert Ok(token) = jws.serialize_compact(signed)
   token |> birdie.snap("JWS HS256 compact serialization")
@@ -228,7 +226,7 @@ pub fn jws_hs256_compact_snapshot_test() {
 pub fn jws_hs256_json_flattened_snapshot_test() {
   let key = jwt_helpers.hmac_key()
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key, <<"hello world":utf8>>)
   jws.serialize_json_flattened(signed)
   |> json.to_string
@@ -238,7 +236,7 @@ pub fn jws_hs256_json_flattened_snapshot_test() {
 pub fn jws_hs256_json_general_snapshot_test() {
   let key = jwt_helpers.hmac_key()
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key, <<"hello world":utf8>>)
   jws.serialize_json_general(signed)
   |> json.to_string
@@ -248,7 +246,7 @@ pub fn jws_hs256_json_general_snapshot_test() {
 pub fn jws_hs256_with_headers_snapshot_test() {
   let key = jwt_helpers.hmac_key()
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_kid("my-key-id")
     |> jws.with_typ("JWT")
 
@@ -260,7 +258,7 @@ pub fn jws_hs256_with_headers_snapshot_test() {
 pub fn jws_ed25519_compact_snapshot_test() {
   let key = fixtures.ed25519_key()
   let assert Ok(signed) =
-    jws.new(algorithm.DigitalSignature(algorithm.Eddsa))
+    jws.new(gose.DigitalSignature(gose.Eddsa))
     |> jws.sign(key, <<"hello world":utf8>>)
   let assert Ok(token) = jws.serialize_compact(signed)
   token |> birdie.snap("JWS EdDSA Ed25519 compact serialization")
@@ -269,7 +267,7 @@ pub fn jws_ed25519_compact_snapshot_test() {
 pub fn jws_ed448_compact_snapshot_test() {
   let key = fixtures.ed448_key()
   let assert Ok(signed) =
-    jws.new(algorithm.DigitalSignature(algorithm.Eddsa))
+    jws.new(gose.DigitalSignature(gose.Eddsa))
     |> jws.sign(key, <<"hello world":utf8>>)
   let assert Ok(token) = jws.serialize_compact(signed)
   token |> birdie.snap("JWS EdDSA Ed448 compact serialization")
@@ -278,7 +276,7 @@ pub fn jws_ed448_compact_snapshot_test() {
 pub fn jws_detached_payload_compact_snapshot_test() {
   let key = jwt_helpers.hmac_key()
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_detached
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"detached content":utf8>>)
@@ -289,7 +287,7 @@ pub fn jws_detached_payload_compact_snapshot_test() {
 pub fn jws_detached_payload_json_snapshot_test() {
   let key = jwt_helpers.hmac_key()
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_detached
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"detached content":utf8>>)
@@ -303,7 +301,7 @@ pub fn jws_es256_rejects_wrong_curve_test() {
   let payload = <<"wrong curve":utf8>>
 
   let assert Error(gose.InvalidState(_)) =
-    jws.new(algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)))
+    jws.new(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)))
     |> jws.sign(key, payload)
 }
 
@@ -314,9 +312,9 @@ pub fn jws_invalid_token_format_test() {
 }
 
 pub fn parse_compact_empty_payload_is_detached_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_detached
     |> jws.sign(key, <<"test":utf8>>)
   let assert Ok(token) = jws.serialize_compact(signed)
@@ -331,8 +329,8 @@ pub fn jws_invalid_base64_test() {
 }
 
 pub fn has_unencoded_payload_false_for_standard_jws_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
-  let unsigned = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+  let key = gose.generate_hmac_key(gose.HmacSha256)
+  let unsigned = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
   assert !jws.has_unencoded_payload(unsigned)
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
@@ -344,30 +342,28 @@ pub fn has_unencoded_payload_false_for_standard_jws_test() {
 pub fn jws_rejects_wrong_key_type_for_hmac_test() {
   let key = fixtures.rsa_private_key()
   let assert Error(gose.InvalidState(_)) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key, <<"test":utf8>>)
 }
 
 pub fn jws_rejects_wrong_key_type_for_rsa_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Error(gose.InvalidState(_)) =
-    jws.new(
-      algorithm.DigitalSignature(algorithm.RsaPkcs1(algorithm.RsaPkcs1Sha256)),
-    )
+    jws.new(gose.DigitalSignature(gose.RsaPkcs1(gose.RsaPkcs1Sha256)))
     |> jws.sign(key, <<"test":utf8>>)
 }
 
 pub fn jws_rejects_wrong_key_type_for_ecdsa_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Error(gose.InvalidState(_)) =
-    jws.new(algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)))
+    jws.new(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)))
     |> jws.sign(key, <<"test":utf8>>)
 }
 
 pub fn jws_rejects_wrong_key_type_for_eddsa_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Error(gose.InvalidState(_)) =
-    jws.new(algorithm.DigitalSignature(algorithm.Eddsa))
+    jws.new(gose.DigitalSignature(gose.Eddsa))
     |> jws.sign(key, <<"test":utf8>>)
 }
 
@@ -376,7 +372,7 @@ pub fn jws_detects_tampered_payload_test() {
   let payload = <<"original":utf8>>
 
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key, payload)
   let assert Ok(token) = jws.serialize_compact(signed)
 
@@ -387,19 +383,19 @@ pub fn jws_detects_tampered_payload_test() {
 
   let assert Ok(parsed) = jws.parse_compact(tampered_token)
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify(verifier, parsed) == Error(gose.VerificationFailed)
 }
 
 pub fn jws_verify_detached_without_payload_returns_error_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_detached
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"detached content":utf8>>)
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   let assert Error(gose.InvalidState(_)) = jws.verify(verifier, signed)
 }
 
@@ -482,29 +478,29 @@ pub fn jws_b64_requires_crit_test() {
 
 pub fn parse_compact_detached_roundtrip_test() {
   use payload <- qcheck.given(qcheck.non_empty_byte_aligned_bit_array())
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_detached
     |> jws.sign(key, payload)
   let assert Ok(token) = jws.serialize_compact(signed)
   let assert Ok(parsed) = jws.parse_compact(token)
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify_detached(verifier, parsed, payload) == Ok(Nil)
 }
 
 pub fn parse_json_detached_flattened_roundtrip_test() {
   use payload <- qcheck.given(qcheck.non_empty_byte_aligned_bit_array())
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_detached
     |> jws.sign(key, payload)
   let json_str = jws.serialize_json_flattened(signed) |> json.to_string
   let assert Ok(parsed) = jws.parse_json(json_str)
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify_detached(verifier, parsed, payload) == Ok(Nil)
 }
 
@@ -538,26 +534,26 @@ pub fn jws_hmac_rejects_undersized_key_test() {
   list.each(
     [
       #(
-        algorithm.HmacSha256,
+        gose.HmacSha256,
         31,
         "Mac(Hmac(HmacSha256)) requires key of at least 32 bytes, got 31",
       ),
       #(
-        algorithm.HmacSha384,
+        gose.HmacSha384,
         47,
         "Mac(Hmac(HmacSha384)) requires key of at least 48 bytes, got 47",
       ),
       #(
-        algorithm.HmacSha512,
+        gose.HmacSha512,
         63,
         "Mac(Hmac(HmacSha512)) requires key of at least 64 bytes, got 63",
       ),
     ],
     fn(entry) {
       let #(alg, size, expected_msg) = entry
-      let assert Ok(key) = key.from_octet_bits(crypto.random_bytes(size))
+      let assert Ok(key) = gose.from_octet_bits(crypto.random_bytes(size))
       let assert Error(gose.InvalidState(msg)) =
-        jws.new(algorithm.Mac(algorithm.Hmac(alg)))
+        jws.new(gose.Mac(gose.Hmac(alg)))
         |> jws.sign(key, <<"test":utf8>>)
       assert msg == expected_msg
     },
@@ -565,9 +561,9 @@ pub fn jws_hmac_rejects_undersized_key_test() {
 }
 
 pub fn jws_hmac_verify_rejects_undersized_key_test() {
-  let assert Ok(undersized_key) = key.from_octet_bits(crypto.random_bytes(31))
+  let assert Ok(undersized_key) = gose.from_octet_bits(crypto.random_bytes(31))
   let assert Error(gose.InvalidState(msg)) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [
       undersized_key,
     ])
   assert msg
@@ -626,7 +622,7 @@ pub fn jws_json_general_parses_per_signature_header_test() {
 pub fn with_header_single_test() {
   let key = jwt_helpers.hmac_key()
   let assert Ok(unsigned) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_header("nonce", json.string("abc123"))
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
@@ -641,7 +637,7 @@ pub fn with_header_single_test() {
 pub fn with_header_multiple_test() {
   let key = jwt_helpers.hmac_key()
   let assert Ok(unsigned) = {
-    let base = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    let base = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     use j <- result.try(jws.with_header(base, "first", json.string("1")))
     use j <- result.try(jws.with_header(j, "second", json.string("2")))
     jws.with_header(j, "third", json.string("3"))
@@ -667,7 +663,7 @@ pub fn with_header_complex_json_test() {
     ])
 
   let assert Ok(unsigned) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_header("custom_object", nested_value)
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
@@ -683,7 +679,7 @@ pub fn with_header_acme_style_test() {
   let key = jwt_helpers.hmac_key()
 
   let assert Ok(unsigned) = {
-    let base = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    let base = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     use j <- result.try(jws.with_header(
       base,
       "nonce",
@@ -700,7 +696,7 @@ pub fn with_header_acme_style_test() {
   let assert Ok(header_str) = bit_array.to_string(header_bits)
   header_str |> birdie.snap("JWS with ACME-style custom headers")
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify(verifier, signed) == Ok(Nil)
 }
 
@@ -737,7 +733,7 @@ pub fn jws_b64_false_payload_roundtrip_test() {
 pub fn jws_b64_false_serialization_snapshot_test() {
   let key = jwt_helpers.hmac_key()
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_unencoded()
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"hello world":utf8>>)
@@ -748,7 +744,7 @@ pub fn jws_b64_false_serialization_snapshot_test() {
 pub fn jws_b64_false_rejects_period_in_payload_for_compact_test() {
   let key = jwt_helpers.hmac_key()
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_unencoded()
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"hello.world":utf8>>)
@@ -763,7 +759,7 @@ pub fn jws_b64_false_rejects_period_in_payload_for_compact_test() {
 pub fn jws_b64_false_allows_period_in_payload_for_json_test() {
   let key = jwt_helpers.hmac_key()
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_unencoded()
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"hello.world":utf8>>)
@@ -778,25 +774,22 @@ pub fn jws_b64_false_allows_period_in_payload_for_json_test() {
 }
 
 pub fn sign_rejects_key_with_wrong_jws_alg_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha512)
+  let key = gose.generate_hmac_key(gose.HmacSha512)
   let key_with_alg =
-    key.with_alg(
-      key,
-      key.SigningAlg(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha512))),
-    )
+    gose.with_alg(key, gose.SigningAlg(gose.Mac(gose.Hmac(gose.HmacSha512))))
 
   let result =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key_with_alg, <<"test":utf8>>)
   let assert Error(gose.InvalidState(_)) = result
 }
 
 pub fn sign_rejects_key_with_jwe_alg_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
-  let key_with_alg = key.with_alg(key, key.KeyEncryptionAlg(algorithm.Direct))
+  let key = gose.generate_hmac_key(gose.HmacSha256)
+  let key_with_alg = gose.with_alg(key, gose.KeyEncryptionAlg(gose.Direct))
 
   let result =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key_with_alg, <<"test":utf8>>)
   let assert Error(gose.InvalidState(msg)) = result
   assert msg
@@ -804,70 +797,64 @@ pub fn sign_rejects_key_with_jwe_alg_test() {
 }
 
 pub fn sign_rejects_key_with_enc_use_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
-  let assert Ok(enc_key) = key.with_key_use(key, key.Encrypting)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
+  let assert Ok(enc_key) = gose.with_key_use(key, gose.Encrypting)
   let result =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(enc_key, <<"test":utf8>>)
   let assert Error(gose.InvalidState(msg)) = result
   assert msg == "key use is 'enc', cannot be used for signing"
 }
 
 pub fn sign_rejects_key_without_sign_ops_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
-  let assert Ok(verify_only_key) = key.with_key_ops(key, [key.Verify])
+  let key = gose.generate_hmac_key(gose.HmacSha256)
+  let assert Ok(verify_only_key) = gose.with_key_ops(key, [gose.Verify])
   let result =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(verify_only_key, <<"test":utf8>>)
   let assert Error(gose.InvalidState(msg)) = result
   assert msg == "key_ops does not include 'sign' operation"
 }
 
 pub fn verify_rejects_key_with_wrong_jws_alg_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let key_with_wrong_alg =
-    key.with_alg(
-      key,
-      key.SigningAlg(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha512))),
-    )
+    gose.with_alg(key, gose.SigningAlg(gose.Mac(gose.Hmac(gose.HmacSha512))))
 
   let assert Error(gose.InvalidState(_)) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [
       key_with_wrong_alg,
     ])
 }
 
 pub fn sign_allows_key_with_or_without_alg_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let key_with_alg =
-    key.with_alg(
-      key,
-      key.SigningAlg(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256))),
-    )
+    gose.with_alg(key, gose.SigningAlg(gose.Mac(gose.Hmac(gose.HmacSha256))))
 
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key_with_alg, <<"test":utf8>>)
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [
       key_with_alg,
     ])
   assert jws.verify(verifier, signed) == Ok(Nil)
 
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key, <<"test":utf8>>)
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify(verifier, signed) == Ok(Nil)
 }
 
 pub fn custom_header_roundtrip_compact_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let payload = <<"custom header test":utf8>>
 
   let assert Ok(unsigned) = {
-    let base = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    let base = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     use j <- result.try(jws.with_header(
       base,
       "x-custom-string",
@@ -883,7 +870,7 @@ pub fn custom_header_roundtrip_compact_test() {
   let assert Ok(parsed) = jws.parse_compact(token)
   assert jws.payload(parsed) == payload
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify(verifier, parsed) == Ok(Nil)
 
   let decoder = {
@@ -897,10 +884,10 @@ pub fn custom_header_roundtrip_compact_test() {
 }
 
 pub fn decode_custom_headers_mismatched_decoder_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let payload = <<"mismatched decoder test":utf8>>
 
-  let unsigned = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+  let unsigned = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
   let assert Ok(signed) = jws.sign(unsigned, key, payload)
   let assert Ok(token) = jws.serialize_compact(signed)
   let assert Ok(parsed) = jws.parse_compact(token)
@@ -911,10 +898,10 @@ pub fn decode_custom_headers_mismatched_decoder_test() {
 }
 
 pub fn decode_unprotected_header_none_present_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let payload = <<"no unprotected headers":utf8>>
 
-  let unsigned = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+  let unsigned = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
   let assert Ok(signed) = jws.sign(unsigned, key, payload)
   let assert Ok(token) = jws.serialize_compact(signed)
   let assert Ok(parsed) = jws.parse_compact(token)
@@ -925,8 +912,8 @@ pub fn decode_unprotected_header_none_present_test() {
 }
 
 pub fn parse_compact_invalid_base64_signature_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
-  let unsigned = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+  let key = gose.generate_hmac_key(gose.HmacSha256)
+  let unsigned = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
   let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
   let assert Ok(token) = jws.serialize_compact(signed)
 
@@ -941,11 +928,11 @@ pub fn parse_json_invalid_json_test() {
 }
 
 pub fn custom_header_roundtrip_json_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let payload = <<"custom header json test":utf8>>
 
   let assert Ok(unsigned) = {
-    let base = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    let base = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     use j <- result.try(jws.with_header(
       base,
       "x-array",
@@ -964,7 +951,7 @@ pub fn custom_header_roundtrip_json_test() {
   let assert Ok(parsed) = jws.parse_json(json_str)
   assert jws.payload(parsed) == payload
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify(verifier, parsed) == Ok(Nil)
 
   let array_decoder = {
@@ -978,11 +965,11 @@ pub fn custom_header_roundtrip_json_test() {
 }
 
 pub fn unprotected_header_roundtrip_flattened_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let payload = <<"unprotected header test":utf8>>
 
   let assert Ok(unsigned) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_kid("my-key-id")
     |> jws.with_unprotected("x-custom", json.string("custom-value"))
 
@@ -1001,16 +988,16 @@ pub fn unprotected_header_roundtrip_flattened_test() {
   let assert Ok("custom-value") = jws.decode_unprotected_header(parsed, decoder)
 
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify(verifier, parsed) == Ok(Nil)
 }
 
 pub fn unprotected_header_roundtrip_general_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let payload = <<"unprotected header general test":utf8>>
 
   let assert Ok(unsigned) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_unprotected("x-custom", json.string("general-value"))
 
   let assert Ok(signed) = jws.sign(unsigned, key, payload)
@@ -1027,7 +1014,7 @@ pub fn unprotected_header_roundtrip_general_test() {
     jws.decode_unprotected_header(parsed, decoder)
 
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify(verifier, parsed) == Ok(Nil)
 }
 
@@ -1057,9 +1044,9 @@ pub fn custom_header_disjointness_validation_test() {
 }
 
 pub fn has_unprotected_header_false_when_none_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key, <<"test":utf8>>)
   let json_str = json.to_string(jws.serialize_json_flattened(signed))
 
@@ -1068,9 +1055,9 @@ pub fn has_unprotected_header_false_when_none_test() {
 }
 
 pub fn compact_serialization_rejects_unprotected_headers_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Ok(unsigned) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_unprotected("kid", json.string("key-1"))
 
   let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
@@ -1083,9 +1070,9 @@ pub fn compact_serialization_rejects_unprotected_headers_test() {
 }
 
 pub fn with_header_last_write_wins_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Ok(unsigned) = {
-    let base = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    let base = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     use j <- result.try(jws.with_header(base, "nonce", json.string("first")))
     jws.with_header(j, "nonce", json.string("second"))
   }
@@ -1103,12 +1090,12 @@ pub fn with_header_last_write_wins_test() {
 
 pub fn with_unprotected_last_write_wins_test() {
   let assert Ok(unsigned) = {
-    let base = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    let base = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     use j <- result.try(jws.with_unprotected(base, "kid", json.string("first")))
     jws.with_unprotected(j, "kid", json.string("second"))
   }
 
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Ok(signed) = jws.sign(unsigned, key, <<"test":utf8>>)
   let json_str = json.to_string(jws.serialize_json_flattened(signed))
 
@@ -1121,7 +1108,7 @@ pub fn with_unprotected_last_write_wins_test() {
 }
 
 pub fn with_header_rejects_reserved_headers_test() {
-  let base = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+  let base = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
   list.each(["alg", "kid", "typ", "cty", "crit", "b64"], fn(name) {
     let result = jws.with_header(base, name, json.string("test"))
     assert result
@@ -1132,7 +1119,7 @@ pub fn with_header_rejects_reserved_headers_test() {
 }
 
 pub fn with_unprotected_rejects_reserved_headers_test() {
-  let base = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+  let base = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
   list.each(["crit", "b64"], fn(name) {
     let result = jws.with_unprotected(base, name, json.string("test"))
     assert result
@@ -1156,15 +1143,15 @@ pub fn parse_json_rejects_unprotected_reserved_headers_test() {
 }
 
 pub fn verify_rejects_algorithm_mismatch_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha512)
+  let key = gose.generate_hmac_key(gose.HmacSha512)
   let payload = <<"test":utf8>>
 
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha512)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha512)))
     |> jws.sign(key, payload)
 
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
 
   let assert Ok(token) = jws.serialize_compact(signed)
   let assert Ok(parsed) = jws.parse_compact(token)
@@ -1180,16 +1167,16 @@ pub fn verify_rejects_algorithm_mismatch_test() {
 }
 
 pub fn verify_detached_rejects_algorithm_mismatch_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha512)
+  let key = gose.generate_hmac_key(gose.HmacSha512)
   let payload = <<"test":utf8>>
 
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha512)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha512)))
     |> jws.with_detached
     |> jws.sign(key, payload)
 
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify_detached(verifier, signed, payload)
     == Error(gose.InvalidState(
       "algorithm mismatch: expected Mac(Hmac(HmacSha256)), got Mac(Hmac(HmacSha512))",
@@ -1197,15 +1184,15 @@ pub fn verify_detached_rejects_algorithm_mismatch_test() {
 }
 
 pub fn verify_detached_rejects_non_detached_jws_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let payload = <<"test":utf8>>
 
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key, payload)
 
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify_detached(verifier, signed, payload)
     == Error(gose.InvalidState(
       "JWS payload is not detached; use verify instead",
@@ -1213,15 +1200,14 @@ pub fn verify_detached_rejects_non_detached_jws_test() {
 }
 
 pub fn verifier_empty_keys_rejected_test() {
-  let result =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [])
+  let result = jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [])
   assert result == Error(gose.InvalidState("at least one key required"))
 }
 
 pub fn verifier_key_type_validation_test() {
-  let octet_key = key.generate_hmac_key(algorithm.HmacSha256)
+  let octet_key = gose.generate_hmac_key(gose.HmacSha256)
   assert jws.verifier(
-      algorithm.DigitalSignature(algorithm.RsaPkcs1(algorithm.RsaPkcs1Sha256)),
+      gose.DigitalSignature(gose.RsaPkcs1(gose.RsaPkcs1Sha256)),
       [octet_key],
     )
     == Error(gose.InvalidState(
@@ -1230,21 +1216,21 @@ pub fn verifier_key_type_validation_test() {
 }
 
 pub fn verifier_kid_prioritization_test() {
-  let key1 = key.generate_hmac_key(algorithm.HmacSha256)
-  let key1 = key.with_kid(key1, "key-1")
-  let key2 = key.generate_hmac_key(algorithm.HmacSha256)
-  let key2 = key.with_kid(key2, "key-2")
+  let key1 = gose.generate_hmac_key(gose.HmacSha256)
+  let key1 = gose.with_kid(key1, "key-1")
+  let key2 = gose.generate_hmac_key(gose.HmacSha256)
+  let key2 = gose.with_kid(key2, "key-2")
   let payload = <<"test":utf8>>
 
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_kid("key-2")
   let assert Ok(signed) = jws.sign(unsigned, key2, payload)
   let assert Ok(token) = jws.serialize_compact(signed)
   let assert Ok(parsed) = jws.parse_compact(token)
 
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [
       key1,
       key2,
     ])
@@ -1252,51 +1238,51 @@ pub fn verifier_kid_prioritization_test() {
 }
 
 pub fn verifier_multiple_keys_tries_all_test() {
-  let key1 = key.generate_hmac_key(algorithm.HmacSha256)
-  let key2 = key.generate_hmac_key(algorithm.HmacSha256)
-  let key3 = key.generate_hmac_key(algorithm.HmacSha256)
+  let key1 = gose.generate_hmac_key(gose.HmacSha256)
+  let key2 = gose.generate_hmac_key(gose.HmacSha256)
+  let key3 = gose.generate_hmac_key(gose.HmacSha256)
   let payload = <<"test":utf8>>
 
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(key2, payload)
   let assert Ok(token) = jws.serialize_compact(signed)
   let assert Ok(parsed) = jws.parse_compact(token)
 
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [
       key1,
       key2,
     ])
   assert jws.verify(verifier, parsed) == Ok(Nil)
 
   let assert Ok(verifier3) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key3])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key3])
   assert jws.verify(verifier3, parsed) == Error(gose.VerificationFailed)
 }
 
 pub fn verifier_with_detached_payload_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let payload = <<"detached content":utf8>>
 
   let unsigned =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_detached
   let assert Ok(signed) = jws.sign(unsigned, key, payload)
   let assert Ok(token) = jws.serialize_compact(signed)
   let assert Ok(parsed) = jws.parse_compact(token)
 
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify_detached(verifier, parsed, payload) == Ok(Nil)
   assert jws.verify_detached(verifier, parsed, <<"wrong":utf8>>)
     == Error(gose.VerificationFailed)
 }
 
 pub fn verifier_rejects_key_with_wrong_use_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
-  let assert Ok(enc_key) = key.with_key_use(key, key.Encrypting)
-  assert jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [
+  let key = gose.generate_hmac_key(gose.HmacSha256)
+  let assert Ok(enc_key) = gose.with_key_use(key, gose.Encrypting)
+  assert jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [
       enc_key,
     ])
     == Error(gose.InvalidState(
@@ -1305,9 +1291,9 @@ pub fn verifier_rejects_key_with_wrong_use_test() {
 }
 
 pub fn verifier_rejects_key_without_verify_ops_test() {
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
-  let assert Ok(sign_only_key) = key.with_key_ops(key, [key.Sign])
-  assert jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [
+  let key = gose.generate_hmac_key(gose.HmacSha256)
+  let assert Ok(sign_only_key) = gose.with_key_ops(key, [gose.Sign])
+  assert jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [
       sign_only_key,
     ])
     == Error(gose.InvalidState("key_ops does not include 'verify' operation"))
@@ -1326,15 +1312,15 @@ pub fn b64_in_crit_but_absent_from_header_test() {
 
 pub fn parse_json_detached_general_roundtrip_test() {
   use payload <- qcheck.given(qcheck.non_empty_byte_aligned_bit_array())
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Ok(signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.with_detached
     |> jws.sign(key, payload)
   let json_str = jws.serialize_json_general(signed) |> json.to_string
   let assert Ok(parsed) = jws.parse_json(json_str)
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify_detached(verifier, parsed, payload) == Ok(Nil)
 }
 
@@ -1342,46 +1328,36 @@ pub fn es256k_sign_verify_roundtrip_test() {
   let key = fixtures.ec_secp256k1_key()
   let payload = <<"ES256K test payload":utf8>>
   let assert Ok(signed) =
-    jws.new(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaSecp256k1)),
-    )
+    jws.new(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaSecp256k1)))
     |> jws.sign(key, payload)
   let assert Ok(token) = jws.serialize_compact(signed)
   let assert Ok(parsed) = jws.parse_compact(token)
   let assert Ok(verifier) =
-    jws.verifier(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaSecp256k1)),
-      [key],
-    )
+    jws.verifier(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaSecp256k1)), [key])
   assert jws.verify(verifier, parsed) == Ok(Nil)
   assert jws.payload(parsed) == payload
 }
 
 pub fn es256k_public_key_verification_test() {
   let key = fixtures.ec_secp256k1_key()
-  let assert Ok(pub_key) = key.public_key(key)
+  let assert Ok(pub_key) = gose.public_key(key)
   let payload = <<"ES256K public key verify":utf8>>
   let assert Ok(signed) =
-    jws.new(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaSecp256k1)),
-    )
+    jws.new(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaSecp256k1)))
     |> jws.sign(key, payload)
   let assert Ok(token) = jws.serialize_compact(signed)
   let assert Ok(parsed) = jws.parse_compact(token)
   let assert Ok(verifier) =
-    jws.verifier(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaSecp256k1)),
-      [pub_key],
-    )
+    jws.verifier(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaSecp256k1)), [
+      pub_key,
+    ])
   assert jws.verify(verifier, parsed) == Ok(Nil)
 }
 
 pub fn es256k_rejects_wrong_curve_key_test() {
   let p256_key = fixtures.ec_p256_key()
   let result =
-    jws.new(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaSecp256k1)),
-    )
+    jws.new(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaSecp256k1)))
     |> jws.sign(p256_key, <<"test":utf8>>)
   assert result
     == Error(gose.InvalidState("EC key curve does not match algorithm"))
@@ -1405,7 +1381,7 @@ pub fn rfc7515_appendix_a1_hs256_test() {
     "eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ.dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
   let assert Ok(parsed) = jws.parse_compact(token)
   let assert Ok(verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
   assert jws.verify(verifier, parsed) == Ok(Nil)
 
   let payload = jws.payload(parsed)
@@ -1428,38 +1404,35 @@ pub fn rfc8037_eddsa_sign_verify_test() {
     "eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc.hgyY0il_MGCjP0JzlnLWG1PPOt7-09PGcvMg3AIbQR6dWbhijcNR4ki4iylGjg5BhVsPt9g7sVvpAr_MuM0KAg"
   let assert Ok(parsed) = jws.parse_compact(token)
   let assert Ok(verifier) =
-    jws.verifier(algorithm.DigitalSignature(algorithm.Eddsa), [key])
+    jws.verifier(gose.DigitalSignature(gose.Eddsa), [key])
   assert jws.verify(verifier, parsed) == Ok(Nil)
 }
 
 pub fn cross_family_algorithm_confusion_test() {
-  let hmac_key = key.generate_hmac_key(algorithm.HmacSha256)
+  let hmac_key = gose.generate_hmac_key(gose.HmacSha256)
   let rsa_key = fixtures.rsa_private_key()
 
   let assert Ok(hmac_signed) =
-    jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
     |> jws.sign(hmac_key, <<"test":utf8>>)
   let assert Ok(hmac_token) = jws.serialize_compact(hmac_signed)
   let assert Ok(parsed_hmac) = jws.parse_compact(hmac_token)
   let assert Ok(rsa_verifier) =
-    jws.verifier(
-      algorithm.DigitalSignature(algorithm.RsaPkcs1(algorithm.RsaPkcs1Sha256)),
-      [rsa_key],
-    )
+    jws.verifier(gose.DigitalSignature(gose.RsaPkcs1(gose.RsaPkcs1Sha256)), [
+      rsa_key,
+    ])
   assert jws.verify(rsa_verifier, parsed_hmac)
     == Error(gose.InvalidState(
       "algorithm mismatch: expected DigitalSignature(RsaPkcs1(RsaPkcs1Sha256)), got Mac(Hmac(HmacSha256))",
     ))
 
   let assert Ok(rsa_signed) =
-    jws.new(
-      algorithm.DigitalSignature(algorithm.RsaPkcs1(algorithm.RsaPkcs1Sha256)),
-    )
+    jws.new(gose.DigitalSignature(gose.RsaPkcs1(gose.RsaPkcs1Sha256)))
     |> jws.sign(rsa_key, <<"test":utf8>>)
   let assert Ok(rsa_token) = jws.serialize_compact(rsa_signed)
   let assert Ok(parsed_rsa) = jws.parse_compact(rsa_token)
   let assert Ok(hmac_verifier) =
-    jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [hmac_key])
+    jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [hmac_key])
   assert jws.verify(hmac_verifier, parsed_rsa)
     == Error(gose.InvalidState(
       "algorithm mismatch: expected Mac(Hmac(HmacSha256)), got DigitalSignature(RsaPkcs1(RsaPkcs1Sha256))",

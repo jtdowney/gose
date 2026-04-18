@@ -2,9 +2,8 @@ import gleam/bit_array
 import gleam/io
 import gleam/json
 import gleam/string
-import gose/algorithm
+import gose
 import gose/jose/jws_multi
-import gose/key
 import kryptos/ec
 import kryptos/eddsa
 
@@ -25,19 +24,19 @@ pub fn main() {
 fn two_signers() {
   io.println("--- Two Signers (ES256 + EdDSA) ---")
 
-  let ec_key = key.generate_ec(ec.P256)
-  let ed_key = key.generate_eddsa(eddsa.Ed25519)
+  let ec_key = gose.generate_ec(ec.P256)
+  let ed_key = gose.generate_eddsa(eddsa.Ed25519)
   let payload = <<"multi-signed payload":utf8>>
 
   let assert Ok(body) =
     jws_multi.new(payload:)
     |> jws_multi.sign(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
+      gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
       key: ec_key,
     )
   let assert Ok(body) =
     body
-    |> jws_multi.sign(algorithm.DigitalSignature(algorithm.Eddsa), key: ed_key)
+    |> jws_multi.sign(gose.DigitalSignature(gose.Eddsa), key: ed_key)
 
   let message = jws_multi.assemble(body)
 
@@ -52,14 +51,14 @@ fn two_signers() {
 
   let assert Ok(ec_verifier) =
     jws_multi.verifier(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
+      gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
       keys: [ec_key],
     )
   let assert Ok(Nil) = jws_multi.verify(ec_verifier, parsed)
   io.println("ES256 signature verified")
 
   let assert Ok(ed_verifier) =
-    jws_multi.verifier(algorithm.DigitalSignature(algorithm.Eddsa), keys: [
+    jws_multi.verifier(gose.DigitalSignature(gose.Eddsa), keys: [
       ed_key,
     ])
   let assert Ok(Nil) = jws_multi.verify(ed_verifier, parsed)
@@ -74,13 +73,13 @@ fn two_signers() {
 fn single_signer_json() {
   io.println("--- Single Signer JSON Serialization (HS256) ---")
 
-  let hmac_key = key.generate_hmac_key(algorithm.HmacSha256)
+  let hmac_key = gose.generate_hmac_key(gose.HmacSha256)
   let payload = <<"hmac json":utf8>>
 
   let assert Ok(body) =
     jws_multi.new(payload:)
     |> jws_multi.sign(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
       key: hmac_key,
     )
   let message = jws_multi.assemble(body)
@@ -91,7 +90,7 @@ fn single_signer_json() {
   let assert Ok(parsed) = jws_multi.parse_json(json_str)
   let assert Ok(verifier) =
     jws_multi.verifier(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
       keys: [hmac_key],
     )
   let assert Ok(Nil) = jws_multi.verify(verifier, parsed)

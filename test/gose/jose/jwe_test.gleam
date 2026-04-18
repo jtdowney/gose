@@ -6,9 +6,7 @@ import gleam/option
 import gleam/result
 import gleam/string
 import gose
-import gose/algorithm
 import gose/jose/jwe
-import gose/key
 import gose/test_helpers/fixtures
 import gose/test_helpers/generators
 import kryptos/crypto
@@ -30,7 +28,7 @@ pub fn dir_roundtrip_test() {
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
   let assert Ok(parsed) = jwe.parse_compact(token)
-  let assert Ok(decryptor) = jwe.key_decryptor(algorithm.Direct, enc, [key])
+  let assert Ok(decryptor) = jwe.key_decryptor(gose.Direct, enc, [key])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
 
   assert decrypted == payload
@@ -53,7 +51,7 @@ pub fn aes_kw_roundtrip_test() {
   let assert Ok(token) = jwe.serialize_compact(encrypted)
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.AesKeyWrap(algorithm.AesKw, alg), enc, [key])
+    jwe.key_decryptor(gose.AesKeyWrap(gose.AesKw, alg), enc, [key])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
 
   assert decrypted == payload
@@ -76,7 +74,7 @@ pub fn aes_gcm_kw_roundtrip_test() {
   let assert Ok(token) = jwe.serialize_compact(encrypted)
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.AesKeyWrap(algorithm.AesGcmKw, alg), enc, [key])
+    jwe.key_decryptor(gose.AesKeyWrap(gose.AesGcmKw, alg), enc, [key])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
 
   assert decrypted == payload
@@ -101,7 +99,7 @@ pub fn rsa_roundtrip_test() {
   let assert Ok(token) = jwe.serialize_compact(encrypted)
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.RsaEncryption(alg), enc, [key])
+    jwe.key_decryptor(gose.RsaEncryption(alg), enc, [key])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
 
   assert decrypted == payload
@@ -135,8 +133,7 @@ pub fn ecdh_es_roundtrip_test() {
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
   let assert Ok(parsed) = jwe.parse_compact(token)
-  let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.EcdhEs(alg), enc, [key])
+  let assert Ok(decryptor) = jwe.key_decryptor(gose.EcdhEs(alg), enc, [key])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
 
   assert decrypted == payload
@@ -173,10 +170,7 @@ pub fn pbes2_default_p2c_roundtrip_test() {
   let payload = <<"PBES2 default p2c":utf8>>
 
   let unsigned =
-    jwe.new_pbes2(
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes256),
-    )
+    jwe.new_pbes2(gose.Pbes2Sha256Aes128Kw, gose.AesGcm(gose.Aes256))
 
   let assert Ok(encrypted) =
     jwe.encrypt_with_password(unsigned, password, payload)
@@ -184,8 +178,8 @@ pub fn pbes2_default_p2c_roundtrip_test() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let decryptor =
     jwe.password_decryptor(
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Pbes2Sha256Aes128Kw,
+      gose.AesGcm(gose.Aes256),
       password,
     )
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -200,10 +194,7 @@ pub fn ecdh_es_apu_apv_roundtrip_test() {
   let apv = <<"recipient@example.com":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_ecdh_es(
-      algorithm.EcdhEsAesKw(algorithm.Aes128),
-      algorithm.AesGcm(algorithm.Aes256),
-    )
+    jwe.new_ecdh_es(gose.EcdhEsAesKw(gose.Aes128), gose.AesGcm(gose.Aes256))
     |> jwe.with_apu(apu)
     |> jwe.with_apv(apv)
     |> jwe.encrypt(ec_key, payload)
@@ -212,8 +203,8 @@ pub fn ecdh_es_apu_apv_roundtrip_test() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsAesKw(algorithm.Aes128)),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsAesKw(gose.Aes128)),
+      gose.AesGcm(gose.Aes256),
       [ec_key],
     )
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -222,11 +213,11 @@ pub fn ecdh_es_apu_apv_roundtrip_test() {
 }
 
 pub fn header_accessors_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let plaintext = <<"test payload":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_kid("my-key-id")
     |> jwe.with_typ("JWT")
     |> jwe.with_cty("application/json")
@@ -235,14 +226,14 @@ pub fn header_accessors_test() {
   let assert Ok(token) = jwe.serialize_compact(encrypted)
   let assert Ok(parsed) = jwe.parse_compact(token)
 
-  assert jwe.alg(parsed) == algorithm.Direct
-  assert jwe.enc(parsed) == algorithm.AesGcm(algorithm.Aes256)
+  assert jwe.alg(parsed) == gose.Direct
+  assert jwe.enc(parsed) == gose.AesGcm(gose.Aes256)
   assert jwe.kid(parsed) == Ok("my-key-id")
   assert jwe.typ(parsed) == Ok("JWT")
   assert jwe.cty(parsed) == Ok("application/json")
 
   let assert Ok(encrypted2) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, plaintext)
 
   let assert Ok(token2) = jwe.serialize_compact(encrypted2)
@@ -254,15 +245,15 @@ pub fn header_accessors_test() {
 }
 
 pub fn json_roundtrip_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let plaintext = <<"hello world":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, plaintext)
 
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key,
     ])
 
@@ -301,7 +292,7 @@ pub fn aad_json_roundtrip_test() {
     jwe.serialize_json_flattened(encrypted)
     |> json.to_string
   let assert Ok(parsed) = jwe.parse_json(json_str)
-  let assert Ok(decryptor) = jwe.key_decryptor(algorithm.Direct, enc, [key])
+  let assert Ok(decryptor) = jwe.key_decryptor(gose.Direct, enc, [key])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
 
   assert decrypted == plaintext
@@ -309,10 +300,10 @@ pub fn aad_json_roundtrip_test() {
 }
 
 pub fn aad_compact_rejection_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
 
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_aad(<<"extra context":utf8>>)
     |> jwe.encrypt(key, <<"hello":utf8>>)
 
@@ -321,27 +312,27 @@ pub fn aad_compact_rejection_test() {
     == "cannot serialize to compact format: AAD is only supported in JSON serialization"
 
   let assert Ok(encrypted2) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, <<"hello":utf8>>)
 
   let assert Ok(_) = jwe.serialize_compact(encrypted2)
 }
 
 pub fn aad_accessor_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
 
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, <<"hello":utf8>>)
 
   assert jwe.aad(encrypted) == Error(Nil)
 }
 
 pub fn aad_accessor_on_built_jwe_with_aad_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
 
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_aad(<<"extra-context":utf8>>)
     |> jwe.encrypt(key, <<"hello":utf8>>)
 
@@ -381,17 +372,17 @@ pub fn json_shared_unprotected_header_test() {
 
 pub fn wrong_key_type_test() {
   let rsa_key = fixtures.rsa_private_key()
-  let octet_key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let octet_key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
 
   let result1 =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(rsa_key, <<"test":utf8>>)
 
   assert result1
     == Error(gose.InvalidState("algorithm Direct incompatible with key type"))
 
   let result2 =
-    jwe.new_rsa(algorithm.RsaOaepSha1, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_rsa(gose.RsaOaepSha1, gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(octet_key, <<"test":utf8>>)
 
   assert result2
@@ -401,25 +392,25 @@ pub fn wrong_key_type_test() {
 }
 
 pub fn wrong_key_size_test() {
-  let small_key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes128))
+  let small_key = gose.generate_enc_key(gose.AesGcm(gose.Aes128))
 
   let result =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(small_key, <<"test":utf8>>)
 
   let assert Error(gose.InvalidState(_)) = result
 }
 
 pub fn decrypt_with_wrong_key_test() {
-  let key1 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-  let key2 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key1 = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+  let key2 = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
 
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key1, <<"test":utf8>>)
 
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key2,
     ])
   let result = jwe.decrypt(decryptor, encrypted)
@@ -525,10 +516,7 @@ pub fn encrypted_key_validation_test() {
 
 pub fn p2c_builder_rejects_out_of_range_test() {
   let unsigned =
-    jwe.new_pbes2(
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes256),
-    )
+    jwe.new_pbes2(gose.Pbes2Sha256Aes128Kw, gose.AesGcm(gose.Aes256))
 
   let result1 = jwe.with_p2c(unsigned, 10_000_001)
   assert result1
@@ -545,10 +533,7 @@ pub fn p2c_builder_rejects_out_of_range_test() {
 
 pub fn p2c_builder_accepts_minimum_test() {
   let unsigned =
-    jwe.new_pbes2(
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes256),
-    )
+    jwe.new_pbes2(gose.Pbes2Sha256Aes128Kw, gose.AesGcm(gose.Aes256))
   let assert Ok(_) = jwe.with_p2c(unsigned, 1000)
 }
 
@@ -567,29 +552,25 @@ pub fn ecdh_es_curve_mismatch_test() {
   let ec_p384_key = fixtures.ec_p384_key()
 
   let assert Ok(encrypted) =
-    jwe.new_ecdh_es(algorithm.EcdhEsDirect, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_ecdh_es(gose.EcdhEsDirect, gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(ec_p256_key, <<"test":utf8>>)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
   let assert Ok(parsed) = jwe.parse_compact(token)
 
   let assert Ok(decryptor) =
-    jwe.key_decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsDirect),
-      algorithm.AesGcm(algorithm.Aes256),
-      [
-        ec_p384_key,
-      ],
-    )
+    jwe.key_decryptor(gose.EcdhEs(gose.EcdhEsDirect), gose.AesGcm(gose.Aes256), [
+      ec_p384_key,
+    ])
   let result = jwe.decrypt(decryptor, parsed)
   assert result == Error(gose.InvalidState("ephemeral key curve mismatch"))
 }
 
 pub fn decryptor_algorithm_pinning_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
 
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, <<"test payload":utf8>>)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
@@ -597,8 +578,8 @@ pub fn decryptor_algorithm_pinning_test() {
 
   let assert Ok(decryptor1) =
     jwe.key_decryptor(
-      algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes128),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.AesKeyWrap(gose.AesKw, gose.Aes128),
+      gose.AesGcm(gose.Aes256),
       [
         key,
       ],
@@ -607,14 +588,14 @@ pub fn decryptor_algorithm_pinning_test() {
   assert msg1 == "algorithm mismatch: expected A128KW, got dir"
 
   let assert Ok(decryptor2) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes128), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes128), [
       key,
     ])
   let assert Error(gose.InvalidState(msg2)) = jwe.decrypt(decryptor2, parsed)
   assert msg2 == "encryption mismatch: expected A128GCM, got A256GCM"
 
   let assert Ok(decryptor3) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key,
     ])
   let assert Ok(decrypted) = jwe.decrypt(decryptor3, parsed)
@@ -622,13 +603,13 @@ pub fn decryptor_algorithm_pinning_test() {
 }
 
 pub fn decryptor_multiple_keys_test() {
-  let key1 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-  let key1 = key.with_kid(key1, "key-1")
-  let key2 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-  let key2 = key.with_kid(key2, "key-2")
+  let key1 = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+  let key1 = gose.with_kid(key1, "key-1")
+  let key2 = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+  let key2 = gose.with_kid(key2, "key-2")
 
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_kid("key-2")
     |> jwe.encrypt(key2, <<"test payload":utf8>>)
 
@@ -636,7 +617,7 @@ pub fn decryptor_multiple_keys_test() {
   let assert Ok(parsed) = jwe.parse_compact(token)
 
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key1,
       key2,
     ])
@@ -645,41 +626,37 @@ pub fn decryptor_multiple_keys_test() {
 }
 
 pub fn key_alg_validation_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
 
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, <<"test":utf8>>)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
   let assert Ok(parsed) = jwe.parse_compact(token)
 
   let key_wrong_alg =
-    key.with_alg(
+    gose.with_alg(
       key,
-      key.KeyEncryptionAlg(algorithm.AesKeyWrap(
-        algorithm.AesKw,
-        algorithm.Aes128,
-      )),
+      gose.KeyEncryptionAlg(gose.AesKeyWrap(gose.AesKw, gose.Aes128)),
     )
   let assert Error(gose.InvalidState(msg)) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key_wrong_alg,
     ])
   assert msg
     == "key algorithm mismatch: key has AesKeyWrap(AesKw, Aes128), expected Direct"
 
-  let key_matching_alg =
-    key.with_alg(key, key.KeyEncryptionAlg(algorithm.Direct))
+  let key_matching_alg = gose.with_alg(key, gose.KeyEncryptionAlg(gose.Direct))
   let assert Ok(decryptor_match) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key_matching_alg,
     ])
   let assert Ok(decrypted) = jwe.decrypt(decryptor_match, parsed)
   assert decrypted == <<"test":utf8>>
 
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key,
     ])
   let assert Ok(decrypted2) = jwe.decrypt(decryptor, parsed)
@@ -690,7 +667,7 @@ pub fn key_decryptor_rsa_algorithm_pinning_test() {
   let key = fixtures.rsa_private_key()
 
   let assert Ok(encrypted) =
-    jwe.new_rsa(algorithm.RsaOaepSha256, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_rsa(gose.RsaOaepSha256, gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, <<"test payload":utf8>>)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
@@ -698,8 +675,8 @@ pub fn key_decryptor_rsa_algorithm_pinning_test() {
 
   let assert Ok(decryptor1) =
     jwe.key_decryptor(
-      algorithm.RsaEncryption(algorithm.RsaOaepSha1),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.RsaEncryption(gose.RsaOaepSha1),
+      gose.AesGcm(gose.Aes256),
       [key],
     )
   let assert Error(gose.InvalidState(msg1)) = jwe.decrypt(decryptor1, parsed)
@@ -707,8 +684,8 @@ pub fn key_decryptor_rsa_algorithm_pinning_test() {
 
   let assert Ok(decryptor2) =
     jwe.key_decryptor(
-      algorithm.RsaEncryption(algorithm.RsaOaepSha256),
-      algorithm.AesGcm(algorithm.Aes128),
+      gose.RsaEncryption(gose.RsaOaepSha256),
+      gose.AesGcm(gose.Aes128),
       [
         key,
       ],
@@ -718,8 +695,8 @@ pub fn key_decryptor_rsa_algorithm_pinning_test() {
 
   let assert Ok(decryptor3) =
     jwe.key_decryptor(
-      algorithm.RsaEncryption(algorithm.RsaOaepSha256),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.RsaEncryption(gose.RsaOaepSha256),
+      gose.AesGcm(gose.Aes256),
       [
         key,
       ],
@@ -729,12 +706,12 @@ pub fn key_decryptor_rsa_algorithm_pinning_test() {
 }
 
 pub fn key_decryptor_rsa_multiple_keys_test() {
-  let key1 = fixtures.rsa_private_key() |> key.with_kid("key-1")
-  let assert Ok(key2) = key.generate_rsa(2048)
-  let key2 = key.with_kid(key2, "key-2")
+  let key1 = fixtures.rsa_private_key() |> gose.with_kid("key-1")
+  let assert Ok(key2) = gose.generate_rsa(2048)
+  let key2 = gose.with_kid(key2, "key-2")
 
   let assert Ok(encrypted) =
-    jwe.new_rsa(algorithm.RsaOaepSha256, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_rsa(gose.RsaOaepSha256, gose.AesGcm(gose.Aes256))
     |> jwe.with_kid("key-2")
     |> jwe.encrypt(key2, <<"test payload":utf8>>)
 
@@ -743,8 +720,8 @@ pub fn key_decryptor_rsa_multiple_keys_test() {
 
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.RsaEncryption(algorithm.RsaOaepSha256),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.RsaEncryption(gose.RsaOaepSha256),
+      gose.AesGcm(gose.Aes256),
       [
         key1,
         key2,
@@ -758,10 +735,7 @@ pub fn password_decryptor_algorithm_pinning_test() {
   let password = "too many secrets"
 
   let assert Ok(unsigned) =
-    jwe.new_pbes2(
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes256),
-    )
+    jwe.new_pbes2(gose.Pbes2Sha256Aes128Kw, gose.AesGcm(gose.Aes256))
     |> jwe.with_p2c(1000)
 
   let assert Ok(encrypted) =
@@ -771,8 +745,8 @@ pub fn password_decryptor_algorithm_pinning_test() {
 
   let decryptor1 =
     jwe.password_decryptor(
-      algorithm.Pbes2Sha512Aes256Kw,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Pbes2Sha512Aes256Kw,
+      gose.AesGcm(gose.Aes256),
       password,
     )
   let assert Error(gose.InvalidState(msg1)) = jwe.decrypt(decryptor1, parsed)
@@ -781,8 +755,8 @@ pub fn password_decryptor_algorithm_pinning_test() {
 
   let decryptor2 =
     jwe.password_decryptor(
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes128),
+      gose.Pbes2Sha256Aes128Kw,
+      gose.AesGcm(gose.Aes128),
       password,
     )
   let assert Error(gose.InvalidState(msg2)) = jwe.decrypt(decryptor2, parsed)
@@ -790,8 +764,8 @@ pub fn password_decryptor_algorithm_pinning_test() {
 
   let decryptor3 =
     jwe.password_decryptor(
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Pbes2Sha256Aes128Kw,
+      gose.AesGcm(gose.Aes256),
       password,
     )
   let assert Ok(decrypted) = jwe.decrypt(decryptor3, parsed)
@@ -871,7 +845,7 @@ pub fn rsa_pkcs1v15_tampered_encrypted_key_produces_aead_error_test() {
   let payload = <<"test payload":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_rsa(algorithm.RsaPkcs1v15, algorithm.AesGcm(algorithm.Aes128))
+    jwe.new_rsa(gose.RsaPkcs1v15, gose.AesGcm(gose.Aes128))
     |> jwe.encrypt(key, payload)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
@@ -894,8 +868,8 @@ pub fn rsa_pkcs1v15_tampered_encrypted_key_produces_aead_error_test() {
   // NOT an RSA-specific error like "RSA PKCS1v15 decryption failed"
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.RsaEncryption(algorithm.RsaPkcs1v15),
-      algorithm.AesGcm(algorithm.Aes128),
+      gose.RsaEncryption(gose.RsaPkcs1v15),
+      gose.AesGcm(gose.Aes128),
       [key],
     )
   case jwe.decrypt(decryptor, parsed) {
@@ -915,15 +889,15 @@ pub fn rsa_pkcs1v15_valid_decryption_still_works_test() {
   let payload = <<"valid decryption test":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_rsa(algorithm.RsaPkcs1v15, algorithm.AesGcm(algorithm.Aes128))
+    jwe.new_rsa(gose.RsaPkcs1v15, gose.AesGcm(gose.Aes128))
     |> jwe.encrypt(key, payload)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.RsaEncryption(algorithm.RsaPkcs1v15),
-      algorithm.AesGcm(algorithm.Aes128),
+      gose.RsaEncryption(gose.RsaPkcs1v15),
+      gose.AesGcm(gose.Aes128),
       [key],
     )
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -942,7 +916,7 @@ pub fn rsa_pkcs1v15_random_encrypted_key_produces_uniform_aead_failure_test() {
   let payload = <<"test":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_rsa(algorithm.RsaPkcs1v15, enc)
+    jwe.new_rsa(gose.RsaPkcs1v15, enc)
     |> jwe.encrypt(key, payload)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
@@ -962,7 +936,7 @@ pub fn rsa_pkcs1v15_random_encrypted_key_produces_uniform_aead_failure_test() {
   let assert Ok(parsed) = jwe.parse_compact(garbage_token)
 
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.RsaEncryption(algorithm.RsaPkcs1v15), enc, [key])
+    jwe.key_decryptor(gose.RsaEncryption(gose.RsaPkcs1v15), enc, [key])
   case jwe.decrypt(decryptor, parsed) {
     Error(gose.CryptoError(msg)) -> {
       assert msg != "RSA PKCS1v15 decryption failed"
@@ -977,7 +951,7 @@ pub fn rsa_pkcs1v15_tampered_header_enc_produces_aead_error_test() {
   let payload = <<"test payload":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_rsa(algorithm.RsaPkcs1v15, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_rsa(gose.RsaPkcs1v15, gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, payload)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
@@ -1007,8 +981,8 @@ pub fn rsa_pkcs1v15_tampered_header_enc_produces_aead_error_test() {
 
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.RsaEncryption(algorithm.RsaPkcs1v15),
-      algorithm.AesGcm(algorithm.Aes128),
+      gose.RsaEncryption(gose.RsaPkcs1v15),
+      gose.AesGcm(gose.Aes128),
       [key],
     )
   assert jwe.decrypt(decryptor, parsed)
@@ -1056,11 +1030,11 @@ fn error_to_string(err: gose.GoseError) -> String {
 }
 
 pub fn unprotected_header_roundtrip_flattened_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let plaintext = <<"unprotected header test":utf8>>
 
   let assert Ok(unencrypted) = {
-    let base = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    let base = jwe.new_direct(gose.AesGcm(gose.Aes256))
     use j <- result.try(jwe.with_shared_unprotected(
       base,
       "x-shared",
@@ -1091,7 +1065,7 @@ pub fn unprotected_header_roundtrip_flattened_test() {
     jwe.decode_unprotected_header(parsed, recipient_decoder)
 
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key,
     ])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -1099,11 +1073,11 @@ pub fn unprotected_header_roundtrip_flattened_test() {
 }
 
 pub fn unprotected_header_roundtrip_general_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let plaintext = <<"unprotected header general test":utf8>>
 
   let assert Ok(unencrypted) = {
-    let base = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    let base = jwe.new_direct(gose.AesGcm(gose.Aes256))
     use j <- result.try(jwe.with_shared_unprotected(
       base,
       "x-shared",
@@ -1120,7 +1094,7 @@ pub fn unprotected_header_roundtrip_general_test() {
   assert jwe.has_unprotected_header(parsed)
 
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key,
     ])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -1128,11 +1102,11 @@ pub fn unprotected_header_roundtrip_general_test() {
 }
 
 pub fn per_recipient_only_roundtrip_flattened_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let plaintext = <<"per-recipient only flattened":utf8>>
 
   let assert Ok(unencrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_unprotected("x-recipient", json.string("recipient-value"))
 
   let assert Ok(encrypted) = jwe.encrypt(unencrypted, key, plaintext)
@@ -1150,7 +1124,7 @@ pub fn per_recipient_only_roundtrip_flattened_test() {
     jwe.decode_unprotected_header(parsed, decoder)
 
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key,
     ])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -1158,11 +1132,11 @@ pub fn per_recipient_only_roundtrip_flattened_test() {
 }
 
 pub fn per_recipient_only_roundtrip_general_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let plaintext = <<"per-recipient only general":utf8>>
 
   let assert Ok(unencrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_unprotected("x-recipient", json.string("general-value"))
 
   let assert Ok(encrypted) = jwe.encrypt(unencrypted, key, plaintext)
@@ -1173,7 +1147,7 @@ pub fn per_recipient_only_roundtrip_general_test() {
   assert !jwe.has_shared_unprotected_header(parsed)
 
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key,
     ])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -1341,9 +1315,9 @@ pub fn jwe_alg_specific_disjointness_aes_gcm_kw_iv_test() {
 }
 
 pub fn jwe_has_unprotected_header_false_when_none_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, <<"test":utf8>>)
   let json_str = json.to_string(jwe.serialize_json_flattened(encrypted))
 
@@ -1353,9 +1327,9 @@ pub fn jwe_has_unprotected_header_false_when_none_test() {
 }
 
 pub fn compact_serialization_rejects_shared_unprotected_headers_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let assert Ok(unencrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_shared_unprotected("kid", json.string("key-1"))
 
   let assert Ok(encrypted) = jwe.encrypt(unencrypted, key, <<"test":utf8>>)
@@ -1368,9 +1342,9 @@ pub fn compact_serialization_rejects_shared_unprotected_headers_test() {
 }
 
 pub fn compact_serialization_rejects_per_recipient_unprotected_headers_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let assert Ok(unencrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_unprotected("kid", json.string("key-1"))
 
   let assert Ok(encrypted) = jwe.encrypt(unencrypted, key, <<"test":utf8>>)
@@ -1383,9 +1357,9 @@ pub fn compact_serialization_rejects_per_recipient_unprotected_headers_test() {
 }
 
 pub fn with_shared_unprotected_last_write_wins_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let assert Ok(unencrypted) = {
-    let base = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    let base = jwe.new_direct(gose.AesGcm(gose.Aes256))
     use j <- result.try(jwe.with_shared_unprotected(
       base,
       "kid",
@@ -1407,9 +1381,9 @@ pub fn with_shared_unprotected_last_write_wins_test() {
 }
 
 pub fn with_unprotected_last_write_wins_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let assert Ok(unencrypted) = {
-    let base = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    let base = jwe.new_direct(gose.AesGcm(gose.Aes256))
     use j <- result.try(jwe.with_unprotected(base, "kid", json.string("first")))
     jwe.with_unprotected(j, "kid", json.string("second"))
   }
@@ -1426,9 +1400,9 @@ pub fn with_unprotected_last_write_wins_test() {
 }
 
 pub fn parse_rejects_invalid_iv_length_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, <<"test":utf8>>)
   let assert Ok(token) = jwe.serialize_compact(encrypted)
 
@@ -1443,9 +1417,9 @@ pub fn parse_rejects_invalid_iv_length_test() {
 }
 
 pub fn parse_rejects_invalid_tag_length_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, <<"test":utf8>>)
   let assert Ok(token) = jwe.serialize_compact(encrypted)
 
@@ -1494,7 +1468,7 @@ pub fn parse_rejects_short_p2s_test() {
 }
 
 pub fn with_shared_unprotected_rejects_reserved_headers_test() {
-  let base = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+  let base = jwe.new_direct(gose.AesGcm(gose.Aes256))
   list.each(["alg", "enc", "crit", "zip"], fn(name) {
     let result = jwe.with_shared_unprotected(base, name, json.string("test"))
     assert result
@@ -1505,7 +1479,7 @@ pub fn with_shared_unprotected_rejects_reserved_headers_test() {
 }
 
 pub fn with_unprotected_rejects_reserved_headers_test() {
-  let base = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+  let base = jwe.new_direct(gose.AesGcm(gose.Aes256))
   list.each(["alg", "enc", "crit", "zip"], fn(name) {
     let result = jwe.with_unprotected(base, name, json.string("test"))
     assert result
@@ -1531,10 +1505,7 @@ pub fn ecdh_es_apu_apv_must_be_distinct_encrypt_test() {
   let same_value = <<"same@example.com":utf8>>
 
   let result =
-    jwe.new_ecdh_es(
-      algorithm.EcdhEsAesKw(algorithm.Aes128),
-      algorithm.AesGcm(algorithm.Aes256),
-    )
+    jwe.new_ecdh_es(gose.EcdhEsAesKw(gose.Aes128), gose.AesGcm(gose.Aes256))
     |> jwe.with_apu(same_value)
     |> jwe.with_apv(same_value)
     |> jwe.encrypt(ec_key, payload)
@@ -1636,10 +1607,7 @@ pub fn ecdh_es_distinct_apu_apv_succeeds_test() {
   let apv = <<"recipient@example.com":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_ecdh_es(
-      algorithm.EcdhEsAesKw(algorithm.Aes128),
-      algorithm.AesGcm(algorithm.Aes256),
-    )
+    jwe.new_ecdh_es(gose.EcdhEsAesKw(gose.Aes128), gose.AesGcm(gose.Aes256))
     |> jwe.with_apu(apu)
     |> jwe.with_apv(apv)
     |> jwe.encrypt(ec_key, payload)
@@ -1648,8 +1616,8 @@ pub fn ecdh_es_distinct_apu_apv_succeeds_test() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsAesKw(algorithm.Aes128)),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsAesKw(gose.Aes128)),
+      gose.AesGcm(gose.Aes256),
       [ec_key],
     )
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -1663,10 +1631,7 @@ pub fn ecdh_es_only_apu_succeeds_test() {
   let apu = <<"sender@example.com":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_ecdh_es(
-      algorithm.EcdhEsAesKw(algorithm.Aes128),
-      algorithm.AesGcm(algorithm.Aes256),
-    )
+    jwe.new_ecdh_es(gose.EcdhEsAesKw(gose.Aes128), gose.AesGcm(gose.Aes256))
     |> jwe.with_apu(apu)
     |> jwe.encrypt(ec_key, payload)
 
@@ -1674,8 +1639,8 @@ pub fn ecdh_es_only_apu_succeeds_test() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsAesKw(algorithm.Aes128)),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsAesKw(gose.Aes128)),
+      gose.AesGcm(gose.Aes256),
       [ec_key],
     )
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -1689,10 +1654,7 @@ pub fn ecdh_es_only_apv_succeeds_test() {
   let apv = <<"recipient@example.com":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_ecdh_es(
-      algorithm.EcdhEsAesKw(algorithm.Aes128),
-      algorithm.AesGcm(algorithm.Aes256),
-    )
+    jwe.new_ecdh_es(gose.EcdhEsAesKw(gose.Aes128), gose.AesGcm(gose.Aes256))
     |> jwe.with_apv(apv)
     |> jwe.encrypt(ec_key, payload)
 
@@ -1700,8 +1662,8 @@ pub fn ecdh_es_only_apv_succeeds_test() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsAesKw(algorithm.Aes128)),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsAesKw(gose.Aes128)),
+      gose.AesGcm(gose.Aes256),
       [ec_key],
     )
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -1710,11 +1672,11 @@ pub fn ecdh_es_only_apv_succeeds_test() {
 }
 
 pub fn aes_gcm_kw_missing_iv_test() {
-  let key = key.generate_aes_kw_key(algorithm.Aes128)
+  let key = gose.generate_aes_kw_key(gose.Aes128)
   let payload = <<"test":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_aes_gcm_kw(algorithm.Aes128, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_aes_gcm_kw(gose.Aes128, gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, payload)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
@@ -1739,8 +1701,8 @@ pub fn aes_gcm_kw_missing_iv_test() {
   let assert Ok(parsed_no_iv) = jwe.parse_compact(token_no_iv)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.AesKeyWrap(algorithm.AesGcmKw, algorithm.Aes128),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.AesKeyWrap(gose.AesGcmKw, gose.Aes128),
+      gose.AesGcm(gose.Aes256),
       [key],
     )
   let result = jwe.decrypt(decryptor, parsed_no_iv)
@@ -1749,18 +1711,15 @@ pub fn aes_gcm_kw_missing_iv_test() {
 }
 
 pub fn encrypt_rejects_key_with_wrong_jwe_alg_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let key_with_alg =
-    key.with_alg(
+    gose.with_alg(
       key,
-      key.KeyEncryptionAlg(algorithm.AesKeyWrap(
-        algorithm.AesKw,
-        algorithm.Aes128,
-      )),
+      gose.KeyEncryptionAlg(gose.AesKeyWrap(gose.AesKw, gose.Aes128)),
     )
 
   let result =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key_with_alg, <<"test":utf8>>)
   let assert Error(gose.InvalidState(msg)) = result
   assert msg
@@ -1770,13 +1729,13 @@ pub fn encrypt_rejects_key_with_wrong_jwe_alg_test() {
 pub fn encrypt_rsa_rejects_key_with_wrong_jwe_alg_test() {
   let key = fixtures.rsa_private_key()
   let key_with_alg =
-    key.with_alg(
+    gose.with_alg(
       key,
-      key.KeyEncryptionAlg(algorithm.RsaEncryption(algorithm.RsaOaepSha1)),
+      gose.KeyEncryptionAlg(gose.RsaEncryption(gose.RsaOaepSha1)),
     )
 
   let result =
-    jwe.new_rsa(algorithm.RsaPkcs1v15, algorithm.AesGcm(algorithm.Aes128))
+    jwe.new_rsa(gose.RsaPkcs1v15, gose.AesGcm(gose.Aes128))
     |> jwe.encrypt(key_with_alg, <<"test":utf8>>)
   let assert Error(gose.InvalidState(msg)) = result
   assert msg
@@ -1784,29 +1743,23 @@ pub fn encrypt_rsa_rejects_key_with_wrong_jwe_alg_test() {
 }
 
 pub fn encrypt_rejects_pbes2_with_key_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let payload = <<"test":utf8>>
 
   let result =
-    jwe.new_pbes2(
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes128),
-    )
+    jwe.new_pbes2(gose.Pbes2Sha256Aes128Kw, gose.AesGcm(gose.Aes128))
     |> jwe.encrypt(key, payload)
   let assert Error(gose.InvalidState(msg)) = result
   assert msg == "PBES2 algorithms require a password; use encrypt_with_password"
 }
 
 pub fn encrypt_rejects_key_with_jws_alg_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let key_with_alg =
-    key.with_alg(
-      key,
-      key.SigningAlg(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256))),
-    )
+    gose.with_alg(key, gose.SigningAlg(gose.Mac(gose.Hmac(gose.HmacSha256))))
 
   let result =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key_with_alg, <<"test":utf8>>)
   let assert Error(gose.InvalidState(msg)) = result
   assert msg
@@ -1815,7 +1768,7 @@ pub fn encrypt_rejects_key_with_jws_alg_test() {
 
 pub fn decrypt_rejects_empty_key_list_test() {
   let assert Error(gose.InvalidState(_)) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [])
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [])
 }
 
 pub fn chacha20_kw_roundtrip_test() {
@@ -1835,18 +1788,18 @@ pub fn chacha20_kw_roundtrip_test() {
   let assert Ok(token) = jwe.serialize_compact(encrypted)
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.ChaCha20KeyWrap(variant), enc, [key])
+    jwe.key_decryptor(gose.ChaCha20KeyWrap(variant), enc, [key])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
 
   assert decrypted == payload
 }
 
 pub fn chacha20_kw_missing_iv_test() {
-  let key = key.generate_chacha20_kw_key()
+  let key = gose.generate_chacha20_kw_key()
   let payload = <<"test":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_chacha20_kw(algorithm.C20PKw, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_chacha20_kw(gose.C20PKw, gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, payload)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
@@ -1871,8 +1824,8 @@ pub fn chacha20_kw_missing_iv_test() {
   let assert Ok(parsed_no_iv) = jwe.parse_compact(token_no_iv)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.ChaCha20KeyWrap(algorithm.C20PKw),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.ChaCha20KeyWrap(gose.C20PKw),
+      gose.AesGcm(gose.Aes256),
       [
         key,
       ],
@@ -1883,11 +1836,11 @@ pub fn chacha20_kw_missing_iv_test() {
 }
 
 pub fn chacha20_kw_missing_tag_test() {
-  let key = key.generate_chacha20_kw_key()
+  let key = gose.generate_chacha20_kw_key()
   let payload = <<"test":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_chacha20_kw(algorithm.C20PKw, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_chacha20_kw(gose.C20PKw, gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, payload)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
@@ -1912,8 +1865,8 @@ pub fn chacha20_kw_missing_tag_test() {
   let assert Ok(parsed_no_tag) = jwe.parse_compact(token_no_tag)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.ChaCha20KeyWrap(algorithm.C20PKw),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.ChaCha20KeyWrap(gose.C20PKw),
+      gose.AesGcm(gose.Aes256),
       [
         key,
       ],
@@ -1953,10 +1906,10 @@ pub fn encrypt_to_compact_roundtrip_test() {
 }
 
 pub fn encrypt_to_compact_rejects_pbes2_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   assert jwe.encrypt_to_compact(
-      algorithm.Pbes2(algorithm.Pbes2Sha256Aes128Kw),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Pbes2(gose.Pbes2Sha256Aes128Kw),
+      gose.AesGcm(gose.Aes256),
       <<"test":utf8>>,
       key,
       option.None,
@@ -1967,9 +1920,9 @@ pub fn encrypt_to_compact_rejects_pbes2_test() {
 }
 
 pub fn with_cty_roundtrip_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let jwe_val =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_cty("JWT")
   assert jwe.cty(jwe_val) == Ok("JWT")
 
@@ -1982,9 +1935,9 @@ pub fn with_cty_roundtrip_test() {
 }
 
 pub fn with_typ_roundtrip_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let jwe_val =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_typ("JWT")
   assert jwe.typ(jwe_val) == Ok("JWT")
 
@@ -1997,14 +1950,14 @@ pub fn with_typ_roundtrip_test() {
 }
 
 pub fn empty_plaintext_roundtrip_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, <<>>)
   let assert Ok(token) = jwe.serialize_compact(encrypted)
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key,
     ])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -2021,11 +1974,11 @@ pub fn parse_json_rejects_empty_object_test() {
 }
 
 pub fn has_unprotected_headers_on_built_jwe_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let plaintext = <<"built unprotected test":utf8>>
 
   let assert Ok(with_both) = {
-    let base = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    let base = jwe.new_direct(gose.AesGcm(gose.Aes256))
     use j <- result.try(jwe.with_shared_unprotected(
       base,
       "x-shared",
@@ -2037,7 +1990,7 @@ pub fn has_unprotected_headers_on_built_jwe_test() {
   assert jwe.has_shared_unprotected_header(encrypted)
   assert jwe.has_unprotected_header(encrypted)
 
-  let base_no_headers = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+  let base_no_headers = jwe.new_direct(gose.AesGcm(gose.Aes256))
   let assert Ok(encrypted_plain) = jwe.encrypt(base_no_headers, key, plaintext)
   assert !jwe.has_shared_unprotected_header(encrypted_plain)
   assert !jwe.has_unprotected_header(encrypted_plain)

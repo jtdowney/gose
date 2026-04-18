@@ -1,9 +1,8 @@
 import gleam/bit_array
 import gleam/io
 import gleam/string
-import gose/algorithm
-import gose/cose/key as cose_key
-import gose/key
+import gose
+import gose/cose
 import kryptos/ec
 import kryptos/eddsa
 
@@ -26,16 +25,14 @@ pub fn main() {
 fn ec_key_roundtrip() {
   io.println("--- EC P-256 Key Roundtrip ---")
 
-  let ec_key = key.generate_ec(ec.P256)
+  let ec_key = gose.generate_ec(ec.P256)
 
-  // Serialize
-  let assert Ok(cbor_bytes) = cose_key.to_cbor(ec_key)
+  let assert Ok(cbor_bytes) = cose.key_to_cbor(ec_key)
   io.println("EC key as CBOR (base64):")
   io.println(bit_array.base64_encode(cbor_bytes, True))
 
-  // Parse
-  let assert Ok(decoded) = cose_key.from_cbor(cbor_bytes)
-  io.println("Key type: " <> string.inspect(key.key_type(decoded)))
+  let assert Ok(decoded) = cose.key_from_cbor(cbor_bytes)
+  io.println("Key type: " <> string.inspect(gose.key_type(decoded)))
   io.println("Roundtrip successful")
   io.println("")
 }
@@ -43,16 +40,14 @@ fn ec_key_roundtrip() {
 fn eddsa_key_roundtrip() {
   io.println("--- EdDSA Ed25519 Key Roundtrip ---")
 
-  let eddsa_key = key.generate_eddsa(eddsa.Ed25519)
+  let eddsa_key = gose.generate_eddsa(eddsa.Ed25519)
 
-  // Serialize
-  let assert Ok(cbor_bytes) = cose_key.to_cbor(eddsa_key)
+  let assert Ok(cbor_bytes) = cose.key_to_cbor(eddsa_key)
   io.println("EdDSA key as CBOR (base64):")
   io.println(bit_array.base64_encode(cbor_bytes, True))
 
-  // Parse
-  let assert Ok(decoded) = cose_key.from_cbor(cbor_bytes)
-  io.println("Key type: " <> string.inspect(key.key_type(decoded)))
+  let assert Ok(decoded) = cose.key_from_cbor(cbor_bytes)
+  io.println("Key type: " <> string.inspect(gose.key_type(decoded)))
   io.println("Roundtrip successful")
   io.println("")
 }
@@ -60,16 +55,14 @@ fn eddsa_key_roundtrip() {
 fn symmetric_key_roundtrip() {
   io.println("--- Symmetric Key Roundtrip ---")
 
-  let hmac_key = key.generate_hmac_key(algorithm.HmacSha256)
+  let hmac_key = gose.generate_hmac_key(gose.HmacSha256)
 
-  // Serialize
-  let assert Ok(cbor_bytes) = cose_key.to_cbor(hmac_key)
+  let assert Ok(cbor_bytes) = cose.key_to_cbor(hmac_key)
   io.println("Symmetric key as CBOR (base64):")
   io.println(bit_array.base64_encode(cbor_bytes, True))
 
-  // Parse
-  let assert Ok(decoded) = cose_key.from_cbor(cbor_bytes)
-  io.println("Key type: " <> string.inspect(key.key_type(decoded)))
+  let assert Ok(decoded) = cose.key_from_cbor(cbor_bytes)
+  io.println("Key type: " <> string.inspect(gose.key_type(decoded)))
   io.println("Roundtrip successful")
   io.println("")
 }
@@ -77,17 +70,15 @@ fn symmetric_key_roundtrip() {
 fn public_key_only() {
   io.println("--- Public Key Only ---")
 
-  let ec_key = key.generate_ec(ec.P256)
-  let assert Ok(pub_key) = key.public_key(ec_key)
+  let ec_key = gose.generate_ec(ec.P256)
+  let assert Ok(pub_key) = gose.public_key(ec_key)
 
-  // Serialize
-  let assert Ok(cbor_bytes) = cose_key.to_cbor(pub_key)
+  let assert Ok(cbor_bytes) = cose.key_to_cbor(pub_key)
   io.println("EC public key as CBOR (base64):")
   io.println(bit_array.base64_encode(cbor_bytes, True))
 
-  // Parse
-  let assert Ok(decoded) = cose_key.from_cbor(cbor_bytes)
-  io.println("Key type: " <> string.inspect(key.key_type(decoded)))
+  let assert Ok(decoded) = cose.key_from_cbor(cbor_bytes)
+  io.println("Key type: " <> string.inspect(gose.key_type(decoded)))
   io.println("Roundtrip successful")
   io.println("")
 }

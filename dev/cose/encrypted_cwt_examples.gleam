@@ -3,11 +3,10 @@ import gleam/io
 import gleam/string
 import gleam/time/duration
 import gleam/time/timestamp
-import gose/algorithm
+import gose
 import gose/cose/cwt
 import gose/cose/encrypt0
 import gose/cose/encrypted_cwt
-import gose/key
 import kryptos/ec
 
 pub fn main() {
@@ -28,9 +27,9 @@ pub fn main() {
 fn aes_gcm_roundtrip() {
   io.println("--- Full Roundtrip (ES256 + AES-128-GCM) ---")
 
-  let signing_key = key.generate_ec(ec.P256)
-  let enc_alg = algorithm.AesGcm(algorithm.Aes128)
-  let encryption_key = key.generate_enc_key(enc_alg)
+  let signing_key = gose.generate_ec(ec.P256)
+  let enc_alg = gose.AesGcm(gose.Aes128)
+  let encryption_key = gose.generate_enc_key(enc_alg)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -42,7 +41,7 @@ fn aes_gcm_roundtrip() {
 
   // Sign
   let assert Ok(signed) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), signing_key)
+    cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), signing_key)
 
   // Encrypt
   let assert Ok(encrypted) =
@@ -52,7 +51,7 @@ fn aes_gcm_roundtrip() {
 
   // Decrypt and verify
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [signing_key])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [signing_key])
   let assert Ok(decryptor) = encrypt0.decryptor(enc_alg, key: encryption_key)
   let assert Ok(verified) =
     encrypted_cwt.decrypt_and_validate(encrypted, decryptor:, verifier:, now:)
@@ -66,9 +65,9 @@ fn aes_gcm_roundtrip() {
 fn chacha20_roundtrip() {
   io.println("--- ChaCha20-Poly1305 Encryption ---")
 
-  let signing_key = key.generate_ec(ec.P256)
-  let enc_alg = algorithm.ChaCha20Poly1305
-  let encryption_key = key.generate_enc_key(enc_alg)
+  let signing_key = gose.generate_ec(ec.P256)
+  let enc_alg = gose.ChaCha20Poly1305
+  let encryption_key = gose.generate_enc_key(enc_alg)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -80,7 +79,7 @@ fn chacha20_roundtrip() {
 
   // Sign
   let assert Ok(signed) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), signing_key)
+    cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), signing_key)
 
   // Encrypt
   let assert Ok(encrypted) =
@@ -90,7 +89,7 @@ fn chacha20_roundtrip() {
 
   // Decrypt and verify
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [signing_key])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [signing_key])
   let assert Ok(decryptor) = encrypt0.decryptor(enc_alg, key: encryption_key)
   let assert Ok(verified) =
     encrypted_cwt.decrypt_and_validate(encrypted, decryptor:, verifier:, now:)
@@ -103,9 +102,9 @@ fn chacha20_roundtrip() {
 fn validation_through_encryption() {
   io.println("--- Issuer Validation Through Encryption ---")
 
-  let signing_key = key.generate_ec(ec.P256)
-  let enc_alg = algorithm.AesGcm(algorithm.Aes256)
-  let encryption_key = key.generate_enc_key(enc_alg)
+  let signing_key = gose.generate_ec(ec.P256)
+  let enc_alg = gose.AesGcm(gose.Aes256)
+  let encryption_key = gose.generate_enc_key(enc_alg)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -117,7 +116,7 @@ fn validation_through_encryption() {
 
   // Sign
   let assert Ok(signed) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), signing_key)
+    cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), signing_key)
 
   // Encrypt
   let assert Ok(encrypted) =
@@ -125,7 +124,7 @@ fn validation_through_encryption() {
 
   // Decrypt and verify
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [signing_key])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [signing_key])
   let verifier = cwt.with_issuer_validation(verifier, "trusted-issuer")
   let assert Ok(decryptor) = encrypt0.decryptor(enc_alg, key: encryption_key)
   let assert Ok(verified) =

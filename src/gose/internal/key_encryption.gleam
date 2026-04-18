@@ -8,11 +8,8 @@ import gleam/option.{type Option}
 import gleam/result
 import gleam/string
 import gose
-import gose/algorithm
 import gose/internal/content_encryption
 import gose/internal/key_extract
-import gose/internal/utils
-import gose/key
 import kryptos/aead
 import kryptos/block
 import kryptos/crypto
@@ -28,33 +25,33 @@ pub type EphemeralPublicKey {
 }
 
 pub fn wrap_aes_kw(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   cek cek: BitArray,
-  size size: algorithm.AesKeySize,
+  size size: gose.AesKeySize,
 ) -> Result(BitArray, gose.GoseError) {
-  use secret <- result.try(get_octet_key(key, algorithm.aes_key_size(size)))
+  use secret <- result.try(get_octet_key(key, gose.aes_key_size(size)))
   use cipher <- result.try(content_encryption.aes_cipher(size, secret))
   block.wrap(cipher, cek)
   |> result.replace_error(gose.CryptoError("AES Key Wrap failed"))
 }
 
 pub fn unwrap_aes_kw(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   encrypted_key encrypted_key: BitArray,
-  size size: algorithm.AesKeySize,
+  size size: gose.AesKeySize,
 ) -> Result(BitArray, gose.GoseError) {
-  use secret <- result.try(get_octet_key(key, algorithm.aes_key_size(size)))
+  use secret <- result.try(get_octet_key(key, gose.aes_key_size(size)))
   use cipher <- result.try(content_encryption.aes_cipher(size, secret))
   block.unwrap(cipher, encrypted_key)
   |> result.replace_error(gose.CryptoError("AES Key Unwrap failed"))
 }
 
 pub fn get_octet_key(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   expected_size expected_size: Int,
 ) -> Result(BitArray, gose.GoseError) {
   use secret <- result.try(
-    key.material_octet_secret(key.material(key))
+    gose.material_octet_secret(gose.material(key))
     |> result.replace_error(gose.InvalidState("expected octet key")),
   )
 
@@ -76,7 +73,7 @@ pub fn wrap_aes_gcm(
   kek: BitArray,
   cek cek: BitArray,
   iv iv: BitArray,
-  size size: algorithm.AesKeySize,
+  size size: gose.AesKeySize,
 ) -> Result(#(BitArray, BitArray), gose.GoseError) {
   use cipher <- result.try(content_encryption.aes_cipher(size, kek))
   let ctx = aead.gcm(cipher)
@@ -89,7 +86,7 @@ pub fn unwrap_aes_gcm(
   encrypted_cek encrypted_cek: BitArray,
   iv iv: BitArray,
   tag tag: BitArray,
-  size size: algorithm.AesKeySize,
+  size size: gose.AesKeySize,
 ) -> Result(BitArray, gose.GoseError) {
   use cipher <- result.try(content_encryption.aes_cipher(size, kek))
   let ctx = aead.gcm(cipher)
@@ -98,9 +95,9 @@ pub fn unwrap_aes_gcm(
 }
 
 pub fn unwrap_aes_gcm_kw(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   encrypted_cek encrypted_cek: BitArray,
-  size size: algorithm.AesKeySize,
+  size size: gose.AesKeySize,
   kw_iv kw_iv: Option(BitArray),
   kw_tag kw_tag: Option(BitArray),
 ) -> Result(BitArray, gose.GoseError) {
@@ -113,16 +110,16 @@ pub fn unwrap_aes_gcm_kw(
     gose.ParseError("missing tag header for AES-GCM Key Wrap"),
   ))
 
-  use kek <- result.try(get_octet_key(key, algorithm.aes_key_size(size)))
+  use kek <- result.try(get_octet_key(key, gose.aes_key_size(size)))
   unwrap_aes_gcm(kek, encrypted_cek:, iv:, tag:, size:)
 }
 
 fn chacha20_variant_params(
-  variant: algorithm.ChaCha20Kw,
+  variant: gose.ChaCha20Kw,
 ) -> #(fn(BitArray) -> Result(aead.AeadContext, Nil), String) {
   case variant {
-    algorithm.C20PKw -> #(aead.chacha20_poly1305, "ChaCha20-Poly1305")
-    algorithm.XC20PKw -> #(aead.xchacha20_poly1305, "XChaCha20-Poly1305")
+    gose.C20PKw -> #(aead.chacha20_poly1305, "ChaCha20-Poly1305")
+    gose.XC20PKw -> #(aead.xchacha20_poly1305, "XChaCha20-Poly1305")
   }
 }
 
@@ -165,7 +162,7 @@ pub fn wrap_chacha20_by_variant(
   kek: BitArray,
   cek cek: BitArray,
   nonce nonce: BitArray,
-  variant variant: algorithm.ChaCha20Kw,
+  variant variant: gose.ChaCha20Kw,
 ) -> Result(#(BitArray, BitArray), gose.GoseError) {
   let #(cipher_fn, variant_name) = chacha20_variant_params(variant)
   wrap_chacha20_variant(
@@ -182,7 +179,7 @@ pub fn unwrap_chacha20_by_variant(
   encrypted_cek encrypted_cek: BitArray,
   nonce nonce: BitArray,
   tag tag: BitArray,
-  variant variant: algorithm.ChaCha20Kw,
+  variant variant: gose.ChaCha20Kw,
 ) -> Result(BitArray, gose.GoseError) {
   let #(cipher_fn, variant_name) = chacha20_variant_params(variant)
   unwrap_chacha20_variant(
@@ -196,9 +193,9 @@ pub fn unwrap_chacha20_by_variant(
 }
 
 pub fn unwrap_chacha20_kw(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   encrypted_cek encrypted_cek: BitArray,
-  variant variant: algorithm.ChaCha20Kw,
+  variant variant: gose.ChaCha20Kw,
   kw_iv kw_iv: Option(BitArray),
   kw_tag kw_tag: Option(BitArray),
 ) -> Result(BitArray, gose.GoseError) {
@@ -216,9 +213,9 @@ pub fn unwrap_chacha20_kw(
 }
 
 pub fn wrap_ecdh_es_chacha20_kw(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   cek cek: BitArray,
-  variant variant: algorithm.ChaCha20Kw,
+  variant variant: gose.ChaCha20Kw,
   alg_id alg_id: String,
   apu apu: Option(BitArray),
   apv apv: Option(BitArray),
@@ -232,7 +229,7 @@ pub fn wrap_ecdh_es_chacha20_kw(
     length: 32,
   ))
 
-  let nonce_size = algorithm.chacha20_kw_nonce_size(variant)
+  let nonce_size = gose.chacha20_kw_nonce_size(variant)
   let nonce = crypto.random_bytes(nonce_size)
   use #(encrypted_cek, kw_tag) <- result.try(wrap_chacha20_by_variant(
     kek,
@@ -244,9 +241,9 @@ pub fn wrap_ecdh_es_chacha20_kw(
 }
 
 pub fn unwrap_ecdh_es_chacha20_kw(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   encrypted_key encrypted_key: BitArray,
-  variant variant: algorithm.ChaCha20Kw,
+  variant variant: gose.ChaCha20Kw,
   alg_id alg_id: String,
   epk epk: EphemeralPublicKey,
   apu apu: Option(BitArray),
@@ -272,12 +269,12 @@ pub fn unwrap_ecdh_es_chacha20_kw(
 }
 
 pub fn wrap_rsa_oaep(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   cek cek: BitArray,
   hash_alg hash_alg: hash.HashAlgorithm,
 ) -> Result(BitArray, gose.GoseError) {
   use public <- result.try(
-    key_extract.rsa_public_key(key.material(key))
+    key_extract.rsa_public_key(gose.material(key))
     |> result.replace_error(gose.InvalidState(
       "RSA encryption requires an RSA key",
     )),
@@ -288,12 +285,12 @@ pub fn wrap_rsa_oaep(
 }
 
 pub fn unwrap_rsa_oaep(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   encrypted_key encrypted_key: BitArray,
   hash_alg hash_alg: hash.HashAlgorithm,
 ) -> Result(BitArray, gose.GoseError) {
   use private <- result.try(
-    key_extract.rsa_private_key(key.material(key))
+    key_extract.rsa_private_key(gose.material(key))
     |> result.replace_error(gose.InvalidState(
       "RSA decryption requires an RSA private key",
     )),
@@ -304,11 +301,11 @@ pub fn unwrap_rsa_oaep(
 }
 
 pub fn wrap_rsa_pkcs1v15(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   cek: BitArray,
 ) -> Result(BitArray, gose.GoseError) {
   use public <- result.try(
-    key_extract.rsa_public_key(key.material(key))
+    key_extract.rsa_public_key(gose.material(key))
     |> result.replace_error(gose.InvalidState(
       "RSA encryption requires an RSA key",
     )),
@@ -318,17 +315,17 @@ pub fn wrap_rsa_pkcs1v15(
 }
 
 pub fn unwrap_rsa_pkcs1v15_safe(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   encrypted_key encrypted_key: BitArray,
-  enc enc: algorithm.ContentAlg,
+  enc enc: gose.ContentAlg,
 ) -> Result(BitArray, gose.GoseError) {
   use private <- result.try(
-    key_extract.rsa_private_key(key.material(key))
+    key_extract.rsa_private_key(gose.material(key))
     |> result.replace_error(gose.InvalidState(
       "RSA decryption requires an RSA private key",
     )),
   )
-  let expected_size = algorithm.content_alg_key_size(enc)
+  let expected_size = gose.content_alg_key_size(enc)
   let random_cek = content_encryption.generate_cek(enc)
   let cek =
     rsa.decrypt(private, encrypted_key, rsa.EncryptPkcs1v15)
@@ -348,17 +345,17 @@ fn validate_decrypted_size(
 }
 
 pub fn unwrap_direct(
-  key: key.Key(kid),
-  enc: algorithm.ContentAlg,
+  key: gose.Key(kid),
+  enc: gose.ContentAlg,
 ) -> Result(BitArray, gose.GoseError) {
   use secret <- result.try(
-    key.material_octet_secret(key.material(key))
+    gose.material_octet_secret(gose.material(key))
     |> result.replace_error(gose.InvalidState(
       "direct encryption requires an octet key",
     )),
   )
 
-  let expected_size = algorithm.content_alg_key_size(enc)
+  let expected_size = gose.content_alg_key_size(enc)
   let actual_size = bit_array.byte_size(secret)
   case actual_size == expected_size {
     True -> Ok(secret)
@@ -375,41 +372,41 @@ pub fn unwrap_direct(
 }
 
 pub fn wrap_ecdh_es_direct(
-  key: key.Key(kid),
-  enc enc: algorithm.ContentAlg,
+  key: gose.Key(kid),
+  enc enc: gose.ContentAlg,
   alg_id alg_id: String,
   apu apu: Option(BitArray),
   apv apv: Option(BitArray),
 ) -> Result(#(BitArray, EphemeralPublicKey), gose.GoseError) {
-  let key_len = algorithm.content_alg_key_size(enc)
+  let key_len = gose.content_alg_key_size(enc)
   use #(shared_secret, epk) <- result.try(compute_ecdh_shared_secret(key))
   derive_ecdh_key(shared_secret, alg_id:, apu:, apv:, length: key_len)
   |> result.map(fn(cek) { #(cek, epk) })
 }
 
 pub fn unwrap_ecdh_es_direct(
-  key: key.Key(kid),
-  enc enc: algorithm.ContentAlg,
+  key: gose.Key(kid),
+  enc enc: gose.ContentAlg,
   alg_id alg_id: String,
   epk epk: EphemeralPublicKey,
   apu apu: Option(BitArray),
   apv apv: Option(BitArray),
 ) -> Result(BitArray, gose.GoseError) {
-  let key_len = algorithm.content_alg_key_size(enc)
+  let key_len = gose.content_alg_key_size(enc)
   use shared_secret <- result.try(compute_ecdh_shared_secret_with_epk(key, epk))
   derive_ecdh_key(shared_secret, alg_id:, apu:, apv:, length: key_len)
 }
 
 pub fn wrap_ecdh_es_kw(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   cek cek: BitArray,
-  size size: algorithm.AesKeySize,
+  size size: gose.AesKeySize,
   alg_id alg_id: String,
   apu apu: Option(BitArray),
   apv apv: Option(BitArray),
 ) -> Result(#(BitArray, EphemeralPublicKey), gose.GoseError) {
   use #(shared_secret, epk) <- result.try(compute_ecdh_shared_secret(key))
-  let kw_key_len = algorithm.aes_key_size(size)
+  let kw_key_len = gose.aes_key_size(size)
   use kek <- result.try(derive_ecdh_key(
     shared_secret,
     alg_id:,
@@ -425,16 +422,16 @@ pub fn wrap_ecdh_es_kw(
 }
 
 pub fn unwrap_ecdh_es_kw(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   encrypted_key encrypted_key: BitArray,
-  size size: algorithm.AesKeySize,
+  size size: gose.AesKeySize,
   alg_id alg_id: String,
   epk epk: EphemeralPublicKey,
   apu apu: Option(BitArray),
   apv apv: Option(BitArray),
 ) -> Result(BitArray, gose.GoseError) {
   use shared_secret <- result.try(compute_ecdh_shared_secret_with_epk(key, epk))
-  let kw_key_len = algorithm.aes_key_size(size)
+  let kw_key_len = gose.aes_key_size(size)
   use kek <- result.try(derive_ecdh_key(
     shared_secret,
     alg_id:,
@@ -449,28 +446,28 @@ pub fn unwrap_ecdh_es_kw(
 }
 
 pub fn compute_ecdh_shared_secret(
-  key: key.Key(kid),
+  key: gose.Key(kid),
 ) -> Result(#(BitArray, EphemeralPublicKey), gose.GoseError) {
-  let mat = key.material(key)
+  let mat = gose.material(key)
   compute_ec_shared_secret(mat)
   |> result.lazy_or(fn() { compute_xdh_shared_secret(mat) })
   |> result.replace_error(gose.InvalidState("ECDH-ES requires an EC or XDH key"))
 }
 
 fn compute_ec_shared_secret(
-  mat: key.KeyMaterial,
+  mat: gose.KeyMaterial,
 ) -> Result(#(BitArray, EphemeralPublicKey), gose.GoseError) {
-  use ec_mat <- result.try(key.material_ec(mat))
+  use ec_mat <- result.try(gose.material_ec(mat))
   let #(peer_public, curve) = case ec_mat {
-    key.EcPrivate(public:, curve:, ..) -> #(public, curve)
-    key.EcPublic(key: public, curve:) -> #(public, curve)
+    gose.EcPrivate(public:, curve:, ..) -> #(public, curve)
+    gose.EcPublic(key: public, curve:) -> #(public, curve)
   }
   let #(ephemeral_private, ephemeral_public) = ec.generate_key_pair(curve)
   use shared <- result.try(
     ecdh.compute_shared_secret(ephemeral_private, peer_public)
     |> result.replace_error(gose.CryptoError("ECDH key agreement failed")),
   )
-  utils.ec_public_key_coordinates(ephemeral_public, curve:)
+  gose.ec_raw_coordinates(ephemeral_public, curve:)
   |> result.map(fn(coords) {
     let #(x, y) = coords
     #(shared, EcEphemeralKey(curve:, x:, y:))
@@ -478,12 +475,12 @@ fn compute_ec_shared_secret(
 }
 
 fn compute_xdh_shared_secret(
-  mat: key.KeyMaterial,
+  mat: gose.KeyMaterial,
 ) -> Result(#(BitArray, EphemeralPublicKey), gose.GoseError) {
-  use xdh_mat <- result.try(key.material_xdh(mat))
+  use xdh_mat <- result.try(gose.material_xdh(mat))
   let #(peer_public, curve) = case xdh_mat {
-    key.XdhPrivate(public:, curve:, ..) -> #(public, curve)
-    key.XdhPublic(key: public, curve:) -> #(public, curve)
+    gose.XdhPrivate(public:, curve:, ..) -> #(public, curve)
+    gose.XdhPublic(key: public, curve:) -> #(public, curve)
   }
   let #(ephemeral_private, ephemeral_public) = xdh.generate_key_pair(curve)
   use shared <- result.try(
@@ -495,24 +492,24 @@ fn compute_xdh_shared_secret(
 }
 
 pub fn compute_ecdh_shared_secret_with_epk(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   epk epk: EphemeralPublicKey,
 ) -> Result(BitArray, gose.GoseError) {
-  let mat = key.material(key)
+  let mat = gose.material(key)
   case epk {
     EcEphemeralKey(curve: epk_curve, x:, y:) -> {
       let key_error =
         gose.InvalidState("key type does not match ephemeral key type")
       use ec_mat <- result.try(
-        key.material_ec(mat) |> result.replace_error(key_error),
+        gose.material_ec(mat) |> result.replace_error(key_error),
       )
       case ec_mat {
-        key.EcPrivate(key: private, curve:, ..) -> {
+        gose.EcPrivate(key: private, curve:, ..) -> {
           use <- bool.guard(
             when: curve != epk_curve,
             return: Error(gose.InvalidState("ephemeral key curve mismatch")),
           )
-          use epk_public <- result.try(utils.ec_public_key_from_coordinates(
+          use epk_public <- result.try(gose.ec_public_key_from_raw_coordinates(
             curve,
             x:,
             y:,
@@ -520,17 +517,17 @@ pub fn compute_ecdh_shared_secret_with_epk(
           ecdh.compute_shared_secret(private, epk_public)
           |> result.replace_error(gose.CryptoError("ECDH key agreement failed"))
         }
-        key.EcPublic(..) -> Error(key_error)
+        gose.EcPublic(..) -> Error(key_error)
       }
     }
     XdhEphemeralKey(curve: epk_curve, x:) -> {
       let key_error =
         gose.InvalidState("key type does not match ephemeral key type")
       use xdh_mat <- result.try(
-        key.material_xdh(mat) |> result.replace_error(key_error),
+        gose.material_xdh(mat) |> result.replace_error(key_error),
       )
       case xdh_mat {
-        key.XdhPrivate(key: private, curve:, ..) -> {
+        gose.XdhPrivate(key: private, curve:, ..) -> {
           use <- bool.guard(
             when: curve != epk_curve,
             return: Error(gose.InvalidState("ephemeral key curve mismatch")),
@@ -544,7 +541,7 @@ pub fn compute_ecdh_shared_secret_with_epk(
           xdh.compute_shared_secret(private, epk_public)
           |> result.replace_error(gose.CryptoError("XDH key agreement failed"))
         }
-        key.XdhPublic(..) -> Error(key_error)
+        gose.XdhPublic(..) -> Error(key_error)
       }
     }
   }

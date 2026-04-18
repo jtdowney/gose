@@ -1,9 +1,8 @@
 import gleam/bit_array
 import gleam/io
 import gleam/string
-import gose/algorithm
+import gose
 import gose/cose/sign
-import gose/key
 import kryptos/ec
 import kryptos/eddsa
 
@@ -26,12 +25,12 @@ fn single_signer() {
   io.println("--- Single Signer (ES256) ---")
 
   let payload = <<"Hello, COSE_Sign!":utf8>>
-  let signing_key = key.generate_ec(ec.P256)
+  let signing_key = gose.generate_ec(ec.P256)
 
   // Sign
   let assert Ok(body) =
     sign.new(payload:)
-    |> sign.sign(algorithm.Ecdsa(algorithm.EcdsaP256), key: signing_key)
+    |> sign.sign(gose.Ecdsa(gose.EcdsaP256), key: signing_key)
   let signed = sign.assemble(body)
 
   let data = sign.serialize(signed)
@@ -41,7 +40,7 @@ fn single_signer() {
   // Verify
   let assert Ok(parsed) = sign.parse(data)
   let assert Ok(verifier) =
-    sign.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [signing_key])
+    sign.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [signing_key])
   let assert Ok(Nil) = sign.verify(verifier, parsed)
   io.println("Signature verified successfully")
   io.println("")
@@ -51,14 +50,14 @@ fn multi_signer() {
   io.println("--- Multi-Signer (ES256 + EdDSA) ---")
 
   let payload = <<"Multi-signed message":utf8>>
-  let ec_key = key.generate_ec(ec.P256)
-  let ed_key = key.generate_eddsa(eddsa.Ed25519)
+  let ec_key = gose.generate_ec(ec.P256)
+  let ed_key = gose.generate_eddsa(eddsa.Ed25519)
 
   // Sign
   let assert Ok(body) =
     sign.new(payload:)
-    |> sign.sign(algorithm.Ecdsa(algorithm.EcdsaP256), key: ec_key)
-  let assert Ok(body) = sign.sign(body, algorithm.Eddsa, key: ed_key)
+    |> sign.sign(gose.Ecdsa(gose.EcdsaP256), key: ec_key)
+  let assert Ok(body) = sign.sign(body, gose.Eddsa, key: ed_key)
   let signed = sign.assemble(body)
 
   let data = sign.serialize_tagged(signed)
@@ -69,11 +68,11 @@ fn multi_signer() {
   let assert Ok(parsed) = sign.parse(data)
 
   let assert Ok(verifier) =
-    sign.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [ec_key])
+    sign.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [ec_key])
   let assert Ok(Nil) = sign.verify(verifier, parsed)
   io.println("ECDSA signer verified")
 
-  let assert Ok(verifier) = sign.verifier(algorithm.Eddsa, keys: [ed_key])
+  let assert Ok(verifier) = sign.verifier(gose.Eddsa, keys: [ed_key])
   let assert Ok(Nil) = sign.verify(verifier, parsed)
   io.println("EdDSA signer verified")
   io.println("")
@@ -84,13 +83,13 @@ fn aad() {
 
   let payload = <<"Protected payload":utf8>>
   let aad = <<"protocol-header-v1":utf8>>
-  let signing_key = key.generate_ec(ec.P256)
+  let signing_key = gose.generate_ec(ec.P256)
 
   // Sign
   let assert Ok(body) =
     sign.new(payload:)
     |> sign.with_aad(aad:)
-    |> sign.sign(algorithm.Ecdsa(algorithm.EcdsaP256), key: signing_key)
+    |> sign.sign(gose.Ecdsa(gose.EcdsaP256), key: signing_key)
   let signed = sign.assemble(body)
 
   let data = sign.serialize(signed)
@@ -100,7 +99,7 @@ fn aad() {
   // Verify
   let assert Ok(parsed) = sign.parse(data)
   let assert Ok(verifier) =
-    sign.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [signing_key])
+    sign.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [signing_key])
   let assert Ok(Nil) = sign.verify_with_aad(verifier, message: parsed, aad:)
   io.println("Verified with matching external AAD")
   io.println("")

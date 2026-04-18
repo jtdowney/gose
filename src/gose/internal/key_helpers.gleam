@@ -6,21 +6,19 @@ import gleam/option.{type Option}
 import gleam/result
 import gleam/string
 import gose
-import gose/algorithm
-import gose/key
 import kryptos/ec
 
 /// Order keys so that keys with a matching `kid` come first.
 /// If no target kid is provided, keys are returned in their original order.
 pub fn order_keys_by_kid(
-  keys: List(key.Key(String)),
+  keys: List(gose.Key(String)),
   target_kid target_kid: Option(String),
-) -> List(key.Key(String)) {
+) -> List(gose.Key(String)) {
   case target_kid {
     option.None -> keys
     option.Some(target) -> {
       let #(matching, others) =
-        list.partition(keys, fn(key) { key.kid(key) == Ok(target) })
+        list.partition(keys, fn(key) { gose.kid(key) == Ok(target) })
       list.append(matching, others)
     }
   }
@@ -29,8 +27,8 @@ pub fn order_keys_by_kid(
 /// Verify that the actual JWS algorithm matches the expected one.
 /// Returns an error if there is a mismatch (algorithm pinning).
 pub fn require_matching_signing_algorithm(
-  expected: algorithm.SigningAlg,
-  actual actual: algorithm.SigningAlg,
+  expected: gose.SigningAlg,
+  actual actual: gose.SigningAlg,
 ) -> Result(Nil, gose.GoseError) {
   case expected == actual {
     True -> Ok(Nil)
@@ -45,8 +43,8 @@ pub fn require_matching_signing_algorithm(
 }
 
 pub fn require_matching_content_algorithm(
-  expected: algorithm.ContentAlg,
-  actual actual: algorithm.ContentAlg,
+  expected: gose.ContentAlg,
+  actual actual: gose.ContentAlg,
 ) -> Result(Nil, gose.GoseError) {
   case expected == actual {
     True -> Ok(Nil)
@@ -79,7 +77,7 @@ pub type KeyPurpose {
 ///
 /// Returns an error if the key list is empty, otherwise calls the continuation.
 pub fn require_non_empty_keys(
-  keys: List(key.Key(kid)),
+  keys: List(gose.Key(kid)),
   continue: fn() -> Result(a, gose.GoseError),
 ) -> Result(a, gose.GoseError) {
   case keys {
@@ -90,11 +88,11 @@ pub fn require_non_empty_keys(
 
 /// Validate that an HMAC key meets the minimum size requirements for the algorithm.
 pub fn validate_hmac_key_size(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   min_bytes min_bytes: Int,
   alg_name alg_name: String,
 ) -> Result(Nil, gose.GoseError) {
-  case key.octet_key_size(key) {
+  case gose.octet_key_size(key) {
     Ok(size) if size < min_bytes ->
       Error(gose.InvalidState(
         alg_name
@@ -116,36 +114,32 @@ pub fn validate_hmac_key_size(
 /// - EC keys use the correct curve for the algorithm
 /// - EdDSA keys are signing keys (Ed25519/Ed448), not key agreement (X25519/X448)
 pub fn validate_signing_key_type(
-  alg: algorithm.SigningAlg,
-  key key: key.Key(kid),
+  alg: gose.SigningAlg,
+  key key: gose.Key(kid),
 ) -> Result(Nil, gose.GoseError) {
-  let key_type = key.key_type(key)
+  let key_type = gose.key_type(key)
   case alg, key_type {
-    algorithm.Mac(algorithm.Hmac(hmac_alg)), key.OctKeyType ->
+    gose.Mac(gose.Hmac(hmac_alg)), gose.OctKeyType ->
       validate_hmac_key_size(
         key,
-        algorithm.hmac_alg_key_size(hmac_alg),
+        gose.hmac_alg_key_size(hmac_alg),
         string.inspect(alg),
       )
 
-    algorithm.DigitalSignature(algorithm.RsaPkcs1(_)), key.RsaKeyType
-    | algorithm.DigitalSignature(algorithm.RsaPss(_)), key.RsaKeyType
+    gose.DigitalSignature(gose.RsaPkcs1(_)), gose.RsaKeyType
+    | gose.DigitalSignature(gose.RsaPss(_)), gose.RsaKeyType
     -> Ok(Nil)
 
-    algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
-      key.EcKeyType
-    -> validate_ec_curve(key, ec.P256)
-    algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP384)),
-      key.EcKeyType
-    -> validate_ec_curve(key, ec.P384)
-    algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP521)),
-      key.EcKeyType
-    -> validate_ec_curve(key, ec.P521)
-    algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaSecp256k1)),
-      key.EcKeyType
-    -> validate_ec_curve(key, ec.Secp256k1)
+    gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)), gose.EcKeyType ->
+      validate_ec_curve(key, ec.P256)
+    gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP384)), gose.EcKeyType ->
+      validate_ec_curve(key, ec.P384)
+    gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP521)), gose.EcKeyType ->
+      validate_ec_curve(key, ec.P521)
+    gose.DigitalSignature(gose.Ecdsa(gose.EcdsaSecp256k1)), gose.EcKeyType ->
+      validate_ec_curve(key, ec.Secp256k1)
 
-    algorithm.DigitalSignature(algorithm.Eddsa), key.OkpKeyType ->
+    gose.DigitalSignature(gose.Eddsa), gose.OkpKeyType ->
       validate_eddsa_key(key)
 
     _, _ ->
@@ -156,22 +150,22 @@ pub fn validate_signing_key_type(
 }
 
 pub fn validate_jwe_key_type(
-  alg: algorithm.KeyEncryptionAlg,
-  key key: key.Key(kid),
+  alg: gose.KeyEncryptionAlg,
+  key key: gose.Key(kid),
 ) -> Result(Nil, gose.GoseError) {
-  let key_type = key.key_type(key)
+  let key_type = gose.key_type(key)
   case alg, key_type {
-    algorithm.Direct, key.OctKeyType
-    | algorithm.AesKeyWrap(_, _), key.OctKeyType
-    | algorithm.ChaCha20KeyWrap(_), key.OctKeyType
+    gose.Direct, gose.OctKeyType
+    | gose.AesKeyWrap(_, _), gose.OctKeyType
+    | gose.ChaCha20KeyWrap(_), gose.OctKeyType
     -> Ok(Nil)
 
-    algorithm.RsaEncryption(_), key.RsaKeyType -> Ok(Nil)
+    gose.RsaEncryption(_), gose.RsaKeyType -> Ok(Nil)
 
-    algorithm.EcdhEs(_), key.EcKeyType -> Ok(Nil)
-    algorithm.EcdhEs(_), key.OkpKeyType -> validate_xdh_key(key)
+    gose.EcdhEs(_), gose.EcKeyType -> Ok(Nil)
+    gose.EcdhEs(_), gose.OkpKeyType -> validate_xdh_key(key)
 
-    algorithm.Pbes2(_), _ ->
+    gose.Pbes2(_), _ ->
       Error(gose.InvalidState("use password_decryptor for PBES2 algorithms"))
 
     _, _ ->
@@ -182,18 +176,18 @@ pub fn validate_jwe_key_type(
 }
 
 fn validate_ec_curve(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   expected: ec.Curve,
 ) -> Result(Nil, gose.GoseError) {
-  case key.ec_curve(key) {
+  case gose.ec_curve(key) {
     Ok(actual) if actual == expected -> Ok(Nil)
     Ok(_) -> Error(gose.InvalidState("EC key curve does not match algorithm"))
     Error(_) -> Error(gose.InvalidState("could not determine EC key curve"))
   }
 }
 
-fn validate_eddsa_key(key: key.Key(kid)) -> Result(Nil, gose.GoseError) {
-  case key.eddsa_curve(key) {
+fn validate_eddsa_key(key: gose.Key(kid)) -> Result(Nil, gose.GoseError) {
+  case gose.eddsa_curve(key) {
     Ok(_) -> Ok(Nil)
     Error(_) ->
       Error(gose.InvalidState(
@@ -202,8 +196,8 @@ fn validate_eddsa_key(key: key.Key(kid)) -> Result(Nil, gose.GoseError) {
   }
 }
 
-fn validate_xdh_key(key: key.Key(kid)) -> Result(Nil, gose.GoseError) {
-  case key.xdh_curve(key) {
+fn validate_xdh_key(key: gose.Key(kid)) -> Result(Nil, gose.GoseError) {
+  case gose.xdh_curve(key) {
     Ok(_) -> Ok(Nil)
     Error(_) ->
       Error(gose.InvalidState(
@@ -217,24 +211,24 @@ fn validate_xdh_key(key: key.Key(kid)) -> Result(Nil, gose.GoseError) {
 /// If the key has no `alg` field set, validation passes (any algorithm allowed).
 /// If the key has an `alg` field, it must match the expected algorithm.
 pub fn validate_key_algorithm_jwe(
-  key: key.Key(kid),
-  expected expected: algorithm.KeyEncryptionAlg,
+  key: gose.Key(kid),
+  expected expected: gose.KeyEncryptionAlg,
 ) -> Result(Nil, gose.GoseError) {
-  case key.alg(key) {
+  case gose.alg(key) {
     Error(Nil) -> Ok(Nil)
-    Ok(key.KeyEncryptionAlg(alg)) if alg == expected -> Ok(Nil)
-    Ok(key.KeyEncryptionAlg(alg)) ->
+    Ok(gose.KeyEncryptionAlg(alg)) if alg == expected -> Ok(Nil)
+    Ok(gose.KeyEncryptionAlg(alg)) ->
       Error(gose.InvalidState(
         "key algorithm mismatch: key has "
         <> string.inspect(alg)
         <> ", expected "
         <> string.inspect(expected),
       ))
-    Ok(key.SigningAlg(_)) ->
+    Ok(gose.SigningAlg(_)) ->
       Error(gose.InvalidState(
         "key algorithm mismatch: key has JWS algorithm, expected JWE algorithm",
       ))
-    Ok(key.ContentAlg(_)) ->
+    Ok(gose.ContentAlg(_)) ->
       Error(gose.InvalidState(
         "key algorithm mismatch: key has content algorithm, expected JWE algorithm",
       ))
@@ -246,24 +240,24 @@ pub fn validate_key_algorithm_jwe(
 /// If the key has no `alg` field set, validation passes (any algorithm allowed).
 /// If the key has an `alg` field, it must match the expected algorithm.
 pub fn validate_key_algorithm_signing(
-  key: key.Key(kid),
-  expected expected: algorithm.SigningAlg,
+  key: gose.Key(kid),
+  expected expected: gose.SigningAlg,
 ) -> Result(Nil, gose.GoseError) {
-  case key.alg(key) {
+  case gose.alg(key) {
     Error(Nil) -> Ok(Nil)
-    Ok(key.SigningAlg(alg)) if alg == expected -> Ok(Nil)
-    Ok(key.SigningAlg(alg)) ->
+    Ok(gose.SigningAlg(alg)) if alg == expected -> Ok(Nil)
+    Ok(gose.SigningAlg(alg)) ->
       Error(gose.InvalidState(
         "key algorithm mismatch: key has "
         <> string.inspect(alg)
         <> ", expected "
         <> string.inspect(expected),
       ))
-    Ok(key.KeyEncryptionAlg(_)) ->
+    Ok(gose.KeyEncryptionAlg(_)) ->
       Error(gose.InvalidState(
         "key algorithm mismatch: key has JWE algorithm, expected JWS algorithm",
       ))
-    Ok(key.ContentAlg(_)) ->
+    Ok(gose.ContentAlg(_)) ->
       Error(gose.InvalidState(
         "key algorithm mismatch: key has content algorithm, expected JWS algorithm",
       ))
@@ -274,8 +268,8 @@ pub fn validate_key_algorithm_signing(
 ///
 /// Checks key type compatibility, key use, key ops, and algorithm matching.
 pub fn validate_key_for_signing_verification(
-  alg: algorithm.SigningAlg,
-  key key: key.Key(kid),
+  alg: gose.SigningAlg,
+  key key: gose.Key(kid),
 ) -> Result(Nil, gose.GoseError) {
   use _ <- result.try(validate_signing_key_type(alg, key:))
   use _ <- result.try(validate_key_use(key, purpose: ForVerification))
@@ -287,8 +281,8 @@ pub fn validate_key_for_signing_verification(
 ///
 /// Checks key use, key ops, and algorithm matching.
 pub fn validate_key_for_jwe_decryption(
-  alg: algorithm.KeyEncryptionAlg,
-  key key: key.Key(kid),
+  alg: gose.KeyEncryptionAlg,
+  key key: gose.Key(kid),
 ) -> Result(Nil, gose.GoseError) {
   let ops_purpose = jwe_key_ops_purpose(alg, ForDecryption)
   use _ <- result.try(validate_jwe_key_type(alg, key:))
@@ -301,8 +295,8 @@ pub fn validate_key_for_jwe_decryption(
 ///
 /// Checks key use, key ops, and algorithm matching.
 pub fn validate_key_for_jwe_encryption(
-  alg: algorithm.KeyEncryptionAlg,
-  key key: key.Key(kid),
+  alg: gose.KeyEncryptionAlg,
+  key key: gose.Key(kid),
 ) -> Result(Nil, gose.GoseError) {
   let ops_purpose = jwe_key_ops_purpose(alg, ForEncryption)
   use _ <- result.try(validate_jwe_key_type(alg, key:))
@@ -312,11 +306,11 @@ pub fn validate_key_for_jwe_encryption(
 }
 
 fn jwe_key_ops_purpose(
-  alg: algorithm.KeyEncryptionAlg,
+  alg: gose.KeyEncryptionAlg,
   base_purpose: KeyPurpose,
 ) -> KeyPurpose {
   case alg {
-    algorithm.EcdhEs(_) -> ForKeyAgreement
+    gose.EcdhEs(_) -> ForKeyAgreement
     _ -> base_purpose
   }
 }
@@ -325,11 +319,11 @@ fn jwe_key_ops_purpose(
 ///
 /// All content encryption algorithms require symmetric (octet) keys.
 pub fn validate_content_key_type(
-  alg: algorithm.ContentAlg,
-  key key: key.Key(kid),
+  alg: gose.ContentAlg,
+  key key: gose.Key(kid),
 ) -> Result(Nil, gose.GoseError) {
-  case key.key_type(key) {
-    key.OctKeyType -> Ok(Nil)
+  case gose.key_type(key) {
+    gose.OctKeyType -> Ok(Nil)
     _ ->
       Error(gose.InvalidState(
         "algorithm " <> string.inspect(alg) <> " incompatible with key type",
@@ -342,24 +336,24 @@ pub fn validate_content_key_type(
 /// If the key has no `alg` field set, validation passes (any algorithm allowed).
 /// If the key has an `alg` field, it must match the expected algorithm.
 pub fn validate_key_algorithm_content(
-  key: key.Key(kid),
-  expected expected: algorithm.ContentAlg,
+  key: gose.Key(kid),
+  expected expected: gose.ContentAlg,
 ) -> Result(Nil, gose.GoseError) {
-  case key.alg(key) {
+  case gose.alg(key) {
     Error(Nil) -> Ok(Nil)
-    Ok(key.ContentAlg(alg)) if alg == expected -> Ok(Nil)
-    Ok(key.ContentAlg(alg)) ->
+    Ok(gose.ContentAlg(alg)) if alg == expected -> Ok(Nil)
+    Ok(gose.ContentAlg(alg)) ->
       Error(gose.InvalidState(
         "key algorithm mismatch: key has "
         <> string.inspect(alg)
         <> ", expected "
         <> string.inspect(expected),
       ))
-    Ok(key.SigningAlg(_)) ->
+    Ok(gose.SigningAlg(_)) ->
       Error(gose.InvalidState(
         "key algorithm mismatch: key has signing algorithm, expected content algorithm",
       ))
-    Ok(key.KeyEncryptionAlg(_)) ->
+    Ok(gose.KeyEncryptionAlg(_)) ->
       Error(gose.InvalidState(
         "key algorithm mismatch: key has key encryption algorithm, expected content algorithm",
       ))
@@ -370,8 +364,8 @@ pub fn validate_key_algorithm_content(
 ///
 /// Checks key type compatibility, key use, key ops, and algorithm matching.
 pub fn validate_key_for_content_encryption(
-  alg: algorithm.ContentAlg,
-  key key: key.Key(kid),
+  alg: gose.ContentAlg,
+  key key: gose.Key(kid),
 ) -> Result(Nil, gose.GoseError) {
   use _ <- result.try(validate_content_key_type(alg, key:))
   use _ <- result.try(validate_key_use(key, purpose: ForEncryption))
@@ -383,8 +377,8 @@ pub fn validate_key_for_content_encryption(
 ///
 /// Checks key type compatibility, key use, key ops, and algorithm matching.
 pub fn validate_key_for_content_decryption(
-  alg: algorithm.ContentAlg,
-  key key: key.Key(kid),
+  alg: gose.ContentAlg,
+  key key: gose.Key(kid),
 ) -> Result(Nil, gose.GoseError) {
   use _ <- result.try(validate_content_key_type(alg, key:))
   use _ <- result.try(validate_key_use(key, purpose: ForDecryption))
@@ -395,35 +389,35 @@ pub fn validate_key_for_content_decryption(
 /// Validate that a key's `key_ops` field permits the intended purpose.
 /// Returns Ok(Nil) if validation passes, or an error if the key cannot be used.
 pub fn validate_key_ops(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   purpose purpose: KeyPurpose,
 ) -> Result(Nil, gose.GoseError) {
-  case key.key_ops(key) {
+  case gose.key_ops(key) {
     Error(Nil) -> Ok(Nil)
     Ok(ops) -> validate_ops_for_purpose(ops, purpose)
   }
 }
 
 fn validate_ops_for_purpose(
-  ops: List(key.KeyOp),
+  ops: List(gose.KeyOp),
   purpose: KeyPurpose,
 ) -> Result(Nil, gose.GoseError) {
   let #(required_ops, error_msg) = case purpose {
-    ForSigning -> #([key.Sign], "key_ops does not include 'sign' operation")
+    ForSigning -> #([gose.Sign], "key_ops does not include 'sign' operation")
     ForVerification -> #(
-      [key.Verify],
+      [gose.Verify],
       "key_ops does not include 'verify' operation",
     )
     ForEncryption -> #(
-      [key.Encrypt, key.WrapKey],
+      [gose.Encrypt, gose.WrapKey],
       "key_ops does not include 'encrypt' or 'wrapKey' operation",
     )
     ForDecryption -> #(
-      [key.Decrypt, key.UnwrapKey],
+      [gose.Decrypt, gose.UnwrapKey],
       "key_ops does not include 'decrypt' or 'unwrapKey' operation",
     )
     ForKeyAgreement -> #(
-      [key.DeriveKey, key.DeriveBits],
+      [gose.DeriveKey, gose.DeriveBits],
       "key_ops does not include 'deriveKey' or 'deriveBits' operation",
     )
   }
@@ -437,34 +431,34 @@ fn validate_ops_for_purpose(
 /// Validate that a key's `use` field permits the intended purpose.
 /// Returns Ok(Nil) if validation passes, or an error if the key cannot be used.
 pub fn validate_key_use(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   purpose purpose: KeyPurpose,
 ) -> Result(Nil, gose.GoseError) {
-  case key.key_use(key) {
+  case gose.key_use(key) {
     Error(Nil) -> Ok(Nil)
     Ok(use_value) -> validate_use_value(use_value, purpose)
   }
 }
 
 fn validate_use_value(
-  use_value: key.KeyUse,
+  use_value: gose.KeyUse,
   purpose: KeyPurpose,
 ) -> Result(Nil, gose.GoseError) {
   case use_value, purpose {
-    key.Signing, ForSigning | key.Signing, ForVerification -> Ok(Nil)
-    key.Encrypting, ForEncryption | key.Encrypting, ForDecryption -> Ok(Nil)
-    key.Encrypting, ForSigning ->
+    gose.Signing, ForSigning | gose.Signing, ForVerification -> Ok(Nil)
+    gose.Encrypting, ForEncryption | gose.Encrypting, ForDecryption -> Ok(Nil)
+    gose.Encrypting, ForSigning ->
       Error(gose.InvalidState("key use is 'enc', cannot be used for signing"))
-    key.Encrypting, ForVerification ->
+    gose.Encrypting, ForVerification ->
       Error(gose.InvalidState(
         "key use is 'enc', cannot be used for verification",
       ))
-    key.Encrypting, ForKeyAgreement -> Ok(Nil)
-    key.Signing, ForEncryption ->
+    gose.Encrypting, ForKeyAgreement -> Ok(Nil)
+    gose.Signing, ForEncryption ->
       Error(gose.InvalidState("key use is 'sig', cannot be used for encryption"))
-    key.Signing, ForDecryption ->
+    gose.Signing, ForDecryption ->
       Error(gose.InvalidState("key use is 'sig', cannot be used for decryption"))
-    key.Signing, ForKeyAgreement ->
+    gose.Signing, ForKeyAgreement ->
       Error(gose.InvalidState(
         "key use is 'sig', cannot be used for key agreement",
       ))

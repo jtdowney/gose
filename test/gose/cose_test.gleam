@@ -1,6 +1,7 @@
 import gose
 import gose/cbor
 import gose/cose
+import gose/test_helpers/generators
 import qcheck
 
 pub fn algorithm_roundtrips_test() {
@@ -112,4 +113,177 @@ pub fn content_type_to_cbor_well_known_values_test() {
   assert cose.content_type_to_cbor(cose.CoseMac0) == cbor.Int(106)
   assert cose.content_type_to_cbor(cose.CoseKey) == cbor.Int(10_001)
   assert cose.content_type_to_cbor(cose.CoseKeySet) == cbor.Int(10_002)
+}
+
+pub fn signing_alg_int_roundtrip_test() {
+  use alg <- qcheck.given(generators.bare_jws_alg_generator())
+  let id = cose.signing_alg_to_int(alg)
+  assert cose.signing_alg_from_int(id) == Ok(alg)
+}
+
+pub fn signing_alg_from_cose_unknown_returns_error_test() {
+  assert cose.signing_alg_from_int(999)
+    == Error(gose.ParseError("unknown COSE signing algorithm: 999"))
+}
+
+pub fn signing_alg_from_cose_zero_returns_error_test() {
+  assert cose.signing_alg_from_int(0)
+    == Error(gose.ParseError("unknown COSE signing algorithm: 0"))
+}
+
+pub fn key_encryption_alg_int_roundtrip_test() {
+  use alg <- qcheck.given(cose_key_encryption_alg_generator())
+  let assert Ok(id) = cose.key_encryption_alg_to_int(alg)
+  assert cose.key_encryption_alg_from_int(id) == Ok(alg)
+}
+
+pub fn key_encryption_alg_to_cose_direct_spot_check_test() {
+  assert cose.key_encryption_alg_to_int(gose.Direct) == Ok(-6)
+}
+
+pub fn key_encryption_alg_from_cose_ecdh_es_direct_hkdf512_test() {
+  assert cose.key_encryption_alg_from_int(-26)
+    == Ok(gose.EcdhEs(gose.EcdhEsDirect))
+}
+
+pub fn key_encryption_alg_from_cose_unknown_returns_error_test() {
+  assert cose.key_encryption_alg_from_int(999)
+    == Error(gose.ParseError("unknown COSE key encryption algorithm: 999"))
+}
+
+pub fn key_encryption_alg_to_cose_aes_gcm_kw_returns_error_test() {
+  assert cose.key_encryption_alg_to_int(gose.AesKeyWrap(
+      gose.AesGcmKw,
+      gose.Aes128,
+    ))
+    == Error(gose.InvalidState(
+      "no COSE identifier for algorithm: AesKeyWrap(AesGcmKw, Aes128)",
+    ))
+}
+
+pub fn key_encryption_alg_to_cose_chacha20_kw_returns_error_test() {
+  assert cose.key_encryption_alg_to_int(gose.ChaCha20KeyWrap(gose.C20PKw))
+    == Error(gose.InvalidState(
+      "no COSE identifier for algorithm: ChaCha20KeyWrap(C20PKw)",
+    ))
+}
+
+pub fn key_encryption_alg_to_cose_ecdh_es_chacha20_kw_returns_error_test() {
+  assert cose.key_encryption_alg_to_int(
+      gose.EcdhEs(gose.EcdhEsChaCha20Kw(gose.C20PKw)),
+    )
+    == Error(gose.InvalidState(
+      "no COSE identifier for algorithm: EcdhEs(EcdhEsChaCha20Kw(C20PKw))",
+    ))
+}
+
+pub fn key_encryption_alg_to_cose_rsa_pkcs1v15_returns_error_test() {
+  assert cose.key_encryption_alg_to_int(gose.RsaEncryption(gose.RsaPkcs1v15))
+    == Error(gose.InvalidState(
+      "no COSE identifier for algorithm: RsaEncryption(RsaPkcs1v15)",
+    ))
+}
+
+pub fn key_encryption_alg_to_cose_pbes2_returns_error_test() {
+  assert cose.key_encryption_alg_to_int(gose.Pbes2(gose.Pbes2Sha256Aes128Kw))
+    == Error(gose.InvalidState(
+      "no COSE identifier for algorithm: Pbes2(Pbes2Sha256Aes128Kw)",
+    ))
+}
+
+pub fn content_alg_int_roundtrip_test() {
+  use alg <- qcheck.given(cose_content_alg_generator())
+  let assert Ok(id) = cose.content_alg_to_int(alg)
+  assert cose.content_alg_from_int(id) == Ok(alg)
+}
+
+pub fn content_alg_from_cose_unknown_returns_error_test() {
+  assert cose.content_alg_from_int(999)
+    == Error(gose.ParseError("unknown COSE content encryption algorithm: 999"))
+}
+
+pub fn content_alg_to_cose_aes_cbc_hmac_returns_error_test() {
+  assert cose.content_alg_to_int(gose.AesCbcHmac(gose.Aes128))
+    == Error(gose.InvalidState(
+      "no COSE identifier for algorithm: AesCbcHmac(Aes128)",
+    ))
+}
+
+pub fn content_alg_to_cose_xchacha20_poly1305_returns_error_test() {
+  assert cose.content_alg_to_int(gose.XChaCha20Poly1305)
+    == Error(gose.InvalidState(
+      "no COSE identifier for algorithm: XChaCha20Poly1305",
+    ))
+}
+
+pub fn signature_alg_int_roundtrip_test() {
+  use alg <- qcheck.given(cose_signature_alg_generator())
+  let id = cose.signature_alg_to_int(alg)
+  assert cose.signature_alg_from_int(id) == Ok(alg)
+}
+
+pub fn signature_alg_to_cose_es256_spot_check_test() {
+  assert cose.signature_alg_to_int(gose.Ecdsa(gose.EcdsaP256)) == -7
+}
+
+pub fn signature_alg_from_cose_unknown_returns_error_test() {
+  assert cose.signature_alg_from_int(999)
+    == Error(gose.ParseError("unknown COSE signature algorithm: 999"))
+}
+
+pub fn mac_alg_int_roundtrip_test() {
+  use alg <- qcheck.given(cose_mac_alg_generator())
+  let id = cose.mac_alg_to_int(alg)
+  assert cose.mac_alg_from_int(id) == Ok(alg)
+}
+
+pub fn mac_alg_from_cose_unknown_returns_error_test() {
+  assert cose.mac_alg_from_int(999)
+    == Error(gose.ParseError("unknown COSE MAC algorithm: 999"))
+}
+
+fn cose_key_encryption_alg_generator() -> qcheck.Generator(
+  gose.KeyEncryptionAlg,
+) {
+  qcheck.from_generators(qcheck.return(gose.Direct), [
+    qcheck.return(gose.AesKeyWrap(gose.AesKw, gose.Aes128)),
+    qcheck.return(gose.AesKeyWrap(gose.AesKw, gose.Aes192)),
+    qcheck.return(gose.AesKeyWrap(gose.AesKw, gose.Aes256)),
+    qcheck.return(gose.EcdhEs(gose.EcdhEsDirect)),
+    qcheck.return(gose.EcdhEs(gose.EcdhEsAesKw(gose.Aes128))),
+    qcheck.return(gose.EcdhEs(gose.EcdhEsAesKw(gose.Aes192))),
+    qcheck.return(gose.EcdhEs(gose.EcdhEsAesKw(gose.Aes256))),
+    qcheck.return(gose.RsaEncryption(gose.RsaOaepSha1)),
+    qcheck.return(gose.RsaEncryption(gose.RsaOaepSha256)),
+  ])
+}
+
+fn cose_content_alg_generator() -> qcheck.Generator(gose.ContentAlg) {
+  qcheck.from_generators(qcheck.return(gose.AesGcm(gose.Aes128)), [
+    qcheck.return(gose.AesGcm(gose.Aes192)),
+    qcheck.return(gose.AesGcm(gose.Aes256)),
+    qcheck.return(gose.ChaCha20Poly1305),
+  ])
+}
+
+fn cose_signature_alg_generator() -> qcheck.Generator(gose.DigitalSignatureAlg) {
+  qcheck.from_generators(qcheck.return(gose.Ecdsa(gose.EcdsaP256)), [
+    qcheck.return(gose.Ecdsa(gose.EcdsaP384)),
+    qcheck.return(gose.Ecdsa(gose.EcdsaP521)),
+    qcheck.return(gose.Ecdsa(gose.EcdsaSecp256k1)),
+    qcheck.return(gose.Eddsa),
+    qcheck.return(gose.RsaPkcs1(gose.RsaPkcs1Sha256)),
+    qcheck.return(gose.RsaPkcs1(gose.RsaPkcs1Sha384)),
+    qcheck.return(gose.RsaPkcs1(gose.RsaPkcs1Sha512)),
+    qcheck.return(gose.RsaPss(gose.RsaPssSha256)),
+    qcheck.return(gose.RsaPss(gose.RsaPssSha384)),
+    qcheck.return(gose.RsaPss(gose.RsaPssSha512)),
+  ])
+}
+
+fn cose_mac_alg_generator() -> qcheck.Generator(gose.MacAlg) {
+  qcheck.from_generators(qcheck.return(gose.Hmac(gose.HmacSha256)), [
+    qcheck.return(gose.Hmac(gose.HmacSha384)),
+    qcheck.return(gose.Hmac(gose.HmacSha512)),
+  ])
 }

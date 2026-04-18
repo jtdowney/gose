@@ -12,15 +12,14 @@
 //// ## Example
 ////
 //// ```gleam
+//// import gose
 //// import gose/jose/jwe
-//// import gose/algorithm
-//// import gose/key
 ////
-//// let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+//// let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
 //// let plaintext = <<"hello world":utf8>>
 ////
 //// // Create and encrypt a JWE using direct encryption
-//// let assert Ok(encrypted) = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+//// let assert Ok(encrypted) = jwe.new_direct(gose.AesGcm(gose.Aes256))
 ////   |> jwe.encrypt(key, plaintext)
 ////
 //// // Serialize to compact format
@@ -28,7 +27,8 @@
 ////
 //// // Parse and decrypt with algorithm pinning
 //// let assert Ok(parsed) = jwe.parse_compact(token)
-//// let assert Ok(decryptor) = jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [key])
+//// let assert Ok(decryptor) =
+////   jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), keys: [key])
 //// let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
 //// ```
 ////
@@ -48,7 +48,7 @@
 ////
 //// Algorithm pinning prevents algorithm confusion attacks:
 ////
-//// 1. **JWK `alg` metadata**: If a key has `alg` set via `key.with_alg`,
+//// 1. **JWK `alg` metadata**: If a key has `alg` set via `gose.with_alg`,
 ////    the JWE algorithm must match during encryption and decryption.
 //// 2. **Decryptor API**: `jwe.decrypt()` with a `Decryptor` pins both key
 ////    encryption and content encryption algorithms; mismatches are rejected.
@@ -108,13 +108,11 @@ import gleam/result
 import gleam/set
 import gleam/string
 import gose
-import gose/algorithm
 import gose/internal/content_encryption
 import gose/internal/key_encryption
 import gose/internal/key_helpers
 import gose/internal/utils
-import gose/jose/algorithm as jose_algorithm
-import gose/key
+import gose/jose
 import kryptos/block
 import kryptos/crypto
 import kryptos/hash
@@ -169,8 +167,8 @@ pub type ChaCha20Kw
 
 type JweHeader {
   JweHeader(
-    alg: algorithm.KeyEncryptionAlg,
-    enc: algorithm.ContentAlg,
+    alg: gose.KeyEncryptionAlg,
+    enc: gose.ContentAlg,
     kid: Option(String),
     typ: Option(String),
     cty: Option(String),
@@ -244,15 +242,11 @@ pub opaque type Jwe(state, family, origin) {
 /// the expected algorithms upfront, rather than trusting the token's header.
 pub opaque type Decryptor {
   KeyDecryptor(
-    alg: algorithm.KeyEncryptionAlg,
-    enc: algorithm.ContentAlg,
-    keys: List(key.Key(String)),
+    alg: gose.KeyEncryptionAlg,
+    enc: gose.ContentAlg,
+    keys: List(gose.Key(String)),
   )
-  PasswordDecryptor(
-    alg: algorithm.Pbes2Alg,
-    enc: algorithm.ContentAlg,
-    password: String,
-  )
+  PasswordDecryptor(alg: gose.Pbes2Alg, enc: gose.ContentAlg, password: String)
 }
 
 /// Create a key-based decryptor for symmetric (dir, AES-KW, AES-GCM-KW) or
@@ -267,13 +261,13 @@ pub opaque type Decryptor {
 /// ## Example
 ///
 /// ```gleam
-/// let assert Ok(decryptor) = jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [key])
+/// let assert Ok(decryptor) = jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [key])
 /// let assert Ok(plaintext) = jwe.decrypt(decryptor, encrypted_jwe)
 /// ```
 pub fn key_decryptor(
-  alg: algorithm.KeyEncryptionAlg,
-  enc: algorithm.ContentAlg,
-  keys keys: List(key.Key(String)),
+  alg: gose.KeyEncryptionAlg,
+  enc: gose.ContentAlg,
+  keys keys: List(gose.Key(String)),
 ) -> Result(Decryptor, gose.GoseError) {
   use <- key_helpers.require_non_empty_keys(keys)
   use _ <- result.try(
@@ -288,16 +282,16 @@ pub fn key_decryptor(
 /// ## Example
 ///
 /// ```gleam
-/// let assert Ok(encrypted) = jwe.new_aes_gcm_kw(algorithm.Aes256, algorithm.AesGcm(algorithm.Aes256))
+/// let assert Ok(encrypted) = jwe.new_aes_gcm_kw(gose.Aes256, gose.AesGcm(gose.Aes256))
 ///   |> jwe.encrypt(key, <<"hello":utf8>>)
 /// ```
 pub fn new_aes_gcm_kw(
-  size: algorithm.AesKeySize,
-  enc: algorithm.ContentAlg,
+  size: gose.AesKeySize,
+  enc: gose.ContentAlg,
 ) -> Jwe(Unencrypted, AesGcmKw, Built) {
   Jwe(
     header: JweHeader(
-      alg: algorithm.AesKeyWrap(algorithm.AesGcmKw, size),
+      alg: gose.AesKeyWrap(gose.AesGcmKw, size),
       enc:,
       kid: option.None,
       typ: option.None,
@@ -316,16 +310,16 @@ pub fn new_aes_gcm_kw(
 /// ## Example
 ///
 /// ```gleam
-/// let assert Ok(encrypted) = jwe.new_aes_kw(algorithm.Aes256, algorithm.AesGcm(algorithm.Aes256))
+/// let assert Ok(encrypted) = jwe.new_aes_kw(gose.Aes256, gose.AesGcm(gose.Aes256))
 ///   |> jwe.encrypt(key, <<"hello":utf8>>)
 /// ```
 pub fn new_aes_kw(
-  size: algorithm.AesKeySize,
-  enc: algorithm.ContentAlg,
+  size: gose.AesKeySize,
+  enc: gose.ContentAlg,
 ) -> Jwe(Unencrypted, AesKw, Built) {
   Jwe(
     header: JweHeader(
-      alg: algorithm.AesKeyWrap(algorithm.AesKw, size),
+      alg: gose.AesKeyWrap(gose.AesKw, size),
       enc:,
       kid: option.None,
       typ: option.None,
@@ -347,16 +341,16 @@ pub fn new_aes_kw(
 /// ## Example
 ///
 /// ```gleam
-/// let assert Ok(encrypted) = jwe.new_chacha20_kw(algorithm.XC20PKw, algorithm.AesGcm(algorithm.Aes256))
+/// let assert Ok(encrypted) = jwe.new_chacha20_kw(gose.XC20PKw, gose.AesGcm(gose.Aes256))
 ///   |> jwe.encrypt(key, <<"hello":utf8>>)
 /// ```
 pub fn new_chacha20_kw(
-  variant: algorithm.ChaCha20Kw,
-  enc: algorithm.ContentAlg,
+  variant: gose.ChaCha20Kw,
+  enc: gose.ContentAlg,
 ) -> Jwe(Unencrypted, ChaCha20Kw, Built) {
   Jwe(
     header: JweHeader(
-      alg: algorithm.ChaCha20KeyWrap(variant),
+      alg: gose.ChaCha20KeyWrap(variant),
       enc:,
       kid: option.None,
       typ: option.None,
@@ -375,13 +369,13 @@ pub fn new_chacha20_kw(
 /// ## Example
 ///
 /// ```gleam
-/// let assert Ok(encrypted) = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+/// let assert Ok(encrypted) = jwe.new_direct(gose.AesGcm(gose.Aes256))
 ///   |> jwe.encrypt(key, <<"hello":utf8>>)
 /// ```
-pub fn new_direct(enc: algorithm.ContentAlg) -> Jwe(Unencrypted, Direct, Built) {
+pub fn new_direct(enc: gose.ContentAlg) -> Jwe(Unencrypted, Direct, Built) {
   Jwe(
     header: JweHeader(
-      alg: algorithm.Direct,
+      alg: gose.Direct,
       enc:,
       kid: option.None,
       typ: option.None,
@@ -400,17 +394,17 @@ pub fn new_direct(enc: algorithm.ContentAlg) -> Jwe(Unencrypted, Direct, Built) 
 /// ## Example
 ///
 /// ```gleam
-/// let assert Ok(encrypted) = jwe.new_ecdh_es(algorithm.EcdhEsDirect, algorithm.AesGcm(algorithm.Aes256))
+/// let assert Ok(encrypted) = jwe.new_ecdh_es(gose.EcdhEsDirect, gose.AesGcm(gose.Aes256))
 ///   |> jwe.encrypt(key, <<"hello":utf8>>)
 /// ```
 pub fn new_ecdh_es(
-  alg: algorithm.EcdhEsAlg,
-  enc: algorithm.ContentAlg,
+  alg: gose.EcdhEsAlg,
+  enc: gose.ContentAlg,
 ) -> Jwe(Unencrypted, EcdhEs, Built) {
   let alg_fields = EcdhEsBuilderFields(apu: option.None, apv: option.None)
   Jwe(
     header: JweHeader(
-      alg: algorithm.EcdhEs(alg),
+      alg: gose.EcdhEs(alg),
       enc:,
       kid: option.None,
       typ: option.None,
@@ -432,16 +426,16 @@ pub fn new_ecdh_es(
 /// ## Example
 ///
 /// ```gleam
-/// let assert Ok(encrypted) = jwe.new_pbes2(algorithm.Pbes2Sha256Aes128Kw, algorithm.AesGcm(algorithm.Aes128))
+/// let assert Ok(encrypted) = jwe.new_pbes2(gose.Pbes2Sha256Aes128Kw, gose.AesGcm(gose.Aes128))
 ///   |> jwe.encrypt_with_password("secret", <<"hello":utf8>>)
 /// ```
 pub fn new_pbes2(
-  alg: algorithm.Pbes2Alg,
-  enc: algorithm.ContentAlg,
+  alg: gose.Pbes2Alg,
+  enc: gose.ContentAlg,
 ) -> Jwe(Unencrypted, Pbes2, Built) {
   Jwe(
     header: JweHeader(
-      alg: algorithm.Pbes2(alg),
+      alg: gose.Pbes2(alg),
       enc:,
       kid: option.None,
       typ: option.None,
@@ -460,16 +454,16 @@ pub fn new_pbes2(
 /// ## Example
 ///
 /// ```gleam
-/// let assert Ok(encrypted) = jwe.new_rsa(algorithm.RsaOaepSha256, algorithm.AesGcm(algorithm.Aes256))
+/// let assert Ok(encrypted) = jwe.new_rsa(gose.RsaOaepSha256, gose.AesGcm(gose.Aes256))
 ///   |> jwe.encrypt(rsa_key, <<"hello":utf8>>)
 /// ```
 pub fn new_rsa(
-  alg: algorithm.RsaEncryptionAlg,
-  enc: algorithm.ContentAlg,
+  alg: gose.RsaEncryptionAlg,
+  enc: gose.ContentAlg,
 ) -> Jwe(Unencrypted, Rsa, Built) {
   Jwe(
     header: JweHeader(
-      alg: algorithm.RsaEncryption(alg),
+      alg: gose.RsaEncryption(alg),
       enc:,
       kid: option.None,
       typ: option.None,
@@ -491,15 +485,15 @@ pub fn new_rsa(
 ///
 /// ```gleam
 /// let decryptor = jwe.password_decryptor(
-///   algorithm.Pbes2Sha256Aes128Kw,
-///   algorithm.AesGcm(algorithm.Aes128),
+///   gose.Pbes2Sha256Aes128Kw,
+///   gose.AesGcm(gose.Aes128),
 ///   "super-secret",
 /// )
 /// let assert Ok(plaintext) = jwe.decrypt(decryptor, encrypted_jwe)
 /// ```
 pub fn password_decryptor(
-  alg: algorithm.Pbes2Alg,
-  enc: algorithm.ContentAlg,
+  alg: gose.Pbes2Alg,
+  enc: gose.ContentAlg,
   password password: String,
 ) -> Decryptor {
   PasswordDecryptor(alg:, enc:, password:)
@@ -522,7 +516,7 @@ pub fn with_aad(
 /// ## Example
 ///
 /// ```gleam
-/// let jwe = jwe.new_ecdh_es(algorithm.EcdhEsDirect, algorithm.AesGcm(algorithm.Aes256))
+/// let jwe = jwe.new_ecdh_es(gose.EcdhEsDirect, gose.AesGcm(gose.Aes256))
 ///   |> jwe.with_apu(<<"Alice":utf8>>)
 ///   |> jwe.with_apv(<<"Bob":utf8>>)
 /// let assert Ok(encrypted) = jwe
@@ -542,7 +536,7 @@ pub fn with_apu(
 /// ## Example
 ///
 /// ```gleam
-/// let jwe = jwe.new_ecdh_es(algorithm.EcdhEsDirect, algorithm.AesGcm(algorithm.Aes256))
+/// let jwe = jwe.new_ecdh_es(gose.EcdhEsDirect, gose.AesGcm(gose.Aes256))
 ///   |> jwe.with_apu(<<"Alice":utf8>>)
 ///   |> jwe.with_apv(<<"Bob":utf8>>)
 /// let assert Ok(encrypted) = jwe
@@ -587,7 +581,7 @@ pub fn with_kid(
 ///
 /// ```gleam
 /// let assert Ok(jwe) =
-///   jwe.new_pbes2(algorithm.Pbes2Sha256Aes128Kw, algorithm.AesGcm(algorithm.Aes128))
+///   jwe.new_pbes2(gose.Pbes2Sha256Aes128Kw, gose.AesGcm(gose.Aes128))
 ///   |> jwe.with_p2c(100_000)
 /// ```
 pub fn with_p2c(
@@ -622,25 +616,24 @@ pub fn with_p2c(
 /// ## Example
 ///
 /// ```gleam
-/// let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-/// let assert Ok(encrypted) = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+/// let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+/// let assert Ok(encrypted) = jwe.new_direct(gose.AesGcm(gose.Aes256))
 ///   |> jwe.encrypt(key, <<"hello":utf8>>)
 /// ```
 pub fn encrypt(
   jwe: Jwe(Unencrypted, family, Built),
-  key key: key.Key(String),
+  key key: gose.Key(String),
   plaintext plaintext: BitArray,
 ) -> Result(Jwe(Encrypted, family, Built), gose.GoseError) {
   case jwe.header.alg {
-    algorithm.Direct -> do_encrypt_direct(jwe, key, plaintext)
-    algorithm.AesKeyWrap(algorithm.AesKw, _) ->
-      do_encrypt_aes_kw(jwe, key, plaintext)
-    algorithm.AesKeyWrap(algorithm.AesGcmKw, _) ->
+    gose.Direct -> do_encrypt_direct(jwe, key, plaintext)
+    gose.AesKeyWrap(gose.AesKw, _) -> do_encrypt_aes_kw(jwe, key, plaintext)
+    gose.AesKeyWrap(gose.AesGcmKw, _) ->
       do_encrypt_aes_gcm_kw(jwe, key, plaintext)
-    algorithm.RsaEncryption(_) -> do_encrypt_rsa(jwe, key, plaintext)
-    algorithm.EcdhEs(_) -> do_encrypt_ecdh(jwe, key, plaintext)
-    algorithm.ChaCha20KeyWrap(_) -> do_encrypt_chacha20_kw(jwe, key, plaintext)
-    algorithm.Pbes2(_) ->
+    gose.RsaEncryption(_) -> do_encrypt_rsa(jwe, key, plaintext)
+    gose.EcdhEs(_) -> do_encrypt_ecdh(jwe, key, plaintext)
+    gose.ChaCha20KeyWrap(_) -> do_encrypt_chacha20_kw(jwe, key, plaintext)
+    gose.Pbes2(_) ->
       Error(gose.InvalidState(
         "PBES2 algorithms require a password; use encrypt_with_password",
       ))
@@ -652,7 +645,7 @@ pub fn encrypt(
 /// ## Example
 ///
 /// ```gleam
-/// let assert Ok(encrypted) = jwe.new_pbes2(algorithm.Pbes2Sha256Aes128Kw, algorithm.AesGcm(algorithm.Aes128))
+/// let assert Ok(encrypted) = jwe.new_pbes2(gose.Pbes2Sha256Aes128Kw, gose.AesGcm(gose.Aes128))
 ///   |> jwe.encrypt_with_password("super-secret", <<"hello":utf8>>)
 /// ```
 pub fn encrypt_with_password(
@@ -663,13 +656,13 @@ pub fn encrypt_with_password(
   let assert Jwe(header:, alg_fields: Pbes2BuilderFields(p2c: custom_p2c), ..) =
     jwe
 
-  let assert algorithm.Pbes2(pbes2_alg) = header.alg
+  let assert gose.Pbes2(pbes2_alg) = header.alg
   let #(hash_alg, kw_size, default_iterations) = resolve_pbes2_params(pbes2_alg)
-  let kw_key_len = algorithm.aes_key_size(kw_size)
+  let kw_key_len = gose.aes_key_size(kw_size)
   let iterations = option.unwrap(custom_p2c, default_iterations)
 
   let salt_input = crypto.random_bytes(16)
-  let alg_str = jose_algorithm.key_encryption_alg_to_string(header.alg)
+  let alg_str = jose.key_encryption_alg_to_string(header.alg)
   let salt =
     bit_array.concat([bit_array.from_string(alg_str), <<0>>, salt_input])
 
@@ -712,7 +705,7 @@ pub fn encrypt_with_password(
 ///
 /// ```gleam
 /// let assert Ok(jwe) =
-///   jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+///   jwe.new_direct(gose.AesGcm(gose.Aes256))
 ///   |> jwe.with_shared_unprotected("x-request-id", json.string("abc-123"))
 /// ```
 pub fn with_shared_unprotected(
@@ -788,7 +781,7 @@ pub fn aad(jwe: Jwe(Encrypted, family, origin)) -> Result(BitArray, Nil) {
 }
 
 /// Get the key encryption algorithm (`alg`) from a JWE.
-pub fn alg(jwe: Jwe(state, family, origin)) -> algorithm.KeyEncryptionAlg {
+pub fn alg(jwe: Jwe(state, family, origin)) -> gose.KeyEncryptionAlg {
   case jwe {
     Jwe(header:, ..) | EncryptedJwe(header:, ..) -> header.alg
   }
@@ -879,7 +872,7 @@ pub fn decode_unprotected_header(
 }
 
 /// Get the content encryption algorithm (`enc`) from a JWE.
-pub fn enc(jwe: Jwe(state, family, origin)) -> algorithm.ContentAlg {
+pub fn enc(jwe: Jwe(state, family, origin)) -> gose.ContentAlg {
   case jwe {
     Jwe(header:, ..) | EncryptedJwe(header:, ..) -> header.enc
   }
@@ -972,7 +965,7 @@ fn finalize_encryption(
 
 fn do_encrypt_aes_gcm_kw(
   jwe: Jwe(Unencrypted, family, Built),
-  key: key.Key(String),
+  key: gose.Key(String),
   plaintext: BitArray,
 ) -> Result(Jwe(Encrypted, family, Built), gose.GoseError) {
   let assert Jwe(header:, ..) = jwe
@@ -981,10 +974,10 @@ fn do_encrypt_aes_gcm_kw(
     header.alg,
     key,
   ))
-  let assert algorithm.AesKeyWrap(_, aes_size) = header.alg
+  let assert gose.AesKeyWrap(_, aes_size) = header.alg
   use kek <- result.try(key_encryption.get_octet_key(
     key,
-    algorithm.aes_key_size(aes_size),
+    gose.aes_key_size(aes_size),
   ))
 
   let cek = content_encryption.generate_cek(header.enc)
@@ -1007,7 +1000,7 @@ fn do_encrypt_aes_gcm_kw(
 
 fn do_encrypt_chacha20_kw(
   jwe: Jwe(Unencrypted, family, Built),
-  key: key.Key(String),
+  key: gose.Key(String),
   plaintext: BitArray,
 ) -> Result(Jwe(Encrypted, family, Built), gose.GoseError) {
   let assert Jwe(header:, ..) = jwe
@@ -1016,11 +1009,11 @@ fn do_encrypt_chacha20_kw(
     header.alg,
     key,
   ))
-  let assert algorithm.ChaCha20KeyWrap(variant) = header.alg
+  let assert gose.ChaCha20KeyWrap(variant) = header.alg
   use kek <- result.try(key_encryption.get_octet_key(key, 32))
 
   let cek = content_encryption.generate_cek(header.enc)
-  let nonce_size = algorithm.chacha20_kw_nonce_size(variant)
+  let nonce_size = gose.chacha20_kw_nonce_size(variant)
   let kw_iv = crypto.random_bytes(nonce_size)
 
   use #(encrypted_cek, kw_tag) <- result.try(
@@ -1037,7 +1030,7 @@ fn do_encrypt_chacha20_kw(
 
 fn do_encrypt_aes_kw(
   jwe: Jwe(Unencrypted, family, Built),
-  key: key.Key(String),
+  key: gose.Key(String),
   plaintext: BitArray,
 ) -> Result(Jwe(Encrypted, family, Built), gose.GoseError) {
   let assert Jwe(header:, ..) = jwe
@@ -1047,7 +1040,7 @@ fn do_encrypt_aes_kw(
     key,
   ))
   let cek = content_encryption.generate_cek(header.enc)
-  let assert algorithm.AesKeyWrap(_, aes_size) = header.alg
+  let assert gose.AesKeyWrap(_, aes_size) = header.alg
   use encrypted_key <- result.try(key_encryption.wrap_aes_kw(
     key,
     cek:,
@@ -1059,7 +1052,7 @@ fn do_encrypt_aes_kw(
 
 fn do_encrypt_direct(
   jwe: Jwe(Unencrypted, family, Built),
-  key: key.Key(String),
+  key: gose.Key(String),
   plaintext: BitArray,
 ) -> Result(Jwe(Encrypted, family, Built), gose.GoseError) {
   let assert Jwe(header:, ..) = jwe
@@ -1074,15 +1067,15 @@ fn do_encrypt_direct(
 }
 
 fn wrap_ecdh_by_alg(
-  alg: algorithm.EcdhEsAlg,
-  enc: algorithm.ContentAlg,
-  key: key.Key(String),
+  alg: gose.EcdhEsAlg,
+  enc: gose.ContentAlg,
+  key: gose.Key(String),
   apu: Option(BitArray),
   apv: Option(BitArray),
 ) -> Result(#(BitArray, BitArray, ResolvedAlgFields), gose.GoseError) {
   case alg {
-    algorithm.EcdhEsDirect -> {
-      let alg_id = jose_algorithm.content_alg_to_string(enc)
+    gose.EcdhEsDirect -> {
+      let alg_id = jose.content_alg_to_string(enc)
       use #(derived_cek, epk) <- result.try(key_encryption.wrap_ecdh_es_direct(
         key,
         enc:,
@@ -1096,12 +1089,10 @@ fn wrap_ecdh_by_alg(
         EcdhEsResolvedFields(epk: option.Some(epk), apu:, apv:),
       ))
     }
-    algorithm.EcdhEsAesKw(size) -> {
+    gose.EcdhEsAesKw(size) -> {
       let cek = content_encryption.generate_cek(enc)
       let alg_id =
-        jose_algorithm.key_encryption_alg_to_string(
-          algorithm.EcdhEs(algorithm.EcdhEsAesKw(size)),
-        )
+        jose.key_encryption_alg_to_string(gose.EcdhEs(gose.EcdhEsAesKw(size)))
       use #(wrapped, epk) <- result.try(key_encryption.wrap_ecdh_es_kw(
         key,
         cek:,
@@ -1116,11 +1107,11 @@ fn wrap_ecdh_by_alg(
         EcdhEsResolvedFields(epk: option.Some(epk), apu:, apv:),
       ))
     }
-    algorithm.EcdhEsChaCha20Kw(variant) -> {
+    gose.EcdhEsChaCha20Kw(variant) -> {
       let cek = content_encryption.generate_cek(enc)
       let alg_id =
-        jose_algorithm.key_encryption_alg_to_string(
-          algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(variant)),
+        jose.key_encryption_alg_to_string(
+          gose.EcdhEs(gose.EcdhEsChaCha20Kw(variant)),
         )
       use #(encrypted_cek, epk, kw_iv, kw_tag) <- result.try(
         key_encryption.wrap_ecdh_es_chacha20_kw(
@@ -1156,7 +1147,7 @@ fn extract_ecdh_apu_apv(
 
 fn do_encrypt_ecdh(
   jwe: Jwe(Unencrypted, family, Built),
-  key: key.Key(String),
+  key: gose.Key(String),
   plaintext: BitArray,
 ) -> Result(Jwe(Encrypted, family, Built), gose.GoseError) {
   let assert Jwe(header:, ..) = jwe
@@ -1172,7 +1163,7 @@ fn do_encrypt_ecdh(
     return: Error(gose.InvalidState("apu and apv must be distinct")),
   )
 
-  let assert algorithm.EcdhEs(ecdh_alg) = header.alg
+  let assert gose.EcdhEs(ecdh_alg) = header.alg
   use #(cek, encrypted_key, out_alg_fields) <- result.try(wrap_ecdh_by_alg(
     ecdh_alg,
     header.enc,
@@ -1184,22 +1175,22 @@ fn do_encrypt_ecdh(
 }
 
 fn wrap_rsa_by_alg(
-  alg: algorithm.RsaEncryptionAlg,
-  key: key.Key(String),
+  alg: gose.RsaEncryptionAlg,
+  key: gose.Key(String),
   cek: BitArray,
 ) -> Result(BitArray, gose.GoseError) {
   case alg {
-    algorithm.RsaPkcs1v15 -> key_encryption.wrap_rsa_pkcs1v15(key, cek)
-    algorithm.RsaOaepSha1 ->
+    gose.RsaPkcs1v15 -> key_encryption.wrap_rsa_pkcs1v15(key, cek)
+    gose.RsaOaepSha1 ->
       key_encryption.wrap_rsa_oaep(key, cek:, hash_alg: hash.Sha1)
-    algorithm.RsaOaepSha256 ->
+    gose.RsaOaepSha256 ->
       key_encryption.wrap_rsa_oaep(key, cek:, hash_alg: hash.Sha256)
   }
 }
 
 fn do_encrypt_rsa(
   jwe: Jwe(Unencrypted, family, Built),
-  key: key.Key(String),
+  key: gose.Key(String),
   plaintext: BitArray,
 ) -> Result(Jwe(Encrypted, family, Built), gose.GoseError) {
   let assert Jwe(header:, ..) = jwe
@@ -1209,7 +1200,7 @@ fn do_encrypt_rsa(
     key,
   ))
   let cek = content_encryption.generate_cek(header.enc)
-  let assert algorithm.RsaEncryption(rsa_alg) = header.alg
+  let assert gose.RsaEncryption(rsa_alg) = header.alg
   use encrypted_key <- result.try(wrap_rsa_by_alg(rsa_alg, key, cek))
 
   finalize_encryption(jwe, cek, encrypted_key, NoResolvedAlgFields, plaintext)
@@ -1218,14 +1209,14 @@ fn do_encrypt_rsa(
 fn unwrap_cek(
   header: JweHeader,
   alg_fields: ResolvedAlgFields,
-  key: key.Key(String),
+  key: gose.Key(String),
   encrypted_key: BitArray,
 ) -> Result(BitArray, gose.GoseError) {
   case header.alg {
-    algorithm.Direct -> key_encryption.unwrap_direct(key, header.enc)
-    algorithm.AesKeyWrap(algorithm.AesKw, aes_size) ->
+    gose.Direct -> key_encryption.unwrap_direct(key, header.enc)
+    gose.AesKeyWrap(gose.AesKw, aes_size) ->
       key_encryption.unwrap_aes_kw(key, encrypted_key:, size: aes_size)
-    algorithm.AesKeyWrap(algorithm.AesGcmKw, aes_size) -> {
+    gose.AesKeyWrap(gose.AesGcmKw, aes_size) -> {
       let assert AesGcmKwResolvedFields(kw_iv:, kw_tag:) = alg_fields
       key_encryption.unwrap_aes_gcm_kw(
         key,
@@ -1235,17 +1226,17 @@ fn unwrap_cek(
         kw_tag:,
       )
     }
-    algorithm.RsaEncryption(algorithm.RsaPkcs1v15) ->
+    gose.RsaEncryption(gose.RsaPkcs1v15) ->
       key_encryption.unwrap_rsa_pkcs1v15_safe(
         key,
         encrypted_key:,
         enc: header.enc,
       )
-    algorithm.RsaEncryption(algorithm.RsaOaepSha1) ->
+    gose.RsaEncryption(gose.RsaOaepSha1) ->
       key_encryption.unwrap_rsa_oaep(key, encrypted_key:, hash_alg: hash.Sha1)
-    algorithm.RsaEncryption(algorithm.RsaOaepSha256) ->
+    gose.RsaEncryption(gose.RsaOaepSha256) ->
       key_encryption.unwrap_rsa_oaep(key, encrypted_key:, hash_alg: hash.Sha256)
-    algorithm.ChaCha20KeyWrap(variant) -> {
+    gose.ChaCha20KeyWrap(variant) -> {
       let assert ChaCha20KwResolvedFields(kw_iv:, kw_tag:) = alg_fields
       key_encryption.unwrap_chacha20_kw(
         key,
@@ -1255,40 +1246,38 @@ fn unwrap_cek(
         kw_tag:,
       )
     }
-    algorithm.EcdhEs(ecdh_alg) ->
+    gose.EcdhEs(ecdh_alg) ->
       unwrap_cek_ecdh(ecdh_alg, alg_fields, key, encrypted_key, header.enc)
-    algorithm.Pbes2(_) ->
+    gose.Pbes2(_) ->
       Error(gose.InvalidState("use password_decryptor for PBES2 algorithms"))
   }
 }
 
 fn unwrap_cek_ecdh(
-  ecdh_alg: algorithm.EcdhEsAlg,
+  ecdh_alg: gose.EcdhEsAlg,
   alg_fields: ResolvedAlgFields,
-  key: key.Key(String),
+  key: gose.Key(String),
   encrypted_key: BitArray,
-  enc: algorithm.ContentAlg,
+  enc: gose.ContentAlg,
 ) -> Result(BitArray, gose.GoseError) {
   case ecdh_alg {
-    algorithm.EcdhEsDirect -> {
+    gose.EcdhEsDirect -> {
       let assert EcdhEsResolvedFields(epk:, apu:, apv:) = alg_fields
       use epk <- result.try(option.to_result(
         epk,
         gose.InvalidState("missing epk in header"),
       ))
-      let alg_id = jose_algorithm.content_alg_to_string(enc)
+      let alg_id = jose.content_alg_to_string(enc)
       key_encryption.unwrap_ecdh_es_direct(key, enc:, alg_id:, epk:, apu:, apv:)
     }
-    algorithm.EcdhEsAesKw(size) -> {
+    gose.EcdhEsAesKw(size) -> {
       let assert EcdhEsResolvedFields(epk:, apu:, apv:) = alg_fields
       use epk <- result.try(option.to_result(
         epk,
         gose.InvalidState("missing epk in header"),
       ))
       let alg_id =
-        jose_algorithm.key_encryption_alg_to_string(
-          algorithm.EcdhEs(algorithm.EcdhEsAesKw(size)),
-        )
+        jose.key_encryption_alg_to_string(gose.EcdhEs(gose.EcdhEsAesKw(size)))
       key_encryption.unwrap_ecdh_es_kw(
         key,
         encrypted_key:,
@@ -1299,7 +1288,7 @@ fn unwrap_cek_ecdh(
         apv:,
       )
     }
-    algorithm.EcdhEsChaCha20Kw(variant) -> {
+    gose.EcdhEsChaCha20Kw(variant) -> {
       let assert EcdhEsChaCha20KwResolvedFields(
         epk:,
         apu:,
@@ -1320,8 +1309,8 @@ fn unwrap_cek_ecdh(
         gose.ParseError("missing tag header for ECDH-ES+ChaCha20 Key Wrap"),
       ))
       let alg_id =
-        jose_algorithm.key_encryption_alg_to_string(
-          algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(variant)),
+        jose.key_encryption_alg_to_string(
+          gose.EcdhEs(gose.EcdhEsChaCha20Kw(variant)),
         )
       key_encryption.unwrap_ecdh_es_chacha20_kw(
         key,
@@ -1340,7 +1329,7 @@ fn unwrap_cek_ecdh(
 
 fn decrypt_with_key(
   jwe: Jwe(Encrypted, family, origin),
-  key: key.Key(String),
+  key: gose.Key(String),
 ) -> Result(BitArray, gose.GoseError) {
   let assert EncryptedJwe(
     header:,
@@ -1355,7 +1344,7 @@ fn decrypt_with_key(
   ) = jwe
 
   let ops_purpose = case header.alg {
-    algorithm.EcdhEs(_) -> key_helpers.ForKeyAgreement
+    gose.EcdhEs(_) -> key_helpers.ForKeyAgreement
     _ -> key_helpers.ForDecryption
   }
   use _ <- result.try(key_helpers.validate_key_use(key, ops_purpose))
@@ -1376,26 +1365,25 @@ fn decrypt_with_key(
 }
 
 fn require_pbes2_alg(
-  alg: algorithm.KeyEncryptionAlg,
-) -> Result(algorithm.Pbes2Alg, gose.GoseError) {
+  alg: gose.KeyEncryptionAlg,
+) -> Result(gose.Pbes2Alg, gose.GoseError) {
   case alg {
-    algorithm.Pbes2(pbes2_alg) -> Ok(pbes2_alg)
-    algorithm.Direct
-    | algorithm.AesKeyWrap(..)
-    | algorithm.ChaCha20KeyWrap(..)
-    | algorithm.RsaEncryption(..)
-    | algorithm.EcdhEs(..) ->
-      Error(gose.InvalidState("expected PBES2 algorithm"))
+    gose.Pbes2(pbes2_alg) -> Ok(pbes2_alg)
+    gose.Direct
+    | gose.AesKeyWrap(..)
+    | gose.ChaCha20KeyWrap(..)
+    | gose.RsaEncryption(..)
+    | gose.EcdhEs(..) -> Error(gose.InvalidState("expected PBES2 algorithm"))
   }
 }
 
 fn resolve_pbes2_params(
-  alg: algorithm.Pbes2Alg,
-) -> #(hash.HashAlgorithm, algorithm.AesKeySize, Int) {
+  alg: gose.Pbes2Alg,
+) -> #(hash.HashAlgorithm, gose.AesKeySize, Int) {
   case alg {
-    algorithm.Pbes2Sha256Aes128Kw -> #(hash.Sha256, algorithm.Aes128, 310_000)
-    algorithm.Pbes2Sha384Aes192Kw -> #(hash.Sha384, algorithm.Aes192, 250_000)
-    algorithm.Pbes2Sha512Aes256Kw -> #(hash.Sha512, algorithm.Aes256, 120_000)
+    gose.Pbes2Sha256Aes128Kw -> #(hash.Sha256, gose.Aes128, 310_000)
+    gose.Pbes2Sha384Aes192Kw -> #(hash.Sha384, gose.Aes192, 250_000)
+    gose.Pbes2Sha512Aes256Kw -> #(hash.Sha512, gose.Aes256, 120_000)
   }
 }
 
@@ -1417,11 +1405,11 @@ fn decrypt_with_password(
 
   use pbes2_alg <- result.try(require_pbes2_alg(header.alg))
   let #(hash_alg, kw_size, _) = resolve_pbes2_params(pbes2_alg)
-  let kw_key_len = algorithm.aes_key_size(kw_size)
+  let kw_key_len = gose.aes_key_size(kw_size)
 
   let assert Pbes2ResolvedFields(p2s: salt_input, p2c: iterations) = alg_fields
 
-  let alg_str = jose_algorithm.key_encryption_alg_to_string(header.alg)
+  let alg_str = jose.key_encryption_alg_to_string(header.alg)
   let salt =
     bit_array.concat([bit_array.from_string(alg_str), <<0>>, salt_input])
 
@@ -1463,7 +1451,7 @@ fn decrypt_with_password(
 ///
 /// ```gleam
 /// // Create a decryptor that only accepts A256GCM with direct encryption
-/// let assert Ok(decryptor) = jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [key])
+/// let assert Ok(decryptor) = jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [key])
 ///
 /// // This will fail if the token uses a different algorithm
 /// let assert Ok(plaintext) = jwe.decrypt(decryptor, jwe)
@@ -1488,30 +1476,30 @@ pub fn decrypt(
 
 fn require_matching_jwe_algorithms(
   decryptor: Decryptor,
-  actual_alg: algorithm.KeyEncryptionAlg,
-  actual_enc: algorithm.ContentAlg,
+  actual_alg: gose.KeyEncryptionAlg,
+  actual_enc: gose.ContentAlg,
 ) -> Result(Nil, gose.GoseError) {
   let #(expected_alg, expected_enc) = case decryptor {
     KeyDecryptor(alg:, enc:, ..) -> #(alg, enc)
-    PasswordDecryptor(alg:, enc:, ..) -> #(algorithm.Pbes2(alg), enc)
+    PasswordDecryptor(alg:, enc:, ..) -> #(gose.Pbes2(alg), enc)
   }
 
   use <- bool.guard(
     when: expected_alg != actual_alg,
     return: Error(gose.InvalidState(
       "algorithm mismatch: expected "
-      <> jose_algorithm.key_encryption_alg_to_string(expected_alg)
+      <> jose.key_encryption_alg_to_string(expected_alg)
       <> ", got "
-      <> jose_algorithm.key_encryption_alg_to_string(actual_alg),
+      <> jose.key_encryption_alg_to_string(actual_alg),
     )),
   )
   use <- bool.guard(
     when: expected_enc != actual_enc,
     return: Error(gose.InvalidState(
       "encryption mismatch: expected "
-      <> jose_algorithm.content_alg_to_string(expected_enc)
+      <> jose.content_alg_to_string(expected_enc)
       <> ", got "
-      <> jose_algorithm.content_alg_to_string(actual_enc),
+      <> jose.content_alg_to_string(actual_enc),
     )),
   )
 
@@ -1520,8 +1508,8 @@ fn require_matching_jwe_algorithms(
 
 fn decrypt_with_keys(
   jwe: Jwe(Encrypted, family, origin),
-  keys: List(key.Key(String)),
-  decrypt_fn: fn(Jwe(Encrypted, family, origin), key.Key(String)) ->
+  keys: List(gose.Key(String)),
+  decrypt_fn: fn(Jwe(Encrypted, family, origin), gose.Key(String)) ->
     Result(BitArray, gose.GoseError),
 ) -> Result(BitArray, gose.GoseError) {
   let ordered_keys =
@@ -1539,9 +1527,9 @@ fn decrypt_with_keys(
 }
 
 fn try_keys(
-  keys: List(key.Key(String)),
+  keys: List(gose.Key(String)),
   jwe: Jwe(Encrypted, family, origin),
-  decrypt_fn: fn(Jwe(Encrypted, family, origin), key.Key(String)) ->
+  decrypt_fn: fn(Jwe(Encrypted, family, origin), gose.Key(String)) ->
     Result(BitArray, gose.GoseError),
   last_error: Result(BitArray, gose.GoseError),
 ) -> Result(BitArray, gose.GoseError) {
@@ -1562,12 +1550,9 @@ fn try_keys(
 fn header_to_json(header: JweHeader, alg_fields: ResolvedAlgFields) -> BitArray {
   let alg_field = #(
     "alg",
-    json.string(jose_algorithm.key_encryption_alg_to_string(header.alg)),
+    json.string(jose.key_encryption_alg_to_string(header.alg)),
   )
-  let enc_field = #(
-    "enc",
-    json.string(jose_algorithm.content_alg_to_string(header.enc)),
-  )
+  let enc_field = #("enc", json.string(jose.content_alg_to_string(header.enc)))
 
   let optional_fields =
     [
@@ -1719,7 +1704,7 @@ pub fn serialize_compact(
 ///
 /// ```gleam
 /// let assert Ok(parsed) = jwe.parse_compact(token)
-/// let assert Ok(decryptor) = jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [key])
+/// let assert Ok(decryptor) = jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [key])
 /// let assert Ok(plaintext) = jwe.decrypt(decryptor, parsed)
 /// ```
 pub fn parse_compact(
@@ -1911,8 +1896,8 @@ fn parse_header_json(
     )),
   )
 
-  use alg <- result.try(jose_algorithm.key_encryption_alg_from_string(alg_str))
-  use enc <- result.try(jose_algorithm.content_alg_from_string(enc_str))
+  use alg <- result.try(jose.key_encryption_alg_from_string(alg_str))
+  use enc <- result.try(jose.content_alg_from_string(enc_str))
   use epk <- result.try(parse_optional_epk(epk_raw))
   use apu <- result.try(parse_optional_base64(apu_b64, "apu"))
   use apv <- result.try(parse_optional_base64(apv_b64, "apv"))
@@ -1957,7 +1942,7 @@ fn validate_apu_apv_distinct(
 }
 
 fn build_parsed_alg_fields(
-  alg: algorithm.KeyEncryptionAlg,
+  alg: gose.KeyEncryptionAlg,
   epk: Option(key_encryption.EphemeralPublicKey),
   apu: Option(BitArray),
   apv: Option(BitArray),
@@ -1966,9 +1951,9 @@ fn build_parsed_alg_fields(
   kw_iv: Option(BitArray),
   kw_tag: Option(BitArray),
 ) -> Result(ResolvedAlgFields, gose.GoseError) {
-  let alg_str = jose_algorithm.key_encryption_alg_to_string(alg)
+  let alg_str = jose.key_encryption_alg_to_string(alg)
   case alg {
-    algorithm.ChaCha20KeyWrap(_) -> {
+    gose.ChaCha20KeyWrap(_) -> {
       use _ <- result.try(
         reject_disallowed_headers(alg_str, [
           #(option.is_some(epk), "epk"),
@@ -1980,7 +1965,7 @@ fn build_parsed_alg_fields(
       )
       Ok(ChaCha20KwResolvedFields(kw_iv:, kw_tag:))
     }
-    algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(_)) -> {
+    gose.EcdhEs(gose.EcdhEsChaCha20Kw(_)) -> {
       use _ <- result.try(
         reject_disallowed_headers(alg_str, [
           #(option.is_some(p2s), "p2s"),
@@ -1990,7 +1975,7 @@ fn build_parsed_alg_fields(
       use _ <- result.try(validate_apu_apv_distinct(apu, apv))
       Ok(EcdhEsChaCha20KwResolvedFields(epk:, apu:, apv:, kw_iv:, kw_tag:))
     }
-    algorithm.EcdhEs(_) -> {
+    gose.EcdhEs(_) -> {
       use _ <- result.try(
         reject_disallowed_headers(alg_str, [
           #(option.is_some(p2s), "p2s"),
@@ -2000,7 +1985,7 @@ fn build_parsed_alg_fields(
       use _ <- result.try(validate_apu_apv_distinct(apu, apv))
       Ok(EcdhEsResolvedFields(epk:, apu:, apv:))
     }
-    algorithm.Pbes2(_) -> {
+    gose.Pbes2(_) -> {
       use _ <- result.try(
         reject_disallowed_headers(alg_str, [
           #(option.is_some(epk), "epk"),
@@ -2022,7 +2007,7 @@ fn build_parsed_alg_fields(
       ))
       Ok(Pbes2ResolvedFields(p2s:, p2c:))
     }
-    algorithm.AesKeyWrap(algorithm.AesGcmKw, _) -> {
+    gose.AesKeyWrap(gose.AesGcmKw, _) -> {
       use _ <- result.try(
         reject_disallowed_headers(alg_str, [
           #(option.is_some(epk), "epk"),
@@ -2034,9 +2019,7 @@ fn build_parsed_alg_fields(
       )
       Ok(AesGcmKwResolvedFields(kw_iv:, kw_tag:))
     }
-    algorithm.Direct
-    | algorithm.AesKeyWrap(algorithm.AesKw, _)
-    | algorithm.RsaEncryption(_) -> {
+    gose.Direct | gose.AesKeyWrap(gose.AesKw, _) | gose.RsaEncryption(_) -> {
       use _ <- result.try(
         reject_disallowed_headers(alg_str, [
           #(option.is_some(epk), "epk"),
@@ -2066,11 +2049,11 @@ fn reject_disallowed_headers(
 }
 
 fn validate_encrypted_key_for_algorithm(
-  alg: algorithm.KeyEncryptionAlg,
+  alg: gose.KeyEncryptionAlg,
   encrypted_key: BitArray,
 ) -> Result(Nil, gose.GoseError) {
   let is_direct = case alg {
-    algorithm.Direct | algorithm.EcdhEs(algorithm.EcdhEsDirect) -> True
+    gose.Direct | gose.EcdhEs(gose.EcdhEsDirect) -> True
     _ -> False
   }
   let key_size = bit_array.byte_size(encrypted_key)
@@ -2080,12 +2063,11 @@ fn validate_encrypted_key_for_algorithm(
     True, _ ->
       Error(gose.ParseError(
         "encrypted_key must be empty for "
-        <> jose_algorithm.key_encryption_alg_to_string(alg),
+        <> jose.key_encryption_alg_to_string(alg),
       ))
     False, 0 ->
       Error(gose.ParseError(
-        "encrypted_key required for "
-        <> jose_algorithm.key_encryption_alg_to_string(alg),
+        "encrypted_key required for " <> jose.key_encryption_alg_to_string(alg),
       ))
     False, _ -> Ok(Nil)
   }
@@ -2691,10 +2673,10 @@ fn apply_headers(
 
 fn encrypt_and_serialize(
   unencrypted: Jwe(Unencrypted, family, Built),
-  alg: algorithm.KeyEncryptionAlg,
-  key: key.Key(String),
+  alg: gose.KeyEncryptionAlg,
+  key: gose.Key(String),
   plaintext: BitArray,
-) -> Result(#(String, algorithm.KeyEncryptionAlg), gose.GoseError) {
+) -> Result(#(String, gose.KeyEncryptionAlg), gose.GoseError) {
   use encrypted <- result.try(encrypt(unencrypted, key, plaintext))
   use token <- result.try(serialize_compact(encrypted))
   Ok(#(token, alg))
@@ -2702,16 +2684,16 @@ fn encrypt_and_serialize(
 
 @internal
 pub fn encrypt_to_compact(
-  alg: algorithm.KeyEncryptionAlg,
-  enc: algorithm.ContentAlg,
+  alg: gose.KeyEncryptionAlg,
+  enc: gose.ContentAlg,
   plaintext: BitArray,
-  key: key.Key(String),
+  key: gose.Key(String),
   kid: Option(String),
   typ: Option(String),
   cty: Option(String),
-) -> Result(#(String, algorithm.KeyEncryptionAlg), gose.GoseError) {
+) -> Result(#(String, gose.KeyEncryptionAlg), gose.GoseError) {
   case alg {
-    algorithm.Direct ->
+    gose.Direct ->
       encrypt_and_serialize(
         apply_headers(new_direct(enc), kid, typ, cty),
         alg,
@@ -2719,7 +2701,7 @@ pub fn encrypt_to_compact(
         plaintext,
       )
 
-    algorithm.AesKeyWrap(algorithm.AesKw, size) ->
+    gose.AesKeyWrap(gose.AesKw, size) ->
       encrypt_and_serialize(
         apply_headers(new_aes_kw(size, enc), kid, typ, cty),
         alg,
@@ -2727,7 +2709,7 @@ pub fn encrypt_to_compact(
         plaintext,
       )
 
-    algorithm.AesKeyWrap(algorithm.AesGcmKw, size) ->
+    gose.AesKeyWrap(gose.AesGcmKw, size) ->
       encrypt_and_serialize(
         apply_headers(new_aes_gcm_kw(size, enc), kid, typ, cty),
         alg,
@@ -2735,7 +2717,7 @@ pub fn encrypt_to_compact(
         plaintext,
       )
 
-    algorithm.RsaEncryption(rsa_alg) ->
+    gose.RsaEncryption(rsa_alg) ->
       encrypt_and_serialize(
         apply_headers(new_rsa(rsa_alg, enc), kid, typ, cty),
         alg,
@@ -2743,7 +2725,7 @@ pub fn encrypt_to_compact(
         plaintext,
       )
 
-    algorithm.EcdhEs(ecdh_alg) ->
+    gose.EcdhEs(ecdh_alg) ->
       encrypt_and_serialize(
         apply_headers(new_ecdh_es(ecdh_alg, enc), kid, typ, cty),
         alg,
@@ -2751,7 +2733,7 @@ pub fn encrypt_to_compact(
         plaintext,
       )
 
-    algorithm.ChaCha20KeyWrap(variant) ->
+    gose.ChaCha20KeyWrap(variant) ->
       encrypt_and_serialize(
         apply_headers(new_chacha20_kw(variant, enc), kid, typ, cty),
         alg,
@@ -2759,7 +2741,7 @@ pub fn encrypt_to_compact(
         plaintext,
       )
 
-    algorithm.Pbes2(_) ->
+    gose.Pbes2(_) ->
       Error(gose.InvalidState("PBES2 algorithms require a password, not a key"))
   }
 }

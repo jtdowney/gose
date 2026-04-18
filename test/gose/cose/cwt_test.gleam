@@ -5,11 +5,9 @@ import gleam/result
 import gleam/time/duration
 import gleam/time/timestamp
 import gose
-import gose/algorithm
 import gose/cbor
 import gose/cose/cwt
 import gose/cose/sign1
-import gose/key
 import gose/test_helpers/fixtures
 import kryptos/ec
 
@@ -65,10 +63,8 @@ pub fn sign_and_verify_es256_roundtrip_test() {
     |> cwt.with_issuer("my-app")
     |> cwt.with_expiration(exp)
 
-  let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), k)
-  let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+  let assert Ok(token) = cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), k)
+  let assert Ok(verifier) = cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
   let assert Ok(verified) = cwt.verify_and_validate(verifier, token, now)
   let verified_claims = cwt.verified_claims(verified)
 
@@ -87,15 +83,15 @@ pub fn sign_and_verify_eddsa_roundtrip_test() {
     |> cwt.with_subject("user789")
     |> cwt.with_expiration(exp)
 
-  let assert Ok(token) = cwt.sign(claims, algorithm.Eddsa, k)
-  let assert Ok(verifier) = cwt.verifier(algorithm.Eddsa, keys: [k])
+  let assert Ok(token) = cwt.sign(claims, gose.Eddsa, k)
+  let assert Ok(verifier) = cwt.verifier(gose.Eddsa, keys: [k])
   let assert Ok(verified) = cwt.verify_and_validate(verifier, token, now)
 
   assert cwt.subject(cwt.verified_claims(verified)) == Ok("user789")
 }
 
 pub fn expired_token_test() {
-  let k = key.generate_ec(ec.P256)
+  let k = gose.generate_ec(ec.P256)
   let now = fixed_timestamp()
   let past_exp = timestamp.add(now, duration.hours(-1))
 
@@ -104,16 +100,14 @@ pub fn expired_token_test() {
     |> cwt.with_subject("user123")
     |> cwt.with_expiration(past_exp)
 
-  let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), k)
-  let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+  let assert Ok(token) = cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), k)
+  let assert Ok(verifier) = cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
   let assert Error(cwt.TokenExpired(_)) =
     cwt.verify_and_validate(verifier, token, now)
 }
 
 pub fn not_yet_valid_test() {
-  let k = key.generate_ec(ec.P256)
+  let k = gose.generate_ec(ec.P256)
   let now = fixed_timestamp()
   let future_nbf = timestamp.add(now, duration.hours(1))
   let exp = timestamp.add(now, duration.hours(2))
@@ -124,16 +118,14 @@ pub fn not_yet_valid_test() {
     |> cwt.with_not_before(future_nbf)
     |> cwt.with_expiration(exp)
 
-  let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), k)
-  let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+  let assert Ok(token) = cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), k)
+  let assert Ok(verifier) = cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
   let assert Error(cwt.TokenNotYetValid(_)) =
     cwt.verify_and_validate(verifier, token, now)
 }
 
 pub fn clock_skew_tolerance_test() {
-  let k = key.generate_ec(ec.P256)
+  let k = gose.generate_ec(ec.P256)
   let now = fixed_timestamp()
   let just_expired = timestamp.add(now, duration.seconds(-30))
 
@@ -142,10 +134,9 @@ pub fn clock_skew_tolerance_test() {
     |> cwt.with_subject("user123")
     |> cwt.with_expiration(just_expired)
 
-  let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), k)
+  let assert Ok(token) = cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), k)
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
     |> result.map(cwt.with_clock_skew(_, 60))
 
   let assert Ok(verified) = cwt.verify_and_validate(verifier, token, now)
@@ -153,7 +144,7 @@ pub fn clock_skew_tolerance_test() {
 }
 
 pub fn issuer_validation_mismatch_test() {
-  let k = key.generate_ec(ec.P256)
+  let k = gose.generate_ec(ec.P256)
   let now = fixed_timestamp()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -162,10 +153,9 @@ pub fn issuer_validation_mismatch_test() {
     |> cwt.with_issuer("wrong-issuer")
     |> cwt.with_expiration(exp)
 
-  let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), k)
+  let assert Ok(token) = cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), k)
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
     |> result.map(cwt.with_issuer_validation(_, "expected-issuer"))
 
   let assert Error(cwt.IssuerMismatch(
@@ -175,7 +165,7 @@ pub fn issuer_validation_mismatch_test() {
 }
 
 pub fn audience_validation_mismatch_test() {
-  let k = key.generate_ec(ec.P256)
+  let k = gose.generate_ec(ec.P256)
   let now = fixed_timestamp()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -184,10 +174,9 @@ pub fn audience_validation_mismatch_test() {
     |> cwt.with_audience("wrong-audience")
     |> cwt.with_expiration(exp)
 
-  let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), k)
+  let assert Ok(token) = cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), k)
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
     |> result.map(cwt.with_audience_validation(_, "expected-audience"))
 
   let assert Error(cwt.AudienceMismatch(
@@ -197,7 +186,7 @@ pub fn audience_validation_mismatch_test() {
 }
 
 pub fn custom_claims_roundtrip_test() {
-  let k = key.generate_ec(ec.P256)
+  let k = gose.generate_ec(ec.P256)
   let now = fixed_timestamp()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -209,10 +198,8 @@ pub fn custom_claims_roundtrip_test() {
   let assert Ok(claims) =
     cwt.with_custom_claim(claims, cbor.Int(100), cbor.Int(42))
 
-  let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), k)
-  let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+  let assert Ok(token) = cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), k)
+  let assert Ok(verifier) = cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
   let assert Ok(verified) = cwt.verify_and_validate(verifier, token, now)
   let verified_claims = cwt.verified_claims(verified)
 
@@ -223,7 +210,7 @@ pub fn custom_claims_roundtrip_test() {
 }
 
 pub fn cti_roundtrip_test() {
-  let k = key.generate_ec(ec.P256)
+  let k = gose.generate_ec(ec.P256)
   let now = fixed_timestamp()
   let exp = timestamp.add(now, duration.hours(1))
   let cti_bytes = <<1, 2, 3, 4, 5, 6, 7, 8>>
@@ -233,44 +220,39 @@ pub fn cti_roundtrip_test() {
     |> cwt.with_expiration(exp)
     |> cwt.with_cti(cti_bytes)
 
-  let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), k)
-  let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+  let assert Ok(token) = cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), k)
+  let assert Ok(verifier) = cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
   let assert Ok(verified) = cwt.verify_and_validate(verifier, token, now)
 
   assert cwt.cti(cwt.verified_claims(verified)) == Ok(cti_bytes)
 }
 
 pub fn missing_expiration_required_test() {
-  let k = key.generate_ec(ec.P256)
+  let k = gose.generate_ec(ec.P256)
   let now = fixed_timestamp()
 
   let claims =
     cwt.new()
     |> cwt.with_subject("user123")
 
-  let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), k)
-  let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+  let assert Ok(token) = cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), k)
+  let assert Ok(verifier) = cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
 
   let result = cwt.verify_and_validate(verifier, token, now)
   assert result == Error(cwt.MissingExpiration)
 }
 
 pub fn missing_expiration_not_required_test() {
-  let k = key.generate_ec(ec.P256)
+  let k = gose.generate_ec(ec.P256)
   let now = fixed_timestamp()
 
   let claims =
     cwt.new()
     |> cwt.with_subject("user123")
 
-  let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), k)
+  let assert Ok(token) = cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), k)
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
     |> result.map(cwt.with_require_expiration(_, False))
 
   let assert Ok(verified) = cwt.verify_and_validate(verifier, token, now)
@@ -278,7 +260,7 @@ pub fn missing_expiration_not_required_test() {
 }
 
 pub fn multiple_audiences_test() {
-  let k = key.generate_ec(ec.P256)
+  let k = gose.generate_ec(ec.P256)
   let now = fixed_timestamp()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -287,10 +269,9 @@ pub fn multiple_audiences_test() {
     |> cwt.with_audiences(["api1.example.com", "api2.example.com"])
   let claims = cwt.with_expiration(claims, exp)
 
-  let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), k)
+  let assert Ok(token) = cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), k)
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k])
     |> result.map(cwt.with_audience_validation(_, "api2.example.com"))
   let assert Ok(verified) = cwt.verify_and_validate(verifier, token, now)
 
@@ -300,7 +281,7 @@ pub fn multiple_audiences_test() {
 
 pub fn wrong_signing_key_verification_fails_test() {
   let signing_key = fixtures.ec_p256_key()
-  let wrong_key = key.generate_ec(ec.P256)
+  let wrong_key = gose.generate_ec(ec.P256)
   let now = fixed_timestamp()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -310,16 +291,16 @@ pub fn wrong_signing_key_verification_fails_test() {
     |> cwt.with_expiration(exp)
 
   let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), signing_key)
+    cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), signing_key)
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [wrong_key])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [wrong_key])
   let result = cwt.verify_and_validate(verifier, token, now)
 
   assert result == Error(cwt.InvalidSignature)
 }
 
 pub fn verifier_empty_keys_test() {
-  let result = cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [])
+  let result = cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [])
 
   assert result
     == Error(cwt.CoseError(gose.InvalidState("at least one key required")))
@@ -327,8 +308,8 @@ pub fn verifier_empty_keys_test() {
 
 pub fn cti_wrong_type_rejected_test() {
   let now = fixed_timestamp()
-  let signing_key = key.generate_ec(ec.P256)
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let signing_key = gose.generate_ec(ec.P256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   // Build a CBOR payload with cti (label 7) as Int instead of Bytes
   let payload = cbor.encode(cbor.Map([#(cbor.Int(7), cbor.Int(42))]))
@@ -345,8 +326,8 @@ pub fn cti_wrong_type_rejected_test() {
 
 pub fn iss_wrong_type_rejected_test() {
   let now = fixed_timestamp()
-  let signing_key = key.generate_ec(ec.P256)
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let signing_key = gose.generate_ec(ec.P256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let payload = cbor.encode(cbor.Map([#(cbor.Int(1), cbor.Int(42))]))
 
@@ -362,8 +343,8 @@ pub fn iss_wrong_type_rejected_test() {
 
 pub fn sub_wrong_type_rejected_test() {
   let now = fixed_timestamp()
-  let signing_key = key.generate_ec(ec.P256)
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let signing_key = gose.generate_ec(ec.P256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let payload = cbor.encode(cbor.Map([#(cbor.Int(2), cbor.Int(42))]))
 
@@ -379,8 +360,8 @@ pub fn sub_wrong_type_rejected_test() {
 
 pub fn aud_wrong_type_rejected_test() {
   let now = fixed_timestamp()
-  let signing_key = key.generate_ec(ec.P256)
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let signing_key = gose.generate_ec(ec.P256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let payload = cbor.encode(cbor.Map([#(cbor.Int(3), cbor.Int(42))]))
 
@@ -399,8 +380,8 @@ pub fn aud_wrong_type_rejected_test() {
 
 pub fn exp_wrong_type_rejected_test() {
   let now = fixed_timestamp()
-  let signing_key = key.generate_ec(ec.P256)
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let signing_key = gose.generate_ec(ec.P256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let payload = cbor.encode(cbor.Map([#(cbor.Int(4), cbor.Text("not-an-int"))]))
 
@@ -416,8 +397,8 @@ pub fn exp_wrong_type_rejected_test() {
 
 pub fn nbf_wrong_type_rejected_test() {
   let now = fixed_timestamp()
-  let signing_key = key.generate_ec(ec.P256)
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let signing_key = gose.generate_ec(ec.P256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let payload = cbor.encode(cbor.Map([#(cbor.Int(5), cbor.Text("not-an-int"))]))
 
@@ -433,8 +414,8 @@ pub fn nbf_wrong_type_rejected_test() {
 
 pub fn iat_wrong_type_rejected_test() {
   let now = fixed_timestamp()
-  let signing_key = key.generate_ec(ec.P256)
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let signing_key = gose.generate_ec(ec.P256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let payload = cbor.encode(cbor.Map([#(cbor.Int(6), cbor.Text("not-an-int"))]))
 
@@ -450,8 +431,8 @@ pub fn iat_wrong_type_rejected_test() {
 
 pub fn non_map_payload_rejected_test() {
   let now = fixed_timestamp()
-  let signing_key = key.generate_ec(ec.P256)
-  let alg = algorithm.Ecdsa(algorithm.EcdsaP256)
+  let signing_key = gose.generate_ec(ec.P256)
+  let alg = gose.Ecdsa(gose.EcdsaP256)
 
   let payload = cbor.encode(cbor.Array([cbor.Int(1), cbor.Int(2)]))
 

@@ -8,29 +8,28 @@
 //// Key-based encryption:
 ////
 //// ```gleam
+//// import gose
 //// import gose/jose/encrypted_key
-//// import gose/algorithm
 //// import gose/jose/jwe
-//// import gose/key
 //// import kryptos/ec
 ////
 //// // Generate a wrapping key and an EC key to protect
-//// let wrapping_key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-//// let k = key.generate_ec(ec.P256)
+//// let wrapping_key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+//// let k = gose.generate_ec(ec.P256)
 ////
 //// // Export with key-based encryption
 //// let assert Ok(encrypted) = encrypted_key.encrypt_with_key(
 ////   k,
-////   alg: algorithm.Direct,
-////   enc: algorithm.AesGcm(algorithm.Aes256),
+////   alg: gose.Direct,
+////   enc: gose.AesGcm(gose.Aes256),
 ////   with: wrapping_key,
 //// )
 ////
 //// // Import it back
 //// let assert Ok(decryptor) = jwe.key_decryptor(
-////   algorithm.Direct,
-////   algorithm.AesGcm(algorithm.Aes256),
-////   [wrapping_key],
+////   gose.Direct,
+////   gose.AesGcm(gose.Aes256),
+////   keys: [wrapping_key],
 //// )
 //// let assert Ok(recovered) = encrypted_key.decrypt(decryptor, encrypted)
 //// ```
@@ -38,26 +37,25 @@
 //// Password-based encryption:
 ////
 //// ```gleam
+//// import gose
 //// import gose/jose/encrypted_key
-//// import gose/algorithm
 //// import gose/jose/jwe
-//// import gose/key
 //// import kryptos/ec
 ////
-//// let k = key.generate_ec(ec.P256)
+//// let k = gose.generate_ec(ec.P256)
 ////
 //// // Export with password protection
 //// let assert Ok(encrypted) = encrypted_key.encrypt_with_password(
 ////   k,
-////   algorithm.Pbes2Sha256Aes128Kw,
-////   algorithm.AesGcm(algorithm.Aes256),
+////   gose.Pbes2Sha256Aes128Kw,
+////   gose.AesGcm(gose.Aes256),
 ////   "my-secure-password",
 //// )
 ////
 //// // Import it back using a decryptor
 //// let decryptor = jwe.password_decryptor(
-////   algorithm.Pbes2Sha256Aes128Kw,
-////   algorithm.AesGcm(algorithm.Aes256),
+////   gose.Pbes2Sha256Aes128Kw,
+////   gose.AesGcm(gose.Aes256),
 ////   "my-secure-password",
 //// )
 //// let assert Ok(recovered) = encrypted_key.decrypt(decryptor, encrypted)
@@ -69,10 +67,8 @@ import gleam/option
 import gleam/pair
 import gleam/result
 import gose
-import gose/algorithm
 import gose/jose/jwe
 import gose/jose/jwk
-import gose/key
 
 /// Import a JWK from encrypted JSON using a decryptor with algorithm pinning.
 ///
@@ -84,8 +80,8 @@ import gose/key
 /// ```gleam
 /// let decryptor =
 ///   jwe.password_decryptor(
-///     algorithm.Pbes2Sha256Aes128Kw,
-///     algorithm.AesGcm(algorithm.Aes256),
+///     gose.Pbes2Sha256Aes128Kw,
+///     gose.AesGcm(gose.Aes256),
 ///     "my-password",
 ///   )
 /// let assert Ok(key) = encrypted_key.decrypt(decryptor, encrypted_token)
@@ -93,7 +89,7 @@ import gose/key
 pub fn decrypt(
   decryptor: jwe.Decryptor,
   encrypted: String,
-) -> Result(key.Key(String), gose.GoseError) {
+) -> Result(gose.Key(String), gose.GoseError) {
   use parsed <- result.try(jwe.parse_compact(encrypted))
   use plaintext <- result.try(jwe.decrypt(decryptor, parsed))
   jwk.from_json_bits(plaintext)
@@ -115,13 +111,13 @@ pub fn decrypt(
 ///
 /// If the encryption key has a `kid`, it is included in the JWE header.
 pub fn encrypt_with_key(
-  key: key.Key(String),
-  alg alg: algorithm.KeyEncryptionAlg,
-  enc enc: algorithm.ContentAlg,
-  with encryption_key: key.Key(String),
+  key: gose.Key(String),
+  alg alg: gose.KeyEncryptionAlg,
+  enc enc: gose.ContentAlg,
+  with encryption_key: gose.Key(String),
 ) -> Result(String, gose.GoseError) {
   let plaintext = jwk_to_plaintext(key)
-  let kid = option.from_result(key.kid(encryption_key))
+  let kid = option.from_result(gose.kid(encryption_key))
   jwe.encrypt_to_compact(
     alg,
     enc,
@@ -140,9 +136,9 @@ pub fn encrypt_with_key(
 /// The JWK is serialized to JSON, then encrypted using the specified PBES2
 /// algorithm and content encryption algorithm.
 pub fn encrypt_with_password(
-  key: key.Key(String),
-  alg alg: algorithm.Pbes2Alg,
-  enc enc: algorithm.ContentAlg,
+  key: gose.Key(String),
+  alg alg: gose.Pbes2Alg,
+  enc enc: gose.ContentAlg,
   password password: String,
 ) -> Result(String, gose.GoseError) {
   let plaintext = jwk_to_plaintext(key)
@@ -155,7 +151,7 @@ pub fn encrypt_with_password(
   |> result.try(jwe.serialize_compact)
 }
 
-fn jwk_to_plaintext(key: key.Key(String)) -> BitArray {
+fn jwk_to_plaintext(key: gose.Key(String)) -> BitArray {
   jwk.to_json(key)
   |> json.to_string
   |> bit_array.from_string

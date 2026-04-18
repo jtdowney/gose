@@ -3,10 +3,9 @@ import gleam/io
 import gleam/string
 import gleam/time/duration
 import gleam/time/timestamp
-import gose/algorithm
+import gose
 import gose/cbor
 import gose/cose/cwt
-import gose/key
 import kryptos/ec
 
 pub fn main() {
@@ -28,7 +27,7 @@ pub fn main() {
 fn sign_and_verify() {
   io.println("--- Sign and Verify (ES256) ---")
 
-  let signing_key = key.generate_ec(ec.P256)
+  let signing_key = gose.generate_ec(ec.P256)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -42,13 +41,13 @@ fn sign_and_verify() {
 
   // Sign
   let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), signing_key)
+    cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), signing_key)
   io.println("Signed CWT (base64):")
   io.println(bit_array.base64_encode(token, True))
 
   // Verify
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [signing_key])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [signing_key])
   let assert Ok(verified) = cwt.verify_and_validate(verifier, token, now)
 
   let verified_claims = cwt.verified_claims(verified)
@@ -62,7 +61,7 @@ fn sign_and_verify() {
 fn ecdsa_signed() {
   io.println("--- ECDSA-Signed CWT (ES384) ---")
 
-  let signing_key = key.generate_ec(ec.P384)
+  let signing_key = gose.generate_ec(ec.P384)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -73,13 +72,13 @@ fn ecdsa_signed() {
 
   // Sign
   let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP384), signing_key)
+    cwt.sign(claims, gose.Ecdsa(gose.EcdsaP384), signing_key)
   io.println("ECDSA-signed CWT (base64):")
   io.println(bit_array.base64_encode(token, True))
 
   // Verify
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP384), keys: [signing_key])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP384), keys: [signing_key])
   let assert Ok(verified) = cwt.verify_and_validate(verifier, token, now)
   let assert Ok(sub) = cwt.subject(cwt.verified_claims(verified))
   io.println("Subject: " <> sub)
@@ -89,7 +88,7 @@ fn ecdsa_signed() {
 fn validation_options() {
   io.println("--- Validation Options ---")
 
-  let signing_key = key.generate_ec(ec.P256)
+  let signing_key = gose.generate_ec(ec.P256)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -101,11 +100,11 @@ fn validation_options() {
 
   // Sign
   let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), signing_key)
+    cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), signing_key)
 
   // Verify
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [signing_key])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [signing_key])
   let verifier =
     verifier
     |> cwt.with_issuer_validation("trusted-issuer")
@@ -120,7 +119,7 @@ fn validation_options() {
 fn custom_claims() {
   io.println("--- Custom Claims ---")
 
-  let signing_key = key.generate_ec(ec.P256)
+  let signing_key = gose.generate_ec(ec.P256)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -134,13 +133,13 @@ fn custom_claims() {
 
   // Sign
   let assert Ok(token) =
-    cwt.sign(claims, algorithm.Ecdsa(algorithm.EcdsaP256), signing_key)
+    cwt.sign(claims, gose.Ecdsa(gose.EcdsaP256), signing_key)
   io.println("CWT with custom claims (base64):")
   io.println(bit_array.base64_encode(token, True))
 
   // Verify
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [signing_key])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [signing_key])
   let assert Ok(verified) = cwt.verify_and_validate(verifier, token, now)
 
   let verified_claims = cwt.verified_claims(verified)

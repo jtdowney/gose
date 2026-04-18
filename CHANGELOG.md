@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Key management API promoted to the top-level `gose` module. All types
+  (`Key`, `KeyUse`, `KeyOp`, `Alg`, `KeyType`) and functions
+  (`from_der`, `from_pem`, `generate_ec`, `with_kid`, `to_pem`, and the
+  rest of the former `gose/key` surface) are now available directly on
+  `gose`.
+- Algorithm identifier types (`AesKeySize`, `HmacAlg`, `EcdsaAlg`,
+  `SigningAlg`, `KeyEncryptionAlg`, `ContentAlg`, and the rest of the
+  former `gose/algorithm` surface) promoted to `gose`.
+- New `gose/jose` module hosting the JOSE algorithm string conversions
+  (`signing_alg_to_string`, `signing_alg_from_string`,
+  `key_encryption_alg_to_string`, `key_encryption_alg_from_string`,
+  `content_alg_to_string`, `content_alg_from_string`).
+- COSE algorithm integer conversions (`signature_alg_to_int`,
+  `signature_alg_from_int`, `mac_alg_to_int`, `mac_alg_from_int`,
+  `signing_alg_to_int`, `signing_alg_from_int`,
+  `key_encryption_alg_to_int`, `key_encryption_alg_from_int`,
+  `content_alg_to_int`, `content_alg_from_int`) added to `gose/cose`.
+- `gose/cose.Key` (alias for `gose.Key(BitArray)`) as the canonical
+  home for the COSE-flavored key alias.
+- `gose/cose.key_to_cbor`, `key_from_cbor`, `key_to_cbor_map`, and
+  `key_from_cbor_map` for COSE_Key serialization. These replace the
+  like-named functions on `gose/cose/key`.
+
+### Changed
+
+- Renamed the internal `KeyMaterial` constructors `Ec(_)` to
+  `Elliptic(_)` and `Eddsa(_)` to `Edwards(_)` to free the `Ec` and
+  `Eddsa` names for the public `KeyType` and `DigitalSignatureAlg`
+  constructors on `gose`. `KeyMaterial` is `@internal`, so this only
+  affects callers that depend on package-internal pattern matches
+  against `KeyMaterial` variants.
+
+### Deprecated
+
+- `gose/key`, `gose/algorithm`, `gose/jose/algorithm`, `gose/cose/key`,
+  and `gose/cose/algorithm` are now `@deprecated` shims and will be
+  removed in v3.0. The shims preserve module paths for function calls
+  and type annotations only. **Constructor call sites must migrate
+  immediately.** Gleam type aliases do not re-export constructors, so
+  references such as `key.Signing`, `key.SigningAlg(_)`,
+  `algorithm.Mac(_)`, or `algorithm.Aes128` stop compiling in this
+  release even though the old module paths still resolve. See
+  `docs/MIGRATION.md` for the per-module rewrite tables.
+
 ## [2.0.0] - 2026-04-17
 
 ### Added

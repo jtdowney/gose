@@ -7,10 +7,9 @@ import gleam/result
 import gleam/string
 import gleam/time/duration
 import gleam/time/timestamp
-import gose/algorithm
+import gose
 import gose/jose/encrypted_jwt
 import gose/jose/jwt
-import gose/key
 import kryptos/ec
 
 pub fn main() {
@@ -47,7 +46,7 @@ pub fn main() {
 fn create_and_sign_jwt() {
   io.println("--- Create and Sign JWT ---")
 
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -62,7 +61,7 @@ fn create_and_sign_jwt() {
 
   // Sign
   let assert Ok(signed) =
-    jwt.sign(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), claims, key)
+    jwt.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), claims, key)
 
   let token = jwt.serialize(signed)
 
@@ -83,7 +82,7 @@ fn create_and_sign_jwt() {
 fn verify_jwt() {
   io.println("--- Verify JWT ---")
 
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -95,14 +94,14 @@ fn verify_jwt() {
 
   // Sign
   let assert Ok(signed) =
-    jwt.sign(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), claims, key)
+    jwt.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), claims, key)
 
   let token = jwt.serialize(signed)
 
   // Verify
   let assert Ok(verifier) =
     jwt.verifier(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
       [key],
       jwt.default_validation(),
     )
@@ -118,7 +117,7 @@ fn verify_jwt() {
 fn custom_claims() {
   io.println("--- Custom Claims ---")
 
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -143,7 +142,7 @@ fn custom_claims() {
 
   // Sign
   let assert Ok(signed) =
-    jwt.sign(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), claims, key)
+    jwt.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), claims, key)
 
   let token = jwt.serialize(signed)
 
@@ -157,7 +156,7 @@ fn custom_claims() {
   // Verify
   let assert Ok(verifier) =
     jwt.verifier(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
       [key],
       jwt.default_validation(),
     )
@@ -174,11 +173,11 @@ fn custom_claims() {
 fn key_rotation() {
   io.println("--- Key Rotation with Multiple Keys ---")
 
-  let old_key = key.generate_hmac_key(algorithm.HmacSha256)
-  let old_key = key.with_kid(old_key, "key-v1")
+  let old_key = gose.generate_hmac_key(gose.HmacSha256)
+  let old_key = gose.with_kid(old_key, "key-v1")
 
-  let new_key = key.generate_hmac_key(algorithm.HmacSha256)
-  let new_key = key.with_kid(new_key, "key-v2")
+  let new_key = gose.generate_hmac_key(gose.HmacSha256)
+  let new_key = gose.with_kid(new_key, "key-v2")
 
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
@@ -191,7 +190,7 @@ fn key_rotation() {
   // Sign
   let assert Ok(signed) =
     jwt.sign(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
       claims,
       old_key,
     )
@@ -201,7 +200,7 @@ fn key_rotation() {
   // Verify
   let assert Ok(verifier) =
     jwt.verifier(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
       [new_key, old_key],
       jwt.default_validation(),
     )
@@ -217,7 +216,7 @@ fn key_rotation() {
 fn validation_options() {
   io.println("--- Validation Options (Issuer/Audience) ---")
 
-  let key = key.generate_hmac_key(algorithm.HmacSha256)
+  let key = gose.generate_hmac_key(gose.HmacSha256)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -230,7 +229,7 @@ fn validation_options() {
 
   // Sign
   let assert Ok(signed) =
-    jwt.sign(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), claims, key)
+    jwt.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), claims, key)
 
   let token = jwt.serialize(signed)
 
@@ -244,7 +243,7 @@ fn validation_options() {
 
   let assert Ok(verifier) =
     jwt.verifier(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
       [key],
       options,
     )
@@ -265,7 +264,7 @@ fn validation_options() {
 fn encrypt_jwt_direct() {
   io.println("--- Encrypted JWT (Direct Key) ---")
 
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -280,8 +279,8 @@ fn encrypt_jwt_direct() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
 
@@ -292,8 +291,8 @@ fn encrypt_jwt_direct() {
   // Decrypt and validate
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -310,8 +309,8 @@ fn encrypt_jwt_direct() {
 fn encrypt_jwt_aes_kw() {
   io.println("--- Encrypted JWT (AES Key Wrap) ---")
 
-  let wrap_key = key.generate_aes_kw_key(algorithm.Aes256)
-  let wrap_key = key.with_kid(wrap_key, "kw-key-1")
+  let wrap_key = gose.generate_aes_kw_key(gose.Aes256)
+  let wrap_key = gose.with_kid(wrap_key, "kw-key-1")
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -324,8 +323,8 @@ fn encrypt_jwt_aes_kw() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes256),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.AesKeyWrap(gose.AesKw, gose.Aes256),
+      gose.AesGcm(gose.Aes256),
       wrap_key,
     )
 
@@ -338,7 +337,7 @@ fn encrypt_jwt_aes_kw() {
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
       jwe_alg,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.AesGcm(gose.Aes256),
       [wrap_key],
       jwt.default_validation(),
     )
@@ -353,7 +352,7 @@ fn encrypt_jwt_aes_kw() {
 fn encrypt_jwt_ecdh() {
   io.println("--- Encrypted JWT (ECDH-ES) ---")
 
-  let ec_key = key.generate_ec(ec.P256)
+  let ec_key = gose.generate_ec(ec.P256)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -367,8 +366,8 @@ fn encrypt_jwt_ecdh() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.EcdhEs(algorithm.EcdhEsDirect),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsDirect),
+      gose.AesGcm(gose.Aes256),
       ec_key,
     )
 
@@ -379,8 +378,8 @@ fn encrypt_jwt_ecdh() {
   // Decrypt and validate
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsDirect),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsDirect),
+      gose.AesGcm(gose.Aes256),
       [ec_key],
       jwt.default_validation(),
     )
@@ -414,8 +413,8 @@ fn encrypt_jwt_password() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_password(
       claims,
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes128),
+      gose.Pbes2Sha256Aes128Kw,
+      gose.AesGcm(gose.Aes128),
       password,
       kid: option.None,
     )
@@ -427,8 +426,8 @@ fn encrypt_jwt_password() {
   // Decrypt and validate
   let decryptor =
     encrypted_jwt.password_decryptor(
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes128),
+      gose.Pbes2Sha256Aes128Kw,
+      gose.AesGcm(gose.Aes128),
       password,
       jwt.default_validation(),
     )
@@ -445,7 +444,7 @@ fn encrypt_jwt_password() {
 fn encrypted_jwt_custom_claims() {
   io.println("--- Encrypted JWT with Custom Claims ---")
 
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -472,8 +471,8 @@ fn encrypted_jwt_custom_claims() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
 
@@ -482,8 +481,8 @@ fn encrypted_jwt_custom_claims() {
   // Decrypt and validate
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -512,16 +511,16 @@ fn encrypted_jwt_peek_headers() {
   io.println("--- Peek Encrypted JWT Headers (kid-based decryptor routing) ---")
 
   let encryption_key =
-    key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-    |> key.with_kid("kek-2025")
+    gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+    |> gose.with_kid("kek-2025")
   let now = timestamp.system_time()
 
   let claims = jwt.claims() |> jwt.with_subject("user-123")
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      alg: algorithm.Direct,
-      enc: algorithm.AesGcm(algorithm.Aes256),
+      alg: gose.Direct,
+      enc: gose.AesGcm(gose.Aes256),
       key: encryption_key,
     )
   let token = encrypted_jwt.serialize(encrypted)
@@ -533,8 +532,8 @@ fn encrypted_jwt_peek_headers() {
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      alg: algorithm.Direct,
-      enc: algorithm.AesGcm(algorithm.Aes256),
+      alg: gose.Direct,
+      enc: gose.AesGcm(gose.Aes256),
       keys: [encryption_key],
       options: jwt.default_validation(),
     )
@@ -546,7 +545,7 @@ fn encrypted_jwt_peek_headers() {
 fn dangerous_escape_hatches() {
   io.println("--- Dangerous Escape Hatches (use only after authorization) ---")
 
-  let k = key.generate_hmac_key(algorithm.HmacSha256)
+  let k = gose.generate_hmac_key(gose.HmacSha256)
   let now = timestamp.system_time()
   let past = timestamp.add(now, duration.hours(-1))
 
@@ -556,7 +555,7 @@ fn dangerous_escape_hatches() {
     |> jwt.with_expiration(past)
   let assert Ok(signed) =
     jwt.sign(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
       claims:,
       key: k,
     )
@@ -576,7 +575,7 @@ fn dangerous_escape_hatches() {
   // Verify signature but skip claim validation (e.g. to inspect an expired token).
   let assert Ok(verifier) =
     jwt.verifier(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
       keys: [k],
       options: jwt.default_validation(),
     )

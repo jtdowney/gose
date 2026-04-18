@@ -1,9 +1,7 @@
 import gleam/json
 import gleam/string
 import gose
-import gose/algorithm
 import gose/jose/jws_multi
-import gose/key
 import gose/test_helpers/fixtures
 import gose/test_helpers/generators
 import kryptos/ec
@@ -33,45 +31,38 @@ pub fn property_sign_verify_roundtrip_test() {
 
 pub fn multi_signer_verify_each_test() {
   let payload = <<"multi signer":utf8>>
-  let hmac_key = key.generate_hmac_key(algorithm.HmacSha256)
+  let hmac_key = gose.generate_hmac_key(gose.HmacSha256)
   let ec_key = fixtures.ec_p256_key()
   let ed_key = fixtures.ed25519_key()
 
   let assert Ok(body) =
     jws_multi.new(payload:)
-    |> jws_multi.sign(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
-      key: hmac_key,
-    )
+    |> jws_multi.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), key: hmac_key)
   let assert Ok(body) =
     body
     |> jws_multi.sign(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
+      gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
       key: ec_key,
     )
   let assert Ok(body) =
     body
-    |> jws_multi.sign(algorithm.DigitalSignature(algorithm.Eddsa), key: ed_key)
+    |> jws_multi.sign(gose.DigitalSignature(gose.Eddsa), key: ed_key)
   let multi = jws_multi.assemble(body)
   let json_str = jws_multi.serialize_json(multi) |> json.to_string
   let assert Ok(parsed) = jws_multi.parse_json(json_str)
 
   let assert Ok(v1) =
-    jws_multi.verifier(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
-      keys: [hmac_key],
-    )
+    jws_multi.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), keys: [hmac_key])
   assert jws_multi.verify(v1, parsed) == Ok(Nil)
 
   let assert Ok(v2) =
-    jws_multi.verifier(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
-      keys: [ec_key],
-    )
+    jws_multi.verifier(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)), keys: [
+      ec_key,
+    ])
   assert jws_multi.verify(v2, parsed) == Ok(Nil)
 
   let assert Ok(v3) =
-    jws_multi.verifier(algorithm.DigitalSignature(algorithm.Eddsa), keys: [
+    jws_multi.verifier(gose.DigitalSignature(gose.Eddsa), keys: [
       ed_key,
     ])
   assert jws_multi.verify(v3, parsed) == Ok(Nil)
@@ -80,8 +71,8 @@ pub fn multi_signer_verify_each_test() {
 pub fn verify_wrong_key_test() {
   let payload = <<"wrong key":utf8>>
   let k = fixtures.ec_p256_key()
-  let other = key.generate_ec(ec.P256)
-  let alg = algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256))
+  let other = gose.generate_ec(ec.P256)
+  let alg = gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256))
 
   let assert Ok(body) = jws_multi.new(payload:) |> jws_multi.sign(alg, key: k)
   let multi = jws_multi.assemble(body)
@@ -98,16 +89,13 @@ pub fn verify_no_matching_signer_test() {
 
   let assert Ok(body) =
     jws_multi.new(payload:)
-    |> jws_multi.sign(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
-      key: k,
-    )
+    |> jws_multi.sign(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)), key: k)
   let multi = jws_multi.assemble(body)
   let json_str = jws_multi.serialize_json(multi) |> json.to_string
   let assert Ok(parsed) = jws_multi.parse_json(json_str)
   let assert Ok(v) =
     jws_multi.verifier(
-      algorithm.DigitalSignature(algorithm.RsaPkcs1(algorithm.RsaPkcs1Sha256)),
+      gose.DigitalSignature(gose.RsaPkcs1(gose.RsaPkcs1Sha256)),
       keys: [rsa_key],
     )
   assert jws_multi.verify(v, parsed) == Error(gose.VerificationFailed)
@@ -115,19 +103,18 @@ pub fn verify_no_matching_signer_test() {
 
 pub fn verifier_empty_keys_test() {
   assert jws_multi.verifier(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
+      gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
       keys: [],
     )
     == Error(gose.InvalidState("at least one key required"))
 }
 
 pub fn verifier_wrong_key_type_test() {
-  let hmac_key = key.generate_hmac_key(algorithm.HmacSha256)
+  let hmac_key = gose.generate_hmac_key(gose.HmacSha256)
   let assert Error(gose.InvalidState(_)) =
-    jws_multi.verifier(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
-      keys: [hmac_key],
-    )
+    jws_multi.verifier(gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)), keys: [
+      hmac_key,
+    ])
 }
 
 pub fn parse_invalid_json_test() {
@@ -135,7 +122,7 @@ pub fn parse_invalid_json_test() {
 }
 
 pub fn detached_roundtrip_test() {
-  let alg = algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256))
+  let alg = gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256))
   let k = fixtures.ec_p256_key()
   let payload = <<"detached payload":utf8>>
 
@@ -156,7 +143,7 @@ pub fn detached_roundtrip_test() {
 }
 
 pub fn verify_detached_with_wrong_payload_fails_test() {
-  let alg = algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256))
+  let alg = gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256))
   let k = fixtures.ec_p256_key()
   let correct_payload = <<"correct payload":utf8>>
   let wrong_payload = <<"wrong payload":utf8>>
@@ -174,7 +161,7 @@ pub fn verify_detached_with_wrong_payload_fails_test() {
 }
 
 pub fn detached_serialized_json_omits_payload_test() {
-  let alg = algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256))
+  let alg = gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256))
   let k = fixtures.ec_p256_key()
 
   let assert Ok(body) =
@@ -188,7 +175,7 @@ pub fn detached_serialized_json_omits_payload_test() {
 }
 
 pub fn verify_rejects_detached_test() {
-  let alg = algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256))
+  let alg = gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256))
   let k = fixtures.ec_p256_key()
 
   let assert Ok(body) =
@@ -206,7 +193,7 @@ pub fn verify_rejects_detached_test() {
 }
 
 pub fn verify_detached_rejects_attached_test() {
-  let alg = algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256))
+  let alg = gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256))
   let k = fixtures.ec_p256_key()
 
   let assert Ok(body) =

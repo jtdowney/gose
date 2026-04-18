@@ -1,16 +1,16 @@
 import gleam/dynamic/decode
 import gleam/time/duration
 import gleam/time/timestamp.{type Timestamp}
+import gose
 import gose/jose/jwt
-import gose/key
 
 pub fn fixed_timestamp() -> Timestamp {
   timestamp.from_unix_seconds(1_700_000_000)
 }
 
-pub fn hmac_key() -> key.Key(kid) {
+pub fn hmac_key() -> gose.Key(kid) {
   let assert Ok(key) =
-    key.from_octet_bits(<<"test-secret-key-32-bytes-long!!!":utf8>>)
+    gose.from_octet_bits(<<"test-secret-key-32-bytes-long!!!":utf8>>)
   key
 }
 

@@ -8,12 +8,11 @@
 //// ```gleam
 //// import gleam/time/duration
 //// import gleam/time/timestamp
-//// import gose/algorithm
+//// import gose
 //// import gose/cose/cwt
-//// import gose/key
 //// import kryptos/ec
 ////
-//// let signing_key = key.generate_ec(ec.P256)
+//// let signing_key = gose.generate_ec(ec.P256)
 //// let now = timestamp.system_time()
 //// let exp = timestamp.add(now, duration.hours(1))
 ////
@@ -25,12 +24,12 @@
 //// let assert Ok(token) =
 ////   cwt.sign(
 ////     claims,
-////     alg: algorithm.Ecdsa(algorithm.EcdsaP256),
+////     alg: gose.Ecdsa(gose.EcdsaP256),
 ////     key: signing_key,
 ////   )
 ////
 //// let assert Ok(verifier) =
-////   cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [signing_key])
+////   cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [signing_key])
 //// let assert Ok(verified) = cwt.verify_and_validate(verifier, token:, now:)
 //// let verified_claims = cwt.verified_claims(verified)
 //// ```
@@ -48,11 +47,9 @@ import gleam/option.{type Option}
 import gleam/result
 import gleam/time/timestamp.{type Timestamp}
 import gose
-import gose/algorithm
 import gose/cbor
 import gose/cose/sign1
 import gose/internal/key_helpers
-import gose/key
 
 /// Errors from CWT operations, covering both COSE-layer failures and claim validation.
 pub type CwtError {
@@ -106,8 +103,8 @@ pub opaque type Cwt(state) {
 /// Holds algorithm, keys, and validation options for verifying a CWT.
 pub opaque type Verifier {
   Verifier(
-    alg: algorithm.DigitalSignatureAlg,
-    keys: List(key.Key(BitArray)),
+    alg: gose.DigitalSignatureAlg,
+    keys: List(gose.Key(BitArray)),
     expected_issuer: Option(String),
     expected_audience: Option(String),
     clock_skew: Int,
@@ -247,8 +244,8 @@ pub fn custom_claim(
 /// Sign a set of claims as a COSE_Sign1-wrapped CWT, returning the serialized CBOR bytes.
 pub fn sign(
   claims: CwtClaims,
-  alg alg: algorithm.DigitalSignatureAlg,
-  key key: key.Key(BitArray),
+  alg alg: gose.DigitalSignatureAlg,
+  key key: gose.Key(BitArray),
 ) -> Result(BitArray, CwtError) {
   let payload = encode_claims(claims)
   let unsigned = sign1.new(alg)
@@ -259,21 +256,21 @@ pub fn sign(
 
 /// Build a CWT verifier pinned to a single signature algorithm and one or more keys.
 pub fn verifier(
-  alg: algorithm.DigitalSignatureAlg,
-  keys keys: List(key.Key(BitArray)),
+  alg: gose.DigitalSignatureAlg,
+  keys keys: List(gose.Key(BitArray)),
 ) -> Result(Verifier, CwtError) {
   build_verifier(alg, keys)
   |> result.map_error(CoseError)
 }
 
 fn build_verifier(
-  alg: algorithm.DigitalSignatureAlg,
-  keys: List(key.Key(BitArray)),
+  alg: gose.DigitalSignatureAlg,
+  keys: List(gose.Key(BitArray)),
 ) -> Result(Verifier, gose.GoseError) {
   use <- key_helpers.require_non_empty_keys(keys)
   use _ <- result.try(
     list.try_each(keys, key_helpers.validate_key_for_signing_verification(
-      algorithm.DigitalSignature(alg),
+      gose.DigitalSignature(alg),
       _,
     )),
   )
@@ -338,8 +335,8 @@ fn parse_sign1(token: BitArray) -> Result(sign1.Sign1(sign1.Signed), CwtError) {
 }
 
 fn verify_signature(
-  alg: algorithm.DigitalSignatureAlg,
-  keys: List(key.Key(BitArray)),
+  alg: gose.DigitalSignatureAlg,
+  keys: List(gose.Key(BitArray)),
   parsed: sign1.Sign1(sign1.Signed),
 ) -> Result(Nil, CwtError) {
   use sign1_verifier <- result.try(

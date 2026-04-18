@@ -40,51 +40,6 @@ pub fn ec_curve_to_string(curve: ec.Curve) -> String {
   }
 }
 
-/// Extract x,y coordinates from an EC public key as raw big-endian bytes.
-pub fn ec_public_key_coordinates(
-  public: ec.PublicKey,
-  curve curve: ec.Curve,
-) -> Result(#(BitArray, BitArray), gose.GoseError) {
-  let coord_size = ec.coordinate_size(curve)
-  let raw_point = ec.public_key_to_raw_point(public)
-  let expected_size = 1 + coord_size * 2
-  case bit_array.byte_size(raw_point) == expected_size, raw_point {
-    True, <<0x04, rest:bits>> -> {
-      let error = gose.InvalidState("invalid raw point format")
-      use x <- result.try(
-        bit_array.slice(rest, 0, coord_size)
-        |> result.replace_error(error),
-      )
-      use y <- result.try(
-        bit_array.slice(rest, coord_size, coord_size)
-        |> result.replace_error(error),
-      )
-      Ok(#(x, y))
-    }
-    _, _ -> Error(gose.InvalidState("invalid raw point format"))
-  }
-}
-
-/// Create an EC public key from curve and x,y coordinates (big-endian bytes).
-pub fn ec_public_key_from_coordinates(
-  curve: ec.Curve,
-  x x: BitArray,
-  y y: BitArray,
-) -> Result(ec.PublicKey, gose.GoseError) {
-  let coord_size = ec.coordinate_size(curve)
-  use <- bool.guard(
-    when: bit_array.byte_size(x) != coord_size,
-    return: Error(gose.ParseError("EC x coordinate wrong length")),
-  )
-  use <- bool.guard(
-    when: bit_array.byte_size(y) != coord_size,
-    return: Error(gose.ParseError("EC y coordinate wrong length")),
-  )
-  let raw_point = bit_array.concat([<<0x04>>, x, y])
-  ec.public_key_from_raw_point(curve, raw_point)
-  |> result.replace_error(gose.ParseError("invalid EC coordinates"))
-}
-
 /// Parse an EdDSA curve from its JWK string representation.
 pub fn eddsa_curve_from_string(s: String) -> Result(eddsa.Curve, gose.GoseError) {
   case s {

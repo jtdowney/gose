@@ -3,9 +3,8 @@ import gleam/io
 import gleam/json
 import gleam/result
 import gleam/string
-import gose/algorithm
+import gose
 import gose/jose/jwe
-import gose/key
 import kryptos/ec
 import kryptos/xdh
 
@@ -34,12 +33,12 @@ pub fn main() {
 fn direct_encryption() {
   io.println("--- Direct Symmetric Encryption (dir + A256GCM) ---")
 
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let plaintext = <<"Secret message using direct encryption":utf8>>
 
   // Encrypt
   let assert Ok(token) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, plaintext)
     |> result.try(jwe.serialize_compact)
 
@@ -49,7 +48,7 @@ fn direct_encryption() {
   // Decrypt
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key,
     ])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -61,12 +60,12 @@ fn direct_encryption() {
 fn xchacha20_poly1305_encryption() {
   io.println("--- XChaCha20-Poly1305 Encryption (dir + XC20P) ---")
 
-  let key = key.generate_enc_key(algorithm.XChaCha20Poly1305)
+  let key = gose.generate_enc_key(gose.XChaCha20Poly1305)
   let plaintext = <<"Secret message using XChaCha20-Poly1305":utf8>>
 
   // Encrypt
   let assert Ok(token) =
-    jwe.new_direct(algorithm.XChaCha20Poly1305)
+    jwe.new_direct(gose.XChaCha20Poly1305)
     |> jwe.encrypt(key, plaintext)
     |> result.try(jwe.serialize_compact)
 
@@ -76,7 +75,7 @@ fn xchacha20_poly1305_encryption() {
   // Decrypt
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.XChaCha20Poly1305, [key])
+    jwe.key_decryptor(gose.Direct, gose.XChaCha20Poly1305, [key])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
   let assert Ok(message) = bit_array.to_string(decrypted)
   io.println("Decrypted: " <> message)
@@ -86,12 +85,12 @@ fn xchacha20_poly1305_encryption() {
 fn aes_key_wrap() {
   io.println("--- AES Key Wrap (A256KW + A256GCM) ---")
 
-  let key = key.generate_aes_kw_key(algorithm.Aes256)
+  let key = gose.generate_aes_kw_key(gose.Aes256)
   let plaintext = <<"Message encrypted with AES Key Wrap":utf8>>
 
   // Encrypt
   let assert Ok(token) =
-    jwe.new_aes_kw(algorithm.Aes256, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_aes_kw(gose.Aes256, gose.AesGcm(gose.Aes256))
     |> jwe.with_kid("aes-kw-key")
     |> jwe.encrypt(key, plaintext)
     |> result.try(jwe.serialize_compact)
@@ -103,8 +102,8 @@ fn aes_key_wrap() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes256),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.AesKeyWrap(gose.AesKw, gose.Aes256),
+      gose.AesGcm(gose.Aes256),
       [
         key,
       ],
@@ -118,12 +117,12 @@ fn aes_key_wrap() {
 fn aes_gcm_key_wrap() {
   io.println("--- AES-GCM Key Wrap (A256GCMKW + A256GCM) ---")
 
-  let key = key.generate_aes_kw_key(algorithm.Aes256)
+  let key = gose.generate_aes_kw_key(gose.Aes256)
   let plaintext = <<"Message encrypted with AES-GCM Key Wrap":utf8>>
 
   // Encrypt
   let assert Ok(token) =
-    jwe.new_aes_gcm_kw(algorithm.Aes256, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_aes_gcm_kw(gose.Aes256, gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, plaintext)
     |> result.try(jwe.serialize_compact)
 
@@ -134,8 +133,8 @@ fn aes_gcm_key_wrap() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.AesKeyWrap(algorithm.AesGcmKw, algorithm.Aes256),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.AesKeyWrap(gose.AesGcmKw, gose.Aes256),
+      gose.AesGcm(gose.Aes256),
       [key],
     )
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -147,12 +146,12 @@ fn aes_gcm_key_wrap() {
 fn chacha20_key_wrap() {
   io.println("--- ChaCha20-Poly1305 Key Wrap (C20PKW + A256GCM) ---")
 
-  let key = key.generate_chacha20_kw_key()
+  let key = gose.generate_chacha20_kw_key()
   let plaintext = <<"Message encrypted with ChaCha20 Key Wrap":utf8>>
 
   // Encrypt
   let assert Ok(token) =
-    jwe.new_chacha20_kw(algorithm.C20PKw, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_chacha20_kw(gose.C20PKw, gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, plaintext)
     |> result.try(jwe.serialize_compact)
 
@@ -163,8 +162,8 @@ fn chacha20_key_wrap() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.ChaCha20KeyWrap(algorithm.C20PKw),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.ChaCha20KeyWrap(gose.C20PKw),
+      gose.AesGcm(gose.Aes256),
       [key],
     )
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -176,12 +175,12 @@ fn chacha20_key_wrap() {
 fn rsa_oaep_encryption() {
   io.println("--- RSA-OAEP Encryption (RSA-OAEP-256 + A256GCM) ---")
 
-  let assert Ok(key) = key.generate_rsa(2048)
+  let assert Ok(key) = gose.generate_rsa(2048)
   let plaintext = <<"RSA-OAEP encrypted message":utf8>>
 
   // Encrypt
   let assert Ok(token) =
-    jwe.new_rsa(algorithm.RsaOaepSha256, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_rsa(gose.RsaOaepSha256, gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, plaintext)
     |> result.try(jwe.serialize_compact)
 
@@ -192,8 +191,8 @@ fn rsa_oaep_encryption() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.RsaEncryption(algorithm.RsaOaepSha256),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.RsaEncryption(gose.RsaOaepSha256),
+      gose.AesGcm(gose.Aes256),
       [
         key,
       ],
@@ -207,12 +206,12 @@ fn rsa_oaep_encryption() {
 fn ecdh_es_direct() {
   io.println("--- ECDH-ES Direct Key Agreement (P-256) ---")
 
-  let key = key.generate_ec(ec.P256)
+  let key = gose.generate_ec(ec.P256)
   let plaintext = <<"ECDH-ES direct encrypted message":utf8>>
 
   // Encrypt
   let assert Ok(token) =
-    jwe.new_ecdh_es(algorithm.EcdhEsDirect, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_ecdh_es(gose.EcdhEsDirect, gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key, plaintext)
     |> result.try(jwe.serialize_compact)
 
@@ -223,8 +222,8 @@ fn ecdh_es_direct() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsDirect),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsDirect),
+      gose.AesGcm(gose.Aes256),
       [
         key,
       ],
@@ -238,14 +237,14 @@ fn ecdh_es_direct() {
 fn ecdh_es_with_key_wrap() {
   io.println("--- ECDH-ES with Key Wrap (X25519 + A256KW) ---")
 
-  let key = key.generate_xdh(xdh.X25519)
+  let key = gose.generate_xdh(xdh.X25519)
   let plaintext = <<"ECDH-ES+A256KW encrypted with X25519":utf8>>
 
   // Encrypt
   let assert Ok(token) =
     jwe.new_ecdh_es(
-      algorithm.EcdhEsAesKw(algorithm.Aes256),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEsAesKw(gose.Aes256),
+      gose.AesGcm(gose.Aes256),
     )
     |> jwe.with_apu(<<"Alice":utf8>>)
     |> jwe.with_apv(<<"Bob":utf8>>)
@@ -259,8 +258,8 @@ fn ecdh_es_with_key_wrap() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsAesKw(algorithm.Aes256)),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsAesKw(gose.Aes256)),
+      gose.AesGcm(gose.Aes256),
       [key],
     )
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -278,8 +277,8 @@ fn password_based_encryption() {
   // Encrypt
   let assert Ok(token) =
     jwe.new_pbes2(
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes128),
+      gose.Pbes2Sha256Aes128Kw,
+      gose.AesGcm(gose.Aes128),
     )
     |> jwe.with_p2c(1000)
     |> result.try(jwe.encrypt_with_password(_, password, plaintext))
@@ -292,8 +291,8 @@ fn password_based_encryption() {
   let assert Ok(parsed) = jwe.parse_compact(token)
   let decryptor =
     jwe.password_decryptor(
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes128),
+      gose.Pbes2Sha256Aes128Kw,
+      gose.AesGcm(gose.Aes128),
       password,
     )
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
@@ -305,13 +304,13 @@ fn password_based_encryption() {
 fn additional_authenticated_data() {
   io.println("--- Additional Authenticated Data (AAD) ---")
 
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let plaintext = <<"Secret with authenticated context":utf8>>
   let context = <<"request-id:12345,timestamp:2026-01-28":utf8>>
 
   // Encrypt
   let assert Ok(token) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_aad(context)
     |> jwe.encrypt(key, plaintext)
     // AAD requires JSON serialization (compact format doesn't support it)
@@ -324,7 +323,7 @@ fn additional_authenticated_data() {
   // Decrypt
   let assert Ok(parsed) = jwe.parse_json(token)
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       key,
     ])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)

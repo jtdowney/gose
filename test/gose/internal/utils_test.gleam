@@ -143,28 +143,32 @@ pub fn ec_coordinates_roundtrip_test() {
     generators.ec_curve_generator(),
   )
   let #(_private, public) = ec.generate_key_pair(curve)
-  let assert Ok(#(x, y)) = utils.ec_public_key_coordinates(public, curve)
+  let assert Ok(#(x, y)) = gose.ec_raw_coordinates(public, curve)
   let assert Ok(reconstructed) =
-    utils.ec_public_key_from_coordinates(curve, x:, y:)
+    gose.ec_public_key_from_raw_coordinates(curve, x:, y:)
   assert ec.public_key_to_raw_point(reconstructed)
     == ec.public_key_to_raw_point(public)
 }
 
 pub fn ec_public_key_from_coordinates_wrong_x_length_test() {
   let assert Error(gose.ParseError(msg)) =
-    utils.ec_public_key_from_coordinates(ec.P256, x: <<0>>, y: <<0:size(256)>>)
+    gose.ec_public_key_from_raw_coordinates(ec.P256, x: <<0>>, y: <<
+      0:size(256),
+    >>)
   assert msg == "EC x coordinate wrong length"
 }
 
 pub fn ec_public_key_from_coordinates_wrong_y_length_test() {
   let assert Error(gose.ParseError(msg)) =
-    utils.ec_public_key_from_coordinates(ec.P256, x: <<0:size(256)>>, y: <<0>>)
+    gose.ec_public_key_from_raw_coordinates(ec.P256, x: <<0:size(256)>>, y: <<
+      0,
+    >>)
   assert msg == "EC y coordinate wrong length"
 }
 
 pub fn ec_public_key_from_coordinates_invalid_point_test() {
   let x = <<0:size(256)>>
   let y = <<0:size(256)>>
-  assert utils.ec_public_key_from_coordinates(ec.P256, x:, y:)
+  assert gose.ec_public_key_from_raw_coordinates(ec.P256, x:, y:)
     == Error(gose.ParseError("invalid EC coordinates"))
 }

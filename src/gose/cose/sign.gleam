@@ -4,26 +4,25 @@
 //// ## Example
 ////
 //// ```gleam
-//// import gose/algorithm
+//// import gose
 //// import gose/cose/sign
-//// import gose/key
 //// import kryptos/ec
 ////
 //// let payload = <<"hello":utf8>>
-//// let k1 = key.generate_ec(ec.P256)
-//// let k2 = key.generate_ec(ec.P384)
+//// let k1 = gose.generate_ec(ec.P256)
+//// let k2 = gose.generate_ec(ec.P384)
 ////
 //// let assert Ok(body) =
 ////   sign.new(payload:)
-////   |> sign.sign(algorithm.Ecdsa(algorithm.EcdsaP256), key: k1)
+////   |> sign.sign(gose.Ecdsa(gose.EcdsaP256), key: k1)
 //// let assert Ok(body) =
-////   sign.sign(body, algorithm.Ecdsa(algorithm.EcdsaP384), key: k2)
+////   sign.sign(body, gose.Ecdsa(gose.EcdsaP384), key: k2)
 //// let signed = sign.assemble(body)
 ////
 //// let data = sign.serialize(signed)
 //// let assert Ok(parsed) = sign.parse(data)
 //// let assert Ok(verifier) =
-////   sign.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [k1])
+////   sign.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [k1])
 //// let assert Ok(Nil) = sign.verify(verifier, parsed)
 //// ```
 ////
@@ -51,14 +50,11 @@ import gleam/list
 import gleam/option.{type Option}
 import gleam/result
 import gose
-import gose/algorithm
 import gose/cbor
 import gose/cose
-import gose/cose/algorithm as cose_algorithm
 import gose/internal/cose_structure
 import gose/internal/key_helpers
 import gose/internal/signing
-import gose/key
 
 /// Phantom type: body under construction, no signatures yet.
 pub type Building
@@ -101,7 +97,7 @@ pub opaque type Sign(state) {
 
 /// Holds an algorithm and set of keys for verifying a COSE_Sign message.
 pub opaque type Verifier {
-  Verifier(alg: algorithm.DigitalSignatureAlg, keys: List(key.Key(BitArray)))
+  Verifier(alg: gose.DigitalSignatureAlg, keys: List(gose.Key(BitArray)))
 }
 
 /// Create a new body pinned to the payload all signers will sign.
@@ -157,10 +153,10 @@ pub fn with_critical(
 /// `with_*` mutations at compile time.
 pub fn sign(
   body: Body(state),
-  alg alg: algorithm.DigitalSignatureAlg,
-  key key: key.Key(BitArray),
+  alg alg: gose.DigitalSignatureAlg,
+  key key: gose.Key(BitArray),
 ) -> Result(Body(Signed), gose.GoseError) {
-  let signing_alg = algorithm.DigitalSignature(alg)
+  let signing_alg = gose.DigitalSignature(alg)
   use _ <- result.try(key_helpers.validate_signing_key_type(signing_alg, key))
   use _ <- result.try(key_helpers.validate_key_use(key, key_helpers.ForSigning))
   use _ <- result.try(key_helpers.validate_key_ops(key, key_helpers.ForSigning))
@@ -169,7 +165,7 @@ pub fn sign(
     signing_alg,
   ))
 
-  let alg_id = cose_algorithm.signature_alg_to_int(alg)
+  let alg_id = cose.signature_alg_to_int(alg)
   let sign_protected = [cose.Alg(alg_id)]
   let sign_protected_serialized =
     cose_structure.serialize_protected(sign_protected)
@@ -301,10 +297,10 @@ pub fn parse(data: BitArray) -> Result(Sign(Signed), gose.GoseError) {
 
 /// Build a verifier pinned to a single signature algorithm and one or more keys.
 pub fn verifier(
-  alg: algorithm.DigitalSignatureAlg,
-  keys keys: List(key.Key(BitArray)),
+  alg: gose.DigitalSignatureAlg,
+  keys keys: List(gose.Key(BitArray)),
 ) -> Result(Verifier, gose.GoseError) {
-  let signing_alg = algorithm.DigitalSignature(alg)
+  let signing_alg = gose.DigitalSignature(alg)
   use <- key_helpers.require_non_empty_keys(keys)
   use _ <- result.try(
     list.try_each(keys, key_helpers.validate_key_for_signing_verification(
@@ -385,7 +381,7 @@ fn try_verify_signers(
   payload: BitArray,
 ) -> Result(Nil, gose.GoseError) {
   let Verifier(alg: expected_alg, keys:) = verifier
-  let signing_alg = algorithm.DigitalSignature(expected_alg)
+  let signing_alg = gose.DigitalSignature(expected_alg)
 
   let matching =
     list.filter(signatures, fn(sig) {
@@ -406,8 +402,8 @@ fn try_verify_signers(
 
 fn do_verify_signers(
   signatures: List(Signature),
-  signing_alg: algorithm.SigningAlg,
-  keys: List(key.Key(BitArray)),
+  signing_alg: gose.SigningAlg,
+  keys: List(gose.Key(BitArray)),
   body_protected: BitArray,
   aad: BitArray,
   payload: BitArray,
@@ -444,8 +440,8 @@ fn do_verify_signers(
 
 fn try_verify_one_signature(
   sig: Signature,
-  signing_alg: algorithm.SigningAlg,
-  keys: List(key.Key(BitArray)),
+  signing_alg: gose.SigningAlg,
+  keys: List(gose.Key(BitArray)),
   body_protected: BitArray,
   aad: BitArray,
   payload: BitArray,

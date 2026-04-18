@@ -3,9 +3,8 @@ import gleam/io
 import gleam/json
 import gleam/list
 import gleam/string
-import gose/algorithm
+import gose
 import gose/jose/key_set
-import gose/key
 import kryptos/ec
 
 pub fn main() {
@@ -28,11 +27,11 @@ fn create_and_serialize() {
   io.println("--- Create and Serialize ---")
 
   let k1 =
-    key.generate_hmac_key(algorithm.HmacSha256)
-    |> key.with_kid("hmac-1")
+    gose.generate_hmac_key(gose.HmacSha256)
+    |> gose.with_kid("hmac-1")
   let k2 =
-    key.generate_ec(ec.P256)
-    |> key.with_kid("ec-1")
+    gose.generate_ec(ec.P256)
+    |> gose.with_kid("ec-1")
 
   let set = key_set.from_list([k1, k2])
 
@@ -46,11 +45,11 @@ fn parse_and_lookup() {
   io.println("--- Parse and Lookup ---")
 
   let k1 =
-    key.generate_hmac_key(algorithm.HmacSha256)
-    |> key.with_kid("signing-key")
+    gose.generate_hmac_key(gose.HmacSha256)
+    |> gose.with_kid("signing-key")
   let k2 =
-    key.generate_ec(ec.P256)
-    |> key.with_kid("verification-key")
+    gose.generate_ec(ec.P256)
+    |> gose.with_kid("verification-key")
 
   let set = key_set.from_list([k1, k2])
 
@@ -60,7 +59,7 @@ fn parse_and_lookup() {
   // Parse
   let assert Ok(parsed) = key_set.from_json(json_str)
   let assert Ok(found) = key_set.get(parsed, kid: "signing-key")
-  let assert Ok(kid) = key.kid(found)
+  let assert Ok(kid) = gose.kid(found)
   io.println("Found key: " <> kid)
 
   let assert Error(Nil) = key_set.get(parsed, kid: "nonexistent")
@@ -72,22 +71,22 @@ fn filter_keys() {
   io.println("--- Filter and Modify ---")
 
   let assert Ok(k1) =
-    key.generate_hmac_key(algorithm.HmacSha256)
-    |> key.with_kid("hmac-a")
-    |> key.with_key_use(key.Signing)
+    gose.generate_hmac_key(gose.HmacSha256)
+    |> gose.with_kid("hmac-a")
+    |> gose.with_key_use(gose.Signing)
   let assert Ok(k2) =
-    key.generate_ec(ec.P256)
-    |> key.with_kid("ec-b")
-    |> key.with_key_use(key.Encrypting)
+    gose.generate_ec(ec.P256)
+    |> gose.with_kid("ec-b")
+    |> gose.with_key_use(gose.Encrypting)
   let assert Ok(k3) =
-    key.generate_hmac_key(algorithm.HmacSha384)
-    |> key.with_kid("hmac-c")
-    |> key.with_key_use(key.Signing)
+    gose.generate_hmac_key(gose.HmacSha384)
+    |> gose.with_kid("hmac-c")
+    |> gose.with_key_use(gose.Signing)
 
   let set = key_set.from_list([k1, k2, k3])
 
   let signing_keys =
-    key_set.filter(set, fn(k) { key.key_use(k) == Ok(key.Signing) })
+    key_set.filter(set, fn(k) { gose.key_use(k) == Ok(gose.Signing) })
   let count =
     signing_keys
     |> key_set.to_list

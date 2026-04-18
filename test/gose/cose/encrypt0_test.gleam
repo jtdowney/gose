@@ -1,16 +1,14 @@
 import gleam/bit_array
 import gose
-import gose/algorithm
 import gose/cbor
 import gose/cose
 import gose/cose/encrypt0
-import gose/key
 import kryptos/ec
 import qcheck
 
 pub fn serialize_parse_decrypt_roundtrip_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
   let plaintext = <<"roundtrip test":utf8>>
 
   let assert Ok(message) = encrypt0.new(alg)
@@ -24,8 +22,8 @@ pub fn serialize_parse_decrypt_roundtrip_test() {
 }
 
 pub fn serialize_tagged_parse_decrypt_roundtrip_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes256)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes256)
+  let k = gose.generate_enc_key(alg)
   let plaintext = <<"tagged roundtrip":utf8>>
 
   let assert Ok(message) = encrypt0.new(alg)
@@ -39,8 +37,8 @@ pub fn serialize_tagged_parse_decrypt_roundtrip_test() {
 }
 
 pub fn untagged_serialization_test() {
-  let alg = algorithm.ChaCha20Poly1305
-  let k = key.generate_enc_key(alg)
+  let alg = gose.ChaCha20Poly1305
+  let k = gose.generate_enc_key(alg)
   let plaintext = <<"untagged":utf8>>
 
   let assert Ok(message) = encrypt0.new(alg)
@@ -54,8 +52,8 @@ pub fn untagged_serialization_test() {
 }
 
 pub fn aad_roundtrip_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
   let plaintext = <<"aad test":utf8>>
   let aad = <<"extra context":utf8>>
 
@@ -74,9 +72,9 @@ pub fn aad_roundtrip_test() {
 }
 
 pub fn wrong_key_decrypt_fails_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
-  let wrong_key = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
+  let wrong_key = gose.generate_enc_key(alg)
   let plaintext = <<"secret data":utf8>>
 
   let assert Ok(message) = encrypt0.new(alg)
@@ -107,8 +105,8 @@ pub fn parse_rejects_overlapping_headers_test() {
 }
 
 pub fn decrypt_missing_iv_fails_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
 
   let protected = cbor.encode(cbor.Map([#(cbor.Int(1), cbor.Int(1))]))
   let data =
@@ -122,8 +120,8 @@ pub fn decrypt_missing_iv_fails_test() {
 }
 
 pub fn decrypt_ciphertext_too_short_fails_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
 
   let protected = cbor.encode(cbor.Map([#(cbor.Int(1), cbor.Int(1))]))
   let unprotected = cbor.Map([#(cbor.Int(5), cbor.Bytes(<<0:96>>))])
@@ -138,8 +136,8 @@ pub fn decrypt_ciphertext_too_short_fails_test() {
 }
 
 pub fn wrong_key_type_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let ec_key = key.generate_ec(ec.P256)
+  let alg = gose.AesGcm(gose.Aes128)
+  let ec_key = gose.generate_ec(ec.P256)
   let plaintext = <<"test":utf8>>
 
   let assert Ok(message) = encrypt0.new(alg)
@@ -148,8 +146,8 @@ pub fn wrong_key_type_test() {
 }
 
 pub fn wrong_aad_decrypt_fails_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
   let plaintext = <<"aad mismatch":utf8>>
   let correct_aad = <<"correct context":utf8>>
   let wrong_aad = <<"wrong context":utf8>>
@@ -168,10 +166,10 @@ pub fn wrong_aad_decrypt_fails_test() {
 }
 
 pub fn encrypt_wrong_key_use_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
+  let alg = gose.AesGcm(gose.Aes128)
   let assert Ok(k) =
-    key.generate_enc_key(alg)
-    |> key.with_key_use(key.Signing)
+    gose.generate_enc_key(alg)
+    |> gose.with_key_use(gose.Signing)
 
   let assert Ok(message) = encrypt0.new(alg)
   let assert Error(gose.InvalidState(_)) =
@@ -179,20 +177,20 @@ pub fn encrypt_wrong_key_use_test() {
 }
 
 pub fn decrypt_wrong_key_ops_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
+  let alg = gose.AesGcm(gose.Aes128)
   let assert Ok(decrypt_key) =
-    key.generate_enc_key(alg)
-    |> key.with_key_ops([key.Encrypt])
+    gose.generate_enc_key(alg)
+    |> gose.with_key_ops([gose.Encrypt])
 
   let assert Error(gose.InvalidState(_)) =
     encrypt0.decryptor(alg, key: decrypt_key)
 }
 
 pub fn encrypt_wrong_alg_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
+  let alg = gose.AesGcm(gose.Aes128)
   let k =
-    key.generate_enc_key(alg)
-    |> key.with_alg(key.ContentAlg(algorithm.AesGcm(algorithm.Aes256)))
+    gose.generate_enc_key(alg)
+    |> gose.with_alg(gose.ContentAlg(gose.AesGcm(gose.Aes256)))
 
   let assert Ok(message) = encrypt0.new(alg)
   let assert Error(gose.InvalidState(_)) =
@@ -215,25 +213,22 @@ pub fn property_based_content_alg_roundtrip_test() {
 }
 
 type ContentAlgWithKey(kid) {
-  ContentAlgWithKey(alg: algorithm.ContentAlg, key: key.Key(kid))
+  ContentAlgWithKey(alg: gose.ContentAlg, key: gose.Key(kid))
 }
 
 fn cose_content_alg_with_key_generator() -> qcheck.Generator(
   ContentAlgWithKey(kid),
 ) {
-  qcheck.from_generators(
-    cose_content_alg_with_key(algorithm.AesGcm(algorithm.Aes128)),
-    [
-      cose_content_alg_with_key(algorithm.AesGcm(algorithm.Aes192)),
-      cose_content_alg_with_key(algorithm.AesGcm(algorithm.Aes256)),
-      cose_content_alg_with_key(algorithm.ChaCha20Poly1305),
-    ],
-  )
+  qcheck.from_generators(cose_content_alg_with_key(gose.AesGcm(gose.Aes128)), [
+    cose_content_alg_with_key(gose.AesGcm(gose.Aes192)),
+    cose_content_alg_with_key(gose.AesGcm(gose.Aes256)),
+    cose_content_alg_with_key(gose.ChaCha20Poly1305),
+  ])
 }
 
 pub fn with_kid_roundtrip_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
   let assert Ok(message) = encrypt0.new(alg)
   let assert Ok(encrypted) =
     message
@@ -243,8 +238,8 @@ pub fn with_kid_roundtrip_test() {
 }
 
 pub fn kid_survives_serialize_parse_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
   let assert Ok(message) = encrypt0.new(alg)
   let assert Ok(encrypted) =
     message
@@ -255,31 +250,31 @@ pub fn kid_survives_serialize_parse_test() {
 }
 
 pub fn protected_headers_exposes_alg_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
   let assert Ok(message) = encrypt0.new(alg)
   let assert Ok(encrypted) = encrypt0.encrypt(message, k, <<"payload":utf8>>)
   let assert Ok(1) = cose.algorithm(encrypt0.protected_headers(encrypted))
 }
 
 pub fn unprotected_headers_exposes_iv_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
   let assert Ok(message) = encrypt0.new(alg)
   let assert Ok(encrypted) = encrypt0.encrypt(message, k, <<"payload":utf8>>)
   let assert Ok(_iv) = cose.iv(encrypt0.unprotected_headers(encrypted))
 }
 
 fn cose_content_alg_with_key(
-  alg: algorithm.ContentAlg,
+  alg: gose.ContentAlg,
 ) -> qcheck.Generator(ContentAlgWithKey(kid)) {
-  let k = key.generate_enc_key(alg)
+  let k = gose.generate_enc_key(alg)
   qcheck.return(ContentAlgWithKey(alg, k))
 }
 
 pub fn with_content_type_roundtrip_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
   let plaintext = <<"ct test":utf8>>
 
   let assert Ok(message) = encrypt0.new(alg)
@@ -289,8 +284,8 @@ pub fn with_content_type_roundtrip_test() {
 }
 
 pub fn with_critical_roundtrip_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
   let plaintext = <<"crit roundtrip":utf8>>
 
   let assert Ok(message) = encrypt0.new(alg)
@@ -300,8 +295,8 @@ pub fn with_critical_roundtrip_test() {
 }
 
 pub fn decrypt_rejects_unsupported_crit_test() {
-  let alg = algorithm.AesGcm(algorithm.Aes128)
-  let k = key.generate_enc_key(alg)
+  let alg = gose.AesGcm(gose.Aes128)
+  let k = gose.generate_enc_key(alg)
   let plaintext = <<"crit test":utf8>>
 
   let assert Ok(message) = encrypt0.new(alg)
@@ -319,7 +314,7 @@ pub fn decrypt_rejects_unsupported_crit_test() {
 
 pub fn cose_wg_aes_gcm_01_test() {
   let assert Ok(secret) = bit_array.base64_url_decode("hJtXIZ2uSN5kbQfbtTNWbg")
-  let assert Ok(k) = key.from_octet_bits(secret)
+  let assert Ok(k) = gose.from_octet_bits(secret)
 
   let assert Ok(cbor_bytes) =
     bit_array.base16_decode(
@@ -328,7 +323,7 @@ pub fn cose_wg_aes_gcm_01_test() {
 
   let assert Ok(parsed) = encrypt0.parse(cbor_bytes)
   let assert Ok(decryptor) =
-    encrypt0.decryptor(algorithm.AesGcm(algorithm.Aes128), key: k)
+    encrypt0.decryptor(gose.AesGcm(gose.Aes128), key: k)
   let assert Ok(plaintext) = encrypt0.decrypt(decryptor, parsed)
   assert plaintext == <<"This is the content.":utf8>>
 }

@@ -4,21 +4,20 @@
 //// ## Example
 ////
 //// ```gleam
-//// import gose/algorithm
+//// import gose
 //// import gose/cose/mac0
-//// import gose/key
 ////
-//// let k = key.generate_hmac_key(algorithm.HmacSha256)
+//// let k = gose.generate_hmac_key(gose.HmacSha256)
 //// let payload = <<"hello":utf8>>
 ////
 //// let assert Ok(tagged) =
-////   mac0.new(algorithm.Hmac(algorithm.HmacSha256))
+////   mac0.new(gose.Hmac(gose.HmacSha256))
 ////   |> mac0.tag(k, payload)
 ////
 //// let data = mac0.serialize(tagged)
 //// let assert Ok(parsed) = mac0.parse(data)
 //// let assert Ok(verifier) =
-////   mac0.verifier(algorithm.Hmac(algorithm.HmacSha256), keys: [k])
+////   mac0.verifier(gose.Hmac(gose.HmacSha256), keys: [k])
 //// let assert Ok(Nil) = mac0.verify(verifier, parsed)
 //// ```
 ////
@@ -37,14 +36,11 @@ import gleam/list
 import gleam/option.{type Option}
 import gleam/result
 import gose
-import gose/algorithm
 import gose/cbor
 import gose/cose
-import gose/cose/algorithm as cose_algorithm
 import gose/internal/cose_structure
 import gose/internal/key_helpers
 import gose/internal/signing
-import gose/key
 
 /// Phantom type for a COSE_Mac0 message that has not yet been tagged.
 pub type Untagged
@@ -71,12 +67,12 @@ pub opaque type Mac0(state) {
 
 /// Holds an algorithm and set of keys for verifying a COSE_Mac0 message.
 pub opaque type Verifier {
-  Verifier(alg: algorithm.MacAlg, keys: List(key.Key(BitArray)))
+  Verifier(alg: gose.MacAlg, keys: List(gose.Key(BitArray)))
 }
 
 /// Create a new untagged COSE_Mac0 message with the given MAC algorithm in the protected header.
-pub fn new(alg: algorithm.MacAlg) -> Mac0(Untagged) {
-  let alg_id = cose_algorithm.mac_alg_to_int(alg)
+pub fn new(alg: gose.MacAlg) -> Mac0(Untagged) {
+  let alg_id = cose.mac_alg_to_int(alg)
   UntaggedMac0(
     protected: [cose.Alg(alg_id)],
     unprotected: [],
@@ -88,7 +84,7 @@ pub fn new(alg: algorithm.MacAlg) -> Mac0(Untagged) {
 /// Compute the MAC tag over the payload with the given key.
 pub fn tag(
   message: Mac0(Untagged),
-  key key: key.Key(BitArray),
+  key key: gose.Key(BitArray),
   payload payload: BitArray,
 ) -> Result(Mac0(Tagged), gose.GoseError) {
   let assert UntaggedMac0(protected:, unprotected:, detached:, aad:) = message
@@ -170,10 +166,10 @@ pub fn payload(message: Mac0(Tagged)) -> Result(BitArray, Nil) {
 
 /// Build a verifier pinned to a single algorithm and one or more keys.
 pub fn verifier(
-  alg: algorithm.MacAlg,
-  keys keys: List(key.Key(BitArray)),
+  alg: gose.MacAlg,
+  keys keys: List(gose.Key(BitArray)),
 ) -> Result(Verifier, gose.GoseError) {
-  let signing_alg = algorithm.Mac(alg)
+  let signing_alg = gose.Mac(alg)
   use <- key_helpers.require_non_empty_keys(keys)
   use _ <- result.try(
     list.try_each(keys, key_helpers.validate_key_for_signing_verification(
@@ -199,7 +195,7 @@ pub fn verify_with_aad(
   aad aad: BitArray,
 ) -> Result(Nil, gose.GoseError) {
   let Verifier(alg: expected_alg, keys:) = verifier
-  let expected_signing_alg = algorithm.Mac(expected_alg)
+  let expected_signing_alg = gose.Mac(expected_alg)
   let assert TaggedMac0(
     protected:,
     protected_serialized:,
@@ -250,7 +246,7 @@ pub fn verify_detached_with_aad(
   aad aad: BitArray,
 ) -> Result(Nil, gose.GoseError) {
   let Verifier(alg: expected_alg, keys:) = verifier
-  let expected_signing_alg = algorithm.Mac(expected_alg)
+  let expected_signing_alg = gose.Mac(expected_alg)
   let assert TaggedMac0(
     protected:,
     protected_serialized:,

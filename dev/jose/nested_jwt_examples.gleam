@@ -5,10 +5,9 @@ import gleam/result
 import gleam/string
 import gleam/time/duration
 import gleam/time/timestamp
-import gose/algorithm
+import gose
 import gose/jose/jwe
 import gose/jose/jwt
-import gose/key
 import kryptos/ec
 import kryptos/eddsa
 
@@ -44,8 +43,8 @@ fn nested_jwt_symmetric() {
   io.println("Sign with HS256, encrypt with dir + A256GCM")
   io.println("")
 
-  let signing_key = key.generate_hmac_key(algorithm.HmacSha256)
-  let encryption_key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let signing_key = gose.generate_hmac_key(gose.HmacSha256)
+  let encryption_key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -60,7 +59,7 @@ fn nested_jwt_symmetric() {
 
   let assert Ok(signed_jwt) =
     jwt.sign(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
       claims,
       signing_key,
     )
@@ -69,7 +68,7 @@ fn nested_jwt_symmetric() {
 
   // Encrypt as JWE — cty: "JWT" signals the payload is itself a JWT
   let assert Ok(nested_token) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.with_cty("JWT")
     |> jwe.encrypt(encryption_key, bit_array.from_string(inner_token))
     |> result.try(jwe.serialize_compact)
@@ -81,7 +80,7 @@ fn nested_jwt_symmetric() {
   // Decrypt the outer JWE
   let assert Ok(parsed_jwe) = jwe.parse_compact(nested_token)
   let assert Ok(decryptor) =
-    jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [
+    jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), [
       encryption_key,
     ])
   let assert Ok(inner_bits) = jwe.decrypt(decryptor, parsed_jwe)
@@ -92,7 +91,7 @@ fn nested_jwt_symmetric() {
   // Verify the inner JWT
   let assert Ok(verifier) =
     jwt.verifier(
-      algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)),
+      gose.Mac(gose.Hmac(gose.HmacSha256)),
       [signing_key],
       jwt.default_validation(),
     )
@@ -117,11 +116,12 @@ fn nested_jwt_asymmetric() {
   io.println("Sign with ES256 (P-256), encrypt with ECDH-ES + A256GCM")
   io.println("")
 
-  let sender_signing_key = key.generate_ec(ec.P256)
-  let assert Ok(sender_public_key) = key.public_key(sender_signing_key)
+  let sender_signing_key = gose.generate_ec(ec.P256)
+  let assert Ok(sender_public_key) = gose.public_key(sender_signing_key)
 
-  let recipient_encryption_key = key.generate_ec(ec.P256)
-  let assert Ok(recipient_public_key) = key.public_key(recipient_encryption_key)
+  let recipient_encryption_key = gose.generate_ec(ec.P256)
+  let assert Ok(recipient_public_key) =
+    gose.public_key(recipient_encryption_key)
 
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
@@ -135,7 +135,7 @@ fn nested_jwt_asymmetric() {
 
   let assert Ok(signed_jwt) =
     jwt.sign(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
+      gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
       claims,
       sender_signing_key,
     )
@@ -147,7 +147,7 @@ fn nested_jwt_asymmetric() {
   let apv = <<"api-gateway":utf8>>
 
   let assert Ok(nested_token) =
-    jwe.new_ecdh_es(algorithm.EcdhEsDirect, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_ecdh_es(gose.EcdhEsDirect, gose.AesGcm(gose.Aes256))
     |> jwe.with_cty("JWT")
     |> jwe.with_apu(apu)
     |> jwe.with_apv(apv)
@@ -162,8 +162,8 @@ fn nested_jwt_asymmetric() {
   let assert Ok(parsed_jwe) = jwe.parse_compact(nested_token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsDirect),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsDirect),
+      gose.AesGcm(gose.Aes256),
       [
         recipient_encryption_key,
       ],
@@ -176,7 +176,7 @@ fn nested_jwt_asymmetric() {
   // Recipient: verify with sender's public key
   let assert Ok(verifier) =
     jwt.verifier(
-      algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
+      gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
       [sender_public_key],
       jwt.default_validation(),
     )
@@ -196,8 +196,8 @@ fn nested_jwt_different_keys() {
   io.println("Sign with EdDSA (Ed25519), encrypt with AES-256-KW + A256GCM")
   io.println("")
 
-  let signing_key = key.generate_eddsa(eddsa.Ed25519)
-  let encryption_key = key.generate_aes_kw_key(algorithm.Aes256)
+  let signing_key = gose.generate_eddsa(eddsa.Ed25519)
+  let encryption_key = gose.generate_aes_kw_key(gose.Aes256)
   let now = timestamp.system_time()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -209,13 +209,13 @@ fn nested_jwt_different_keys() {
     |> jwt.with_expiration(exp)
 
   let assert Ok(signed_jwt) =
-    jwt.sign(algorithm.DigitalSignature(algorithm.Eddsa), claims, signing_key)
+    jwt.sign(gose.DigitalSignature(gose.Eddsa), claims, signing_key)
   let inner_token = jwt.serialize(signed_jwt)
   io.println("Inner JWT signed with EdDSA")
 
   // Encrypt as JWE
   let assert Ok(nested_token) =
-    jwe.new_aes_kw(algorithm.Aes256, algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_aes_kw(gose.Aes256, gose.AesGcm(gose.Aes256))
     |> jwe.with_cty("JWT")
     |> jwe.encrypt(encryption_key, bit_array.from_string(inner_token))
     |> result.try(jwe.serialize_compact)
@@ -228,8 +228,8 @@ fn nested_jwt_different_keys() {
   let assert Ok(parsed_jwe) = jwe.parse_compact(nested_token)
   let assert Ok(decryptor) =
     jwe.key_decryptor(
-      algorithm.AesKeyWrap(algorithm.AesKw, algorithm.Aes256),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.AesKeyWrap(gose.AesKw, gose.Aes256),
+      gose.AesGcm(gose.Aes256),
       [
         encryption_key,
       ],
@@ -242,7 +242,7 @@ fn nested_jwt_different_keys() {
   // Verify the inner JWT
   let assert Ok(verifier) =
     jwt.verifier(
-      algorithm.DigitalSignature(algorithm.Eddsa),
+      gose.DigitalSignature(gose.Eddsa),
       [signing_key],
       jwt.default_validation(),
     )

@@ -21,12 +21,11 @@
 //// import gleam/dynamic/decode
 //// import gleam/time/duration
 //// import gleam/time/timestamp
+//// import gose
 //// import gose/jose/encrypted_jwt
-//// import gose/algorithm
-//// import gose/key
 //// import gose/jose/jwt
 ////
-//// let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+//// let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
 //// let now = timestamp.system_time()
 ////
 //// // Create claims and encrypt
@@ -35,14 +34,25 @@
 ////   |> jwt.with_issuer("my-app")
 ////   |> jwt.with_expiration(timestamp.add(now, duration.hours(1)))
 ////
-//// let assert Ok(encrypted) = encrypted_jwt.encrypt_with_key(
-////   claims, algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), key)
+//// let assert Ok(encrypted) =
+////   encrypted_jwt.encrypt_with_key(
+////     claims,
+////     gose.Direct,
+////     gose.AesGcm(gose.Aes256),
+////     key,
+////   )
 //// let token = encrypted_jwt.serialize(encrypted)
 ////
 //// // Decrypt and validate using Decryptor (enforces algorithm pinning)
-//// let assert Ok(decryptor) = encrypted_jwt.key_decryptor(
-////   algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), [key], jwt.default_validation())
-//// let assert Ok(decrypted) = encrypted_jwt.decrypt_and_validate(decryptor, token, now)
+//// let assert Ok(decryptor) =
+////   encrypted_jwt.key_decryptor(
+////     alg: gose.Direct,
+////     enc: gose.AesGcm(gose.Aes256),
+////     keys: [key],
+////     options: jwt.default_validation(),
+////   )
+//// let assert Ok(decrypted) =
+////   encrypted_jwt.decrypt_and_validate(decryptor, token, now)
 ////
 //// // Decode decrypted and validated claims
 //// let decoder = decode.field("sub", decode.string, decode.success)
@@ -57,19 +67,17 @@ import gleam/option.{type Option}
 import gleam/result
 import gleam/time/timestamp.{type Timestamp}
 import gose
-import gose/algorithm
 import gose/internal/key_helpers
 import gose/jose/jwe
 import gose/jose/jwt
-import gose/key
 
 /// A JWT whose claims have been decrypted and whose claim fields (exp, nbf,
 /// iss, aud) have been validated. Produced by `decrypt_and_validate()`.
 /// Note that encryption provides confidentiality, not issuer authentication.
 pub opaque type EncryptedJwt {
   EncryptedJwt(
-    alg: algorithm.KeyEncryptionAlg,
-    enc: algorithm.ContentAlg,
+    alg: gose.KeyEncryptionAlg,
+    enc: gose.ContentAlg,
     kid: Option(String),
     claims: jwt.Claims,
     claims_json: BitArray,
@@ -87,22 +95,22 @@ pub opaque type EncryptedJwt {
 /// - Each key's `key_ops` field (if set) includes `Decrypt` or `UnwrapKey`
 pub opaque type Decryptor {
   KeyDecryptor(
-    alg: algorithm.KeyEncryptionAlg,
-    enc: algorithm.ContentAlg,
-    keys: List(key.Key(String)),
+    alg: gose.KeyEncryptionAlg,
+    enc: gose.ContentAlg,
+    keys: List(gose.Key(String)),
     options: jwt.JwtValidationOptions,
   )
   PasswordDecryptor(
-    alg: algorithm.Pbes2Alg,
-    enc: algorithm.ContentAlg,
+    alg: gose.Pbes2Alg,
+    enc: gose.ContentAlg,
     password: String,
     options: jwt.JwtValidationOptions,
   )
 }
 
 fn validate_decryption_keys(
-  alg: algorithm.KeyEncryptionAlg,
-  keys: List(key.Key(String)),
+  alg: gose.KeyEncryptionAlg,
+  keys: List(gose.Key(String)),
 ) -> Result(Nil, gose.GoseError) {
   use <- key_helpers.require_non_empty_keys(keys)
   list.try_each(keys, key_helpers.validate_key_for_jwe_decryption(alg, _))
@@ -114,9 +122,9 @@ fn validate_decryption_keys(
 /// The decryptor pins the expected algorithms. Tokens with different
 /// algorithms will be rejected.
 pub fn key_decryptor(
-  alg alg: algorithm.KeyEncryptionAlg,
-  enc enc: algorithm.ContentAlg,
-  keys keys: List(key.Key(String)),
+  alg alg: gose.KeyEncryptionAlg,
+  enc enc: gose.ContentAlg,
+  keys keys: List(gose.Key(String)),
   options options: jwt.JwtValidationOptions,
 ) -> Result(Decryptor, jwt.JwtError) {
   validate_decryption_keys(alg, keys)
@@ -129,8 +137,8 @@ pub fn key_decryptor(
 /// The decryptor pins the expected algorithms. Tokens with different
 /// algorithms will be rejected.
 pub fn password_decryptor(
-  alg alg: algorithm.Pbes2Alg,
-  enc enc: algorithm.ContentAlg,
+  alg alg: gose.Pbes2Alg,
+  enc enc: gose.ContentAlg,
   password password: String,
   options options: jwt.JwtValidationOptions,
 ) -> Decryptor {
@@ -147,20 +155,20 @@ pub fn password_decryptor(
 /// included in the JWE header.
 pub fn encrypt_with_key(
   claims: jwt.Claims,
-  alg alg: algorithm.KeyEncryptionAlg,
-  enc enc: algorithm.ContentAlg,
-  key key: key.Key(String),
+  alg alg: gose.KeyEncryptionAlg,
+  enc enc: gose.ContentAlg,
+  key key: gose.Key(String),
 ) -> Result(EncryptedJwt, jwt.JwtError) {
-  let kid = option.from_result(key.kid(key))
+  let kid = option.from_result(gose.kid(key))
   do_encrypt_with_key(claims, alg, enc, key, kid)
   |> result.map_error(jwt.JoseError)
 }
 
 fn do_encrypt_with_key(
   claims: jwt.Claims,
-  alg: algorithm.KeyEncryptionAlg,
-  enc: algorithm.ContentAlg,
-  key: key.Key(String),
+  alg: gose.KeyEncryptionAlg,
+  enc: gose.ContentAlg,
+  key: gose.Key(String),
   kid: Option(String),
 ) -> Result(EncryptedJwt, gose.GoseError) {
   let claims_json = claims_to_plaintext(claims)
@@ -185,8 +193,8 @@ fn do_encrypt_with_key(
 /// Sets `typ: "JWT"` in the header.
 pub fn encrypt_with_password(
   claims: jwt.Claims,
-  alg alg: algorithm.Pbes2Alg,
-  enc enc: algorithm.ContentAlg,
+  alg alg: gose.Pbes2Alg,
+  enc enc: gose.ContentAlg,
   password password: String,
   kid kid: Option(String),
 ) -> Result(EncryptedJwt, jwt.JwtError) {
@@ -196,8 +204,8 @@ pub fn encrypt_with_password(
 
 fn do_encrypt_with_password(
   claims: jwt.Claims,
-  alg: algorithm.Pbes2Alg,
-  enc: algorithm.ContentAlg,
+  alg: gose.Pbes2Alg,
+  enc: gose.ContentAlg,
   password: String,
   kid: Option(String),
 ) -> Result(EncryptedJwt, gose.GoseError) {
@@ -241,8 +249,8 @@ pub fn serialize(jwt: EncryptedJwt) -> String {
 /// Header fields from an encrypted JWT token, extracted without decrypting.
 pub type PeekHeaders {
   PeekHeaders(
-    alg: algorithm.KeyEncryptionAlg,
-    enc: algorithm.ContentAlg,
+    alg: gose.KeyEncryptionAlg,
+    enc: gose.ContentAlg,
     kid: Option(String),
   )
 }
@@ -341,12 +349,12 @@ pub fn decode(
 }
 
 /// Get the key encryption algorithm (`alg`) from a decrypted and validated encrypted JWT.
-pub fn alg(jwt: EncryptedJwt) -> algorithm.KeyEncryptionAlg {
+pub fn alg(jwt: EncryptedJwt) -> gose.KeyEncryptionAlg {
   jwt.alg
 }
 
 /// Get the content encryption algorithm (`enc`) from a decrypted and validated encrypted JWT.
-pub fn enc(jwt: EncryptedJwt) -> algorithm.ContentAlg {
+pub fn enc(jwt: EncryptedJwt) -> gose.ContentAlg {
   jwt.enc
 }
 
@@ -367,7 +375,7 @@ fn decrypt_token(
   decryptor: Decryptor,
   token: String,
 ) -> Result(
-  #(BitArray, algorithm.KeyEncryptionAlg, algorithm.ContentAlg, Option(String)),
+  #(BitArray, gose.KeyEncryptionAlg, gose.ContentAlg, Option(String)),
   jwt.JwtError,
 ) {
   use parsed_jwe <- result.try(
@@ -406,7 +414,7 @@ fn decrypt_token(
 
 fn build_jwe_decryptor(
   decryptor: Decryptor,
-  decryption_keys: List(key.Key(String)),
+  decryption_keys: List(gose.Key(String)),
 ) -> Result(jwe.Decryptor, jwt.JwtError) {
   case decryptor {
     KeyDecryptor(alg:, enc:, ..) ->
@@ -429,12 +437,12 @@ fn parse_plaintext_claims(
 
 fn require_matching_algorithms(
   decryptor: Decryptor,
-  actual_alg: algorithm.KeyEncryptionAlg,
-  actual_enc: algorithm.ContentAlg,
+  actual_alg: gose.KeyEncryptionAlg,
+  actual_enc: gose.ContentAlg,
 ) -> Result(Nil, jwt.JwtError) {
   let #(expected_alg, expected_enc) = case decryptor {
     KeyDecryptor(alg:, enc:, ..) -> #(alg, enc)
-    PasswordDecryptor(alg:, enc:, ..) -> #(algorithm.Pbes2(alg), enc)
+    PasswordDecryptor(alg:, enc:, ..) -> #(gose.Pbes2(alg), enc)
   }
 
   case expected_alg != actual_alg || expected_enc != actual_enc {
@@ -453,7 +461,7 @@ fn select_decryption_keys(
   decryptor: Decryptor,
   token_kid: Option(String),
   kid_policy: jwt.KidPolicy,
-) -> Result(List(key.Key(String)), jwt.JwtError) {
+) -> Result(List(gose.Key(String)), jwt.JwtError) {
   case decryptor {
     PasswordDecryptor(..) -> Ok([])
     KeyDecryptor(keys:, ..) ->

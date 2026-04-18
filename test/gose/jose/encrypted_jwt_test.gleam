@@ -8,11 +8,9 @@ import gleam/string
 import gleam/time/duration
 import gleam/time/timestamp
 import gose
-import gose/algorithm
 import gose/jose/encrypted_jwt
 import gose/jose/jwe
 import gose/jose/jwt
-import gose/key
 import gose/test_helpers/fixtures
 import gose/test_helpers/generators
 import gose/test_helpers/jwt_helpers
@@ -33,12 +31,12 @@ pub fn encrypt_decrypt_direct_roundtrip_test() {
     |> jwt.with_expiration(exp)
 
   let assert Ok(encrypted) =
-    encrypted_jwt.encrypt_with_key(claims, algorithm.Direct, enc, key)
+    encrypted_jwt.encrypt_with_key(claims, gose.Direct, enc, key)
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
+      gose.Direct,
       enc,
       [key],
       jwt.default_validation(),
@@ -63,7 +61,7 @@ pub fn encrypt_decrypt_aes_kw_roundtrip_test() {
     |> jwt.with_subject(subject)
     |> jwt.with_expiration(exp)
 
-  let jwe_alg = algorithm.AesKeyWrap(algorithm.AesKw, alg)
+  let jwe_alg = gose.AesKeyWrap(gose.AesKw, alg)
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
   let token = encrypted_jwt.serialize(encrypted)
@@ -85,7 +83,7 @@ pub fn encrypt_decrypt_pbes2_roundtrip_test() {
     ),
   )
   let #(alg, subject) = tuple
-  let enc = algorithm.AesGcm(algorithm.Aes256)
+  let enc = gose.AesGcm(gose.Aes256)
   let now = jwt_helpers.fixed_timestamp()
   let exp = timestamp.add(now, duration.hours(1))
   let password = "test-password-123"
@@ -129,7 +127,7 @@ pub fn encrypt_decrypt_rsa_roundtrip_test() {
   let now = jwt_helpers.fixed_timestamp()
   let claims = jwt_helpers.default_claims_with_exp()
 
-  let jwe_alg = algorithm.RsaEncryption(alg)
+  let jwe_alg = gose.RsaEncryption(alg)
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, rsa_key)
   let token = encrypted_jwt.serialize(encrypted)
@@ -158,7 +156,7 @@ pub fn encrypt_decrypt_ecdh_ec_roundtrip_test() {
   let now = jwt_helpers.fixed_timestamp()
   let claims = jwt_helpers.default_claims_with_exp()
 
-  let jwe_alg = algorithm.EcdhEs(alg)
+  let jwe_alg = gose.EcdhEs(alg)
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, ec_key)
   let token = encrypted_jwt.serialize(encrypted)
@@ -184,16 +182,16 @@ pub fn encrypt_decrypt_ecdh_xdh_roundtrip_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.EcdhEs(algorithm.EcdhEsDirect),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsDirect),
+      gose.AesGcm(gose.Aes256),
       xdh_key,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsDirect),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsDirect),
+      gose.AesGcm(gose.Aes256),
       [xdh_key],
       jwt.default_validation(),
     )
@@ -211,47 +209,47 @@ pub fn algorithm_mismatch_rejected_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes128),
+      gose.Direct,
+      gose.AesGcm(gose.Aes128),
       [key],
       jwt.default_validation(),
     )
   assert encrypted_jwt.decrypt_and_validate(decryptor, token, now)
     == Error(jwt.JweAlgorithmMismatch(
-      expected_alg: algorithm.Direct,
-      expected_enc: algorithm.AesGcm(algorithm.Aes128),
-      actual_alg: algorithm.Direct,
-      actual_enc: algorithm.AesGcm(algorithm.Aes256),
+      expected_alg: gose.Direct,
+      expected_enc: gose.AesGcm(gose.Aes128),
+      actual_alg: gose.Direct,
+      actual_enc: gose.AesGcm(gose.Aes256),
     ))
 }
 
 pub fn key_alg_mismatch_rejected_test() {
-  let key_128 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes128))
-  let key_256 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key_128 = gose.generate_enc_key(gose.AesGcm(gose.Aes128))
+  let key_256 = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let now = jwt_helpers.fixed_timestamp()
   let claims = jwt_helpers.default_claims_with_exp()
 
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key_256,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key_128],
       jwt.default_validation(),
     )
@@ -267,16 +265,16 @@ pub fn expired_token_rejected_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -292,16 +290,16 @@ pub fn not_yet_valid_token_rejected_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -317,8 +315,8 @@ pub fn issuer_mismatch_rejected_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
@@ -330,8 +328,8 @@ pub fn issuer_mismatch_rejected_test() {
     )
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       options,
     )
@@ -349,8 +347,8 @@ pub fn audience_mismatch_rejected_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
@@ -362,8 +360,8 @@ pub fn audience_mismatch_rejected_test() {
     )
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       options,
     )
@@ -381,16 +379,16 @@ pub fn missing_exp_rejected_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -400,16 +398,16 @@ pub fn missing_exp_rejected_test() {
 
 pub fn decryptor_empty_keys_rejected_test() {
   assert encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [],
       jwt.default_validation(),
     )
     == Error(jwt.JoseError(gose.InvalidState("at least one key required")))
 
   assert encrypted_jwt.key_decryptor(
-      algorithm.EcdhEs(algorithm.EcdhEsDirect),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.EcdhEs(gose.EcdhEsDirect),
+      gose.AesGcm(gose.Aes256),
       [],
       jwt.default_validation(),
     )
@@ -418,12 +416,12 @@ pub fn decryptor_empty_keys_rejected_test() {
 
 pub fn decryptor_wrong_key_use_rejected_test() {
   let assert Ok(key) =
-    key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-    |> key.with_key_use(key.Signing)
+    gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+    |> gose.with_key_use(gose.Signing)
 
   assert encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -436,12 +434,12 @@ pub fn decryptor_wrong_key_use_rejected_test() {
 
 pub fn decryptor_wrong_key_ops_rejected_test() {
   let assert Ok(key) =
-    key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-    |> key.with_key_ops([key.Encrypt])
+    gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+    |> gose.with_key_ops([gose.Encrypt])
 
   assert encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -453,10 +451,10 @@ pub fn decryptor_wrong_key_ops_rejected_test() {
 }
 
 pub fn kid_no_requirement_policy_test() {
-  let key1 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-  let key1 = key.with_kid(key1, "key-1")
-  let key2 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-  let key2 = key.with_kid(key2, "key-2")
+  let key1 = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+  let key1 = gose.with_kid(key1, "key-1")
+  let key2 = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+  let key2 = gose.with_kid(key2, "key-2")
 
   let now = jwt_helpers.fixed_timestamp()
   let claims = jwt_helpers.default_claims_with_exp()
@@ -464,16 +462,16 @@ pub fn kid_no_requirement_policy_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key2,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key1, key2],
       jwt.default_validation(),
     )
@@ -481,10 +479,10 @@ pub fn kid_no_requirement_policy_test() {
 }
 
 pub fn kid_require_match_policy_test() {
-  let key1 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-  let key1 = key.with_kid(key1, "key-1")
-  let key2 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-  let key2 = key.with_kid(key2, "key-2")
+  let key1 = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+  let key1 = gose.with_kid(key1, "key-1")
+  let key2 = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+  let key2 = gose.with_kid(key2, "key-2")
 
   let now = jwt_helpers.fixed_timestamp()
   let claims = jwt_helpers.default_claims_with_exp()
@@ -492,9 +490,9 @@ pub fn kid_require_match_policy_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
-      key.with_kid(key2, "unknown-key"),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
+      gose.with_kid(key2, "unknown-key"),
     )
   let token = encrypted_jwt.serialize(encrypted)
 
@@ -505,8 +503,8 @@ pub fn kid_require_match_policy_test() {
     )
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key1, key2],
       options,
     )
@@ -515,15 +513,15 @@ pub fn kid_require_match_policy_test() {
 }
 
 pub fn kid_require_kid_missing_rejected_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let now = jwt_helpers.fixed_timestamp()
   let claims = jwt_helpers.default_claims_with_exp()
 
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
@@ -535,8 +533,8 @@ pub fn kid_require_kid_missing_rejected_test() {
     )
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       options,
     )
@@ -555,16 +553,16 @@ pub fn dangerously_decrypt_and_skip_validation_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -585,8 +583,8 @@ pub fn dangerously_decrypt_and_skip_validation_test() {
 pub fn dangerously_decrypt_with_password_decryptor_test() {
   let past = timestamp.add(jwt_helpers.fixed_timestamp(), duration.hours(-2))
   let password = "test-password-123"
-  let alg = algorithm.Pbes2Sha256Aes128Kw
-  let enc = algorithm.AesGcm(algorithm.Aes256)
+  let alg = gose.Pbes2Sha256Aes128Kw
+  let enc = gose.AesGcm(gose.Aes256)
 
   let claims =
     jwt.claims()
@@ -630,55 +628,55 @@ pub fn dangerously_skip_still_enforces_algorithm_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes128),
+      gose.Direct,
+      gose.AesGcm(gose.Aes128),
       [key],
       jwt.default_validation(),
     )
 
   assert encrypted_jwt.dangerously_decrypt_and_skip_validation(decryptor, token)
     == Error(jwt.JweAlgorithmMismatch(
-      expected_alg: algorithm.Direct,
-      expected_enc: algorithm.AesGcm(algorithm.Aes128),
-      actual_alg: algorithm.Direct,
-      actual_enc: algorithm.AesGcm(algorithm.Aes256),
+      expected_alg: gose.Direct,
+      expected_enc: gose.AesGcm(gose.Aes128),
+      actual_alg: gose.Direct,
+      actual_enc: gose.AesGcm(gose.Aes256),
     ))
 }
 
 pub fn accessors_test() {
-  let key = jwt_helpers.hmac_key() |> key.with_kid("my-key-id")
+  let key = jwt_helpers.hmac_key() |> gose.with_kid("my-key-id")
   let claims = jwt_helpers.default_claims_with_exp()
 
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
 
-  assert encrypted_jwt.alg(encrypted) == algorithm.Direct
-  assert encrypted_jwt.enc(encrypted) == algorithm.AesGcm(algorithm.Aes256)
+  assert encrypted_jwt.alg(encrypted) == gose.Direct
+  assert encrypted_jwt.enc(encrypted) == gose.AesGcm(gose.Aes256)
   assert encrypted_jwt.kid(encrypted) == Ok("my-key-id")
 }
 
 pub fn kid_returns_error_when_absent_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let claims = jwt_helpers.default_claims_with_exp()
 
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   assert encrypted_jwt.kid(encrypted) == Error(Nil)
@@ -687,26 +685,26 @@ pub fn kid_returns_error_when_absent_test() {
 pub fn peek_headers_test() {
   let claims = jwt_helpers.default_claims_with_exp()
 
-  let key_with_kid = jwt_helpers.hmac_key() |> key.with_kid("parsed-key-id")
+  let key_with_kid = jwt_helpers.hmac_key() |> gose.with_kid("parsed-key-id")
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key_with_kid,
     )
   let token = encrypted_jwt.serialize(encrypted)
   let assert Ok(headers) = encrypted_jwt.peek_headers(token)
-  assert headers.alg == algorithm.Direct
-  assert headers.enc == algorithm.AesGcm(algorithm.Aes256)
+  assert headers.alg == gose.Direct
+  assert headers.enc == gose.AesGcm(gose.Aes256)
   assert headers.kid == option.Some("parsed-key-id")
 
   let key = jwt_helpers.hmac_key()
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
@@ -752,16 +750,16 @@ pub fn custom_claims_roundtrip_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -816,8 +814,8 @@ pub fn encrypted_jwt_direct_snapshot_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
 
@@ -826,29 +824,29 @@ pub fn encrypted_jwt_direct_snapshot_test() {
   assert list.length(parts) == 5
 
   let assert Ok(headers) = encrypted_jwt.peek_headers(token)
-  assert headers.alg == algorithm.Direct
-  assert headers.enc == algorithm.AesGcm(algorithm.Aes256)
+  assert headers.alg == gose.Direct
+  assert headers.enc == gose.AesGcm(gose.Aes256)
 }
 
 pub fn wrong_key_decryption_fails_test() {
-  let key1 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-  let key2 = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key1 = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+  let key2 = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let now = jwt_helpers.fixed_timestamp()
   let claims = jwt_helpers.default_claims_with_exp()
 
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key1,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key2],
       jwt.default_validation(),
     )
@@ -873,7 +871,7 @@ pub fn encrypt_decrypt_aes_gcm_kw_roundtrip_test() {
     |> jwt.with_subject(subject)
     |> jwt.with_expiration(exp)
 
-  let jwe_alg = algorithm.AesKeyWrap(algorithm.AesGcmKw, alg)
+  let jwe_alg = gose.AesKeyWrap(gose.AesGcmKw, alg)
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
   let token = encrypted_jwt.serialize(encrypted)
@@ -896,8 +894,8 @@ pub fn empty_audience_array_rejected_test() {
     ])
     |> json.to_string
 
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
-  let unencrypted = jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
+  let unencrypted = jwe.new_direct(gose.AesGcm(gose.Aes256))
   let assert Ok(encrypted) =
     jwe.encrypt(unencrypted, key, bit_array.from_string(claims_json))
 
@@ -905,8 +903,8 @@ pub fn empty_audience_array_rejected_test() {
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -929,8 +927,8 @@ pub fn encrypted_future_iat_with_max_token_age_fails_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
@@ -938,8 +936,8 @@ pub fn encrypted_future_iat_with_max_token_age_fails_test() {
   let opts = jwt.default_validation() |> jwt.with_max_token_age(3600)
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       opts,
     )
@@ -948,7 +946,7 @@ pub fn encrypted_future_iat_with_max_token_age_fails_test() {
 }
 
 pub fn encrypt_with_password_kid_roundtrip_test() {
-  let enc = algorithm.AesGcm(algorithm.Aes256)
+  let enc = gose.AesGcm(gose.Aes256)
   let now = jwt_helpers.fixed_timestamp()
   let claims = jwt_helpers.default_claims_with_exp()
   let password = "test-password-123"
@@ -956,7 +954,7 @@ pub fn encrypt_with_password_kid_roundtrip_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_password(
       claims,
-      algorithm.Pbes2Sha256Aes128Kw,
+      gose.Pbes2Sha256Aes128Kw,
       enc,
       password,
       kid: option.Some("my-password-kid"),
@@ -967,7 +965,7 @@ pub fn encrypt_with_password_kid_roundtrip_test() {
 
   let decryptor =
     encrypted_jwt.password_decryptor(
-      algorithm.Pbes2Sha256Aes128Kw,
+      gose.Pbes2Sha256Aes128Kw,
       enc,
       password,
       jwt.default_validation(),
@@ -980,14 +978,14 @@ pub fn encrypt_with_password_kid_roundtrip_test() {
 }
 
 pub fn pbes2_wrong_password_fails_test() {
-  let enc = algorithm.AesGcm(algorithm.Aes256)
+  let enc = gose.AesGcm(gose.Aes256)
   let now = jwt_helpers.fixed_timestamp()
   let claims = jwt_helpers.default_claims_with_exp()
 
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_password(
       claims,
-      algorithm.Pbes2Sha256Aes128Kw,
+      gose.Pbes2Sha256Aes128Kw,
       enc,
       "correct-password",
       kid: option.None,
@@ -996,7 +994,7 @@ pub fn pbes2_wrong_password_fails_test() {
 
   let decryptor =
     encrypted_jwt.password_decryptor(
-      algorithm.Pbes2Sha256Aes128Kw,
+      gose.Pbes2Sha256Aes128Kw,
       enc,
       "wrong-password",
       jwt.default_validation(),
@@ -1006,14 +1004,14 @@ pub fn pbes2_wrong_password_fails_test() {
 }
 
 pub fn pbes2_rejected_by_encrypt_with_key_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let claims = jwt_helpers.default_claims_with_exp()
 
   let assert Error(jwt.JoseError(gose.InvalidState(_))) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Pbes2(algorithm.Pbes2Sha256Aes128Kw),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Pbes2(gose.Pbes2Sha256Aes128Kw),
+      gose.AesGcm(gose.Aes256),
       key,
     )
 }
@@ -1035,7 +1033,7 @@ pub fn encrypt_decrypt_chacha20_kw_roundtrip_test() {
     |> jwt.with_subject(subject)
     |> jwt.with_expiration(exp)
 
-  let jwe_alg = algorithm.ChaCha20KeyWrap(variant)
+  let jwe_alg = gose.ChaCha20KeyWrap(variant)
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
   let token = encrypted_jwt.serialize(encrypted)
@@ -1055,10 +1053,10 @@ pub fn encrypt_decrypt_ecdh_es_chacha20_kw_roundtrip_test() {
   use tuple <- qcheck.run(
     qcheck.default_config() |> qcheck.with_test_count(10),
     qcheck.tuple2(
-      qcheck.from_generators(qcheck.return(#(algorithm.C20PKw, ec_key)), [
-        qcheck.return(#(algorithm.XC20PKw, ec_key)),
-        qcheck.return(#(algorithm.C20PKw, xdh_key)),
-        qcheck.return(#(algorithm.XC20PKw, xdh_key)),
+      qcheck.from_generators(qcheck.return(#(gose.C20PKw, ec_key)), [
+        qcheck.return(#(gose.XC20PKw, ec_key)),
+        qcheck.return(#(gose.C20PKw, xdh_key)),
+        qcheck.return(#(gose.XC20PKw, xdh_key)),
       ]),
       qcheck.non_empty_string(),
     ),
@@ -1072,8 +1070,8 @@ pub fn encrypt_decrypt_ecdh_es_chacha20_kw_roundtrip_test() {
     |> jwt.with_subject(subject)
     |> jwt.with_expiration(exp)
 
-  let jwe_alg = algorithm.EcdhEs(algorithm.EcdhEsChaCha20Kw(variant))
-  let enc = algorithm.AesGcm(algorithm.Aes256)
+  let jwe_alg = gose.EcdhEs(gose.EcdhEsChaCha20Kw(variant))
+  let enc = gose.AesGcm(gose.Aes256)
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(claims, jwe_alg, enc, key)
   let token = encrypted_jwt.serialize(encrypted)
@@ -1098,8 +1096,8 @@ pub fn clock_skew_tolerance_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
@@ -1108,8 +1106,8 @@ pub fn clock_skew_tolerance_test() {
     jwt.JwtValidationOptions(..jwt.default_validation(), clock_skew: 60)
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       options,
     )
@@ -1130,8 +1128,8 @@ pub fn jti_validator_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
@@ -1143,8 +1141,8 @@ pub fn jti_validator_test() {
     )
   let assert Ok(accept_decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       accept_options,
     )
@@ -1158,8 +1156,8 @@ pub fn jti_validator_test() {
     )
   let assert Ok(reject_decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       reject_options,
     )
@@ -1168,7 +1166,7 @@ pub fn jti_validator_test() {
 }
 
 pub fn decode_with_failing_decoder_test() {
-  let key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let now = jwt_helpers.fixed_timestamp()
   let exp = timestamp.add(now, duration.hours(1))
 
@@ -1180,16 +1178,16 @@ pub fn decode_with_failing_decoder_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -1206,8 +1204,8 @@ pub fn dangerously_decrypt_rejects_malformed_token_test() {
 
   let assert Ok(decryptor) =
     encrypted_jwt.key_decryptor(
-      algorithm.Direct,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Direct,
+      gose.AesGcm(gose.Aes256),
       [key],
       jwt.default_validation(),
     )
@@ -1224,15 +1222,15 @@ pub fn peek_headers_pbes2_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_password(
       claims,
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Pbes2Sha256Aes128Kw,
+      gose.AesGcm(gose.Aes256),
       "my-password",
       kid: option.None,
     )
   let token = encrypted_jwt.serialize(encrypted)
   let assert Ok(headers) = encrypted_jwt.peek_headers(token)
-  assert headers.alg == algorithm.Pbes2(algorithm.Pbes2Sha256Aes128Kw)
-  assert headers.enc == algorithm.AesGcm(algorithm.Aes256)
+  assert headers.alg == gose.Pbes2(gose.Pbes2Sha256Aes128Kw)
+  assert headers.enc == gose.AesGcm(gose.Aes256)
   assert headers.kid == option.None
 }
 
@@ -1243,14 +1241,14 @@ pub fn peek_headers_rsa_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_key(
       claims,
-      algorithm.RsaEncryption(algorithm.RsaOaepSha256),
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.RsaEncryption(gose.RsaOaepSha256),
+      gose.AesGcm(gose.Aes256),
       key,
     )
   let token = encrypted_jwt.serialize(encrypted)
   let assert Ok(headers) = encrypted_jwt.peek_headers(token)
-  assert headers.alg == algorithm.RsaEncryption(algorithm.RsaOaepSha256)
-  assert headers.enc == algorithm.AesGcm(algorithm.Aes256)
+  assert headers.alg == gose.RsaEncryption(gose.RsaOaepSha256)
+  assert headers.enc == gose.AesGcm(gose.Aes256)
 }
 
 pub fn password_decryptor_algorithm_mismatch_test() {
@@ -1260,8 +1258,8 @@ pub fn password_decryptor_algorithm_mismatch_test() {
   let assert Ok(encrypted) =
     encrypted_jwt.encrypt_with_password(
       claims,
-      algorithm.Pbes2Sha256Aes128Kw,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Pbes2Sha256Aes128Kw,
+      gose.AesGcm(gose.Aes256),
       "my-password",
       kid: option.None,
     )
@@ -1269,16 +1267,16 @@ pub fn password_decryptor_algorithm_mismatch_test() {
 
   let decryptor =
     encrypted_jwt.password_decryptor(
-      algorithm.Pbes2Sha384Aes192Kw,
-      algorithm.AesGcm(algorithm.Aes256),
+      gose.Pbes2Sha384Aes192Kw,
+      gose.AesGcm(gose.Aes256),
       "my-password",
       jwt.default_validation(),
     )
   assert encrypted_jwt.decrypt_and_validate(decryptor, token, now)
     == Error(jwt.JweAlgorithmMismatch(
-      expected_alg: algorithm.Pbes2(algorithm.Pbes2Sha384Aes192Kw),
-      expected_enc: algorithm.AesGcm(algorithm.Aes256),
-      actual_alg: algorithm.Pbes2(algorithm.Pbes2Sha256Aes128Kw),
-      actual_enc: algorithm.AesGcm(algorithm.Aes256),
+      expected_alg: gose.Pbes2(gose.Pbes2Sha384Aes192Kw),
+      expected_enc: gose.AesGcm(gose.Aes256),
+      actual_alg: gose.Pbes2(gose.Pbes2Sha256Aes128Kw),
+      actual_enc: gose.AesGcm(gose.Aes256),
     ))
 }

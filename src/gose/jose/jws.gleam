@@ -7,15 +7,14 @@
 //// ## Example
 ////
 //// ```gleam
+//// import gose
 //// import gose/jose/jws
-//// import gose/algorithm
-//// import gose/key
 ////
-//// let key = key.generate_hmac_key(algorithm.HmacSha256)
+//// let key = gose.generate_hmac_key(gose.HmacSha256)
 //// let payload = <<"hello world":utf8>>
 ////
 //// // Create and sign a JWS
-//// let assert Ok(signed) = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+//// let assert Ok(signed) = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
 ////   |> jws.sign(key, payload)
 ////
 //// // Serialize to compact format
@@ -23,7 +22,8 @@
 ////
 //// // Parse and verify using a Verifier
 //// let assert Ok(parsed) = jws.parse_compact(token)
-//// let assert Ok(verifier) = jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+//// let assert Ok(verifier) =
+////   jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), keys: [key])
 //// let assert Ok(Nil) = jws.verify(verifier, parsed)
 //// ```
 ////
@@ -55,7 +55,7 @@
 //// 1. **Verifier pinning**: `verifier()` requires the expected algorithm;
 ////    tokens with different algorithms are rejected by `verify` and
 ////    `verify_detached`.
-//// 2. **JWK `alg` metadata**: If a key has `alg` set via `key.with_alg`,
+//// 2. **JWK `alg` metadata**: If a key has `alg` set via `gose.with_alg`,
 ////    the JWS algorithm must match during signing and verification.
 //// 3. **JWT verifier**: `jwt.verifier()` requires the expected algorithm upfront;
 ////    tokens with different algorithms are rejected.
@@ -71,12 +71,12 @@
 //// ```gleam
 //// let assert Ok(rs_verifier) =
 ////   jws.verifier(
-////     algorithm.DigitalSignature(algorithm.RsaPkcs1(algorithm.RsaPkcs1Sha256)),
+////     gose.DigitalSignature(gose.RsaPkcs1(gose.RsaPkcs1Sha256)),
 ////     keys: rsa_keys,
 ////   )
 //// let assert Ok(ec_verifier) =
 ////   jws.verifier(
-////     algorithm.DigitalSignature(algorithm.Ecdsa(algorithm.EcdsaP256)),
+////     gose.DigitalSignature(gose.Ecdsa(gose.EcdsaP256)),
 ////     keys: ec_keys,
 ////   )
 ////
@@ -136,12 +136,10 @@ import gleam/result
 import gleam/set
 import gleam/string
 import gose
-import gose/algorithm
 import gose/internal/key_helpers
 import gose/internal/signing
 import gose/internal/utils
-import gose/jose/algorithm as jose_algorithm
-import gose/key
+import gose/jose
 
 const protected_only_headers = ["crit", "b64"]
 
@@ -161,7 +159,7 @@ pub type Unsigned
 
 type JwsHeader {
   JwsHeader(
-    alg: algorithm.SigningAlg,
+    alg: gose.SigningAlg,
     kid: Option(String),
     typ: Option(String),
     cty: Option(String),
@@ -213,7 +211,7 @@ pub opaque type Jws(state, origin) {
 /// - Each key's `use` field (if set) is `Signing`
 /// - Each key's `key_ops` field (if set) includes `Verify`
 pub opaque type Verifier {
-  Verifier(alg: algorithm.SigningAlg, keys: List(key.Key(String)))
+  Verifier(alg: gose.SigningAlg, keys: List(gose.Key(String)))
 }
 
 /// Create a new unsigned JWS with the specified signing algorithm. The payload
@@ -222,10 +220,10 @@ pub opaque type Verifier {
 /// ## Example
 ///
 /// ```gleam
-/// let assert Ok(signed) = jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+/// let assert Ok(signed) = jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
 ///   |> jws.sign(key, <<"hello":utf8>>)
 /// ```
-pub fn new(alg: algorithm.SigningAlg) -> Jws(Unsigned, Built) {
+pub fn new(alg: gose.SigningAlg) -> Jws(Unsigned, Built) {
   UnsignedJws(
     header: JwsHeader(
       alg:,
@@ -251,8 +249,8 @@ pub fn new(alg: algorithm.SigningAlg) -> Jws(Unsigned, Built) {
 /// 2. Try keys in order until one succeeds
 /// 3. Fail if no key verifies the signature
 pub fn verifier(
-  alg: algorithm.SigningAlg,
-  keys keys: List(key.Key(String)),
+  alg: gose.SigningAlg,
+  keys keys: List(gose.Key(String)),
 ) -> Result(Verifier, gose.GoseError) {
   use <- key_helpers.require_non_empty_keys(keys)
   use _ <- result.try(
@@ -401,7 +399,7 @@ fn map_unsigned_header(
 }
 
 /// Get the algorithm (`alg`) from a JWS.
-pub fn alg(jws: Jws(state, origin)) -> algorithm.SigningAlg {
+pub fn alg(jws: Jws(state, origin)) -> gose.SigningAlg {
   jws.header.alg
 }
 
@@ -508,7 +506,7 @@ pub fn typ(jws: Jws(state, origin)) -> Result(String, Nil) {
 /// - Keys with `key_ops` that don't include `sign` are rejected
 pub fn sign(
   jws: Jws(Unsigned, Built),
-  key key: key.Key(String),
+  key key: gose.Key(String),
   payload payload: BitArray,
 ) -> Result(Jws(Signed, Built), gose.GoseError) {
   let assert UnsignedJws(
@@ -560,7 +558,7 @@ pub fn sign(
 
 fn do_verify(
   jws: Jws(Signed, origin),
-  key key: key.Key(String),
+  key key: gose.Key(String),
 ) -> Result(Nil, gose.GoseError) {
   let assert SignedJws(
     header:,
@@ -603,7 +601,7 @@ fn do_verify(
 fn do_verify_with_payload(
   jws: Jws(Signed, origin),
   payload: BitArray,
-  key key: key.Key(String),
+  key key: gose.Key(String),
 ) -> Result(Nil, gose.GoseError) {
   let assert SignedJws(
     header:,
@@ -683,7 +681,7 @@ fn validate_optional_crit(
 ///
 /// ```gleam
 /// let assert Ok(v) =
-///   jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+///   jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
 /// let assert Ok(parsed) = jws.parse_compact(token)
 /// let assert Ok(Nil) = jws.verify(v, parsed)
 /// ```
@@ -704,7 +702,7 @@ pub fn verify(
 
 fn try_verify_keys(
   jws: Jws(Signed, origin),
-  keys: List(key.Key(String)),
+  keys: List(gose.Key(String)),
 ) -> Result(Nil, gose.GoseError) {
   case keys {
     [] -> Error(gose.VerificationFailed)
@@ -725,7 +723,7 @@ fn try_verify_keys(
 ///
 /// ```gleam
 /// let assert Ok(v) =
-///   jws.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), [key])
+///   jws.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), [key])
 /// let assert Ok(parsed) = jws.parse_compact(detached_token)
 /// let assert Ok(Nil) = jws.verify_detached(v, parsed, payload)
 /// ```
@@ -755,7 +753,7 @@ pub fn verify_detached(
 fn try_verify_detached_keys(
   jws: Jws(Signed, origin),
   payload: BitArray,
-  keys: List(key.Key(String)),
+  keys: List(gose.Key(String)),
 ) -> Result(Nil, gose.GoseError) {
   case keys {
     [] -> Error(gose.VerificationFailed)
@@ -770,10 +768,7 @@ fn try_verify_detached_keys(
 }
 
 fn header_to_json(header: JwsHeader, unencoded_payload: Bool) -> BitArray {
-  let alg_field = #(
-    "alg",
-    json.string(jose_algorithm.signing_alg_to_string(header.alg)),
-  )
+  let alg_field = #("alg", json.string(jose.signing_alg_to_string(header.alg)))
   let optional_fields =
     option.values([
       option.map(header.kid, fn(k) { #("kid", json.string(k)) }),
@@ -885,7 +880,7 @@ pub fn serialize_compact(
 ///
 /// ```gleam
 /// let assert Ok(signed) =
-///   jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+///   jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
 ///   |> jws.sign(key, payload)
 /// let json_str =
 ///   jws.serialize_json_flattened(signed)
@@ -936,7 +931,7 @@ pub fn serialize_json_flattened(jws: Jws(Signed, Built)) -> json.Json {
 ///
 /// ```gleam
 /// let assert Ok(signed) =
-///   jws.new(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)))
+///   jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
 ///   |> jws.sign(key, payload)
 /// let json_str =
 ///   jws.serialize_json_general(signed)
@@ -1087,7 +1082,7 @@ fn parse_header_json(
     return: Error(gose.ParseError("b64 header present but not in crit")),
   )
 
-  use alg <- result.try(jose_algorithm.signing_alg_from_string(alg_str))
+  use alg <- result.try(jose.signing_alg_from_string(alg_str))
   let unencoded_payload = b64 == option.Some(False)
 
   use all_keys <- result.try(

@@ -1,20 +1,20 @@
 //// JSON Web Key (JWK) - [RFC 7517](https://www.rfc-editor.org/rfc/rfc7517.html)
 ////
 //// JSON serialization and deserialization for keys. Key creation,
-//// manipulation, and metadata are in `gose/key`.
+//// manipulation, and metadata are in `gose`.
 ////
 //// ## Example
 ////
 //// ```gleam
 //// import gleam/json
+//// import gose
 //// import gose/jose/jwk
-//// import gose/key
 //// import kryptos/ec
 ////
 //// // Generate an EC key and attach metadata
 //// let k =
-////   key.generate_ec(ec.P256)
-////   |> key.with_kid("my-signing-key")
+////   gose.generate_ec(ec.P256)
+////   |> gose.with_kid("my-signing-key")
 ////
 //// // Serialize to JSON
 //// let json_string = jwk.to_json(k)
@@ -22,7 +22,7 @@
 ////
 //// // Parse from a JSON string
 //// let assert Ok(parsed) = jwk.from_json(json_string)
-//// let assert Ok("my-signing-key") = key.kid(parsed)
+//// let assert Ok("my-signing-key") = gose.kid(parsed)
 //// ```
 ////
 //// ## Duplicate Member Names
@@ -53,8 +53,7 @@ import gleam/option.{type Option}
 import gleam/result
 import gose
 import gose/internal/utils
-import gose/jose/algorithm as jose_algorithm
-import gose/key
+import gose/jose
 import kryptos/crypto
 import kryptos/ec
 import kryptos/eddsa
@@ -64,13 +63,13 @@ import kryptos/xdh
 
 /// A key with a JWK-compatible string kid.
 pub type Key =
-  key.Key(String)
+  gose.Key(String)
 
 /// Serialize a key to its JSON representation.
 pub fn to_json(k: Key) -> json.Json {
-  let mat = key.material(k)
+  let mat = gose.material(k)
   let base_fields = case mat {
-    key.Eddsa(key.EddsaPrivate(key: private, public:, curve:)) -> {
+    gose.Edwards(gose.EddsaPrivate(key: private, public:, curve:)) -> {
       let x_bits = eddsa.public_key_to_bytes(public)
       let d_bits = eddsa.to_bytes(private)
       [
@@ -80,7 +79,7 @@ pub fn to_json(k: Key) -> json.Json {
         #("d", json.string(utils.encode_base64_url(d_bits))),
       ]
     }
-    key.Eddsa(key.EddsaPublic(key: public, curve:)) -> {
+    gose.Edwards(gose.EddsaPublic(key: public, curve:)) -> {
       let x_bits = eddsa.public_key_to_bytes(public)
       [
         #("kty", json.string("OKP")),
@@ -88,11 +87,11 @@ pub fn to_json(k: Key) -> json.Json {
         #("x", json.string(utils.encode_base64_url(x_bits))),
       ]
     }
-    key.OctetKey(secret:) -> [
+    gose.OctetKey(secret:) -> [
       #("kty", json.string("oct")),
       #("k", json.string(utils.encode_base64_url(secret))),
     ]
-    key.Rsa(key.RsaPrivate(key: private, ..)) -> [
+    gose.Rsa(gose.RsaPrivate(key: private, ..)) -> [
       #("kty", json.string("RSA")),
       #(
         "n",
@@ -151,7 +150,7 @@ pub fn to_json(k: Key) -> json.Json {
           |> json.string,
       ),
     ]
-    key.Rsa(key.RsaPublic(key: public)) -> [
+    gose.Rsa(gose.RsaPublic(key: public)) -> [
       #("kty", json.string("RSA")),
       #(
         "n",
@@ -168,9 +167,9 @@ pub fn to_json(k: Key) -> json.Json {
           |> json.string,
       ),
     ]
-    key.Ec(key.EcPrivate(key: private, public:, curve:)) -> {
+    gose.Elliptic(gose.EcPrivate(key: private, public:, curve:)) -> {
       // Safe: all constructors validate the public key against the curve
-      let assert Ok(#(x, y)) = utils.ec_public_key_coordinates(public, curve:)
+      let assert Ok(#(x, y)) = gose.ec_raw_coordinates(public, curve:)
       let d_bits = ec.to_bytes(private)
       [
         #("kty", json.string("EC")),
@@ -180,9 +179,9 @@ pub fn to_json(k: Key) -> json.Json {
         #("d", json.string(utils.encode_base64_url(d_bits))),
       ]
     }
-    key.Ec(key.EcPublic(key: public, curve:)) -> {
+    gose.Elliptic(gose.EcPublic(key: public, curve:)) -> {
       // Safe: all constructors validate the public key against the curve
-      let assert Ok(#(x, y)) = utils.ec_public_key_coordinates(public, curve:)
+      let assert Ok(#(x, y)) = gose.ec_raw_coordinates(public, curve:)
       [
         #("kty", json.string("EC")),
         #("crv", json.string(utils.ec_curve_to_string(curve))),
@@ -190,7 +189,7 @@ pub fn to_json(k: Key) -> json.Json {
         #("y", json.string(utils.encode_base64_url(y))),
       ]
     }
-    key.Xdh(key.XdhPrivate(key: private, public:, curve:)) -> {
+    gose.Xdh(gose.XdhPrivate(key: private, public:, curve:)) -> {
       let x_bits = xdh.public_key_to_bytes(public)
       let d_bits = xdh.to_bytes(private)
       [
@@ -200,7 +199,7 @@ pub fn to_json(k: Key) -> json.Json {
         #("d", json.string(utils.encode_base64_url(d_bits))),
       ]
     }
-    key.Xdh(key.XdhPublic(key: public, curve:)) -> {
+    gose.Xdh(gose.XdhPublic(key: public, curve:)) -> {
       let x_bits = xdh.public_key_to_bytes(public)
       [
         #("kty", json.string("OKP")),
@@ -213,28 +212,28 @@ pub fn to_json(k: Key) -> json.Json {
   json.object(list.append(base_fields, metadata_fields(k)))
 }
 
-fn alg_fields(alg: Option(key.Alg)) -> List(#(String, json.Json)) {
+fn alg_fields(alg: Option(gose.Alg)) -> List(#(String, json.Json)) {
   case alg {
     option.Some(a) -> [#("alg", json.string(alg_to_string(a)))]
     option.None -> []
   }
 }
 
-fn key_op_to_string(op: key.KeyOp) -> String {
+fn key_op_to_string(op: gose.KeyOp) -> String {
   case op {
-    key.Sign -> "sign"
-    key.Verify -> "verify"
-    key.Encrypt -> "encrypt"
-    key.Decrypt -> "decrypt"
-    key.WrapKey -> "wrapKey"
-    key.UnwrapKey -> "unwrapKey"
-    key.DeriveKey -> "deriveKey"
-    key.DeriveBits -> "deriveBits"
+    gose.Sign -> "sign"
+    gose.Verify -> "verify"
+    gose.Encrypt -> "encrypt"
+    gose.Decrypt -> "decrypt"
+    gose.WrapKey -> "wrapKey"
+    gose.UnwrapKey -> "unwrapKey"
+    gose.DeriveKey -> "deriveKey"
+    gose.DeriveBits -> "deriveBits"
   }
 }
 
 fn key_ops_fields(
-  key_ops: Option(List(key.KeyOp)),
+  key_ops: Option(List(gose.KeyOp)),
 ) -> List(#(String, json.Json)) {
   case key_ops {
     option.Some(ops) -> [
@@ -247,17 +246,17 @@ fn key_ops_fields(
   }
 }
 
-fn key_use_fields(key_use: Option(key.KeyUse)) -> List(#(String, json.Json)) {
+fn key_use_fields(key_use: Option(gose.KeyUse)) -> List(#(String, json.Json)) {
   case key_use {
     option.Some(u) -> [#("use", json.string(key_use_to_string(u)))]
     option.None -> []
   }
 }
 
-fn key_use_to_string(key_use: key.KeyUse) -> String {
+fn key_use_to_string(key_use: gose.KeyUse) -> String {
   case key_use {
-    key.Signing -> "sig"
-    key.Encrypting -> "enc"
+    gose.Signing -> "sig"
+    gose.Encrypting -> "enc"
   }
 }
 
@@ -270,10 +269,10 @@ fn kid_fields(kid: Option(String)) -> List(#(String, json.Json)) {
 
 fn metadata_fields(k: Key) -> List(#(String, json.Json)) {
   list.flatten([
-    kid_fields(option.from_result(key.kid(k))),
-    key_use_fields(option.from_result(key.key_use(k))),
-    key_ops_fields(option.from_result(key.key_ops(k))),
-    alg_fields(option.from_result(key.alg(k))),
+    kid_fields(option.from_result(gose.kid(k))),
+    key_use_fields(option.from_result(gose.key_use(k))),
+    key_ops_fields(option.from_result(gose.key_ops(k))),
+    alg_fields(option.from_result(gose.alg(k))),
   ])
 }
 
@@ -344,8 +343,8 @@ pub fn from_json_bits(json_bits: BitArray) -> Result(Key, gose.GoseError) {
 /// ```
 pub fn decoder() -> decode.Decoder(Key) {
   let placeholder =
-    key.build(
-      material: key.OctetKey(secret: <<>>),
+    gose.build(
+      material: gose.OctetKey(secret: <<>>),
       kid: option.None,
       key_use: option.None,
       key_ops: option.None,
@@ -357,24 +356,24 @@ pub fn decoder() -> decode.Decoder(Key) {
   })
 }
 
-fn key_op_from_string(s: String) -> Result(key.KeyOp, gose.GoseError) {
+fn key_op_from_string(s: String) -> Result(gose.KeyOp, gose.GoseError) {
   case s {
-    "sign" -> Ok(key.Sign)
-    "verify" -> Ok(key.Verify)
-    "encrypt" -> Ok(key.Encrypt)
-    "decrypt" -> Ok(key.Decrypt)
-    "wrapKey" -> Ok(key.WrapKey)
-    "unwrapKey" -> Ok(key.UnwrapKey)
-    "deriveKey" -> Ok(key.DeriveKey)
-    "deriveBits" -> Ok(key.DeriveBits)
+    "sign" -> Ok(gose.Sign)
+    "verify" -> Ok(gose.Verify)
+    "encrypt" -> Ok(gose.Encrypt)
+    "decrypt" -> Ok(gose.Decrypt)
+    "wrapKey" -> Ok(gose.WrapKey)
+    "unwrapKey" -> Ok(gose.UnwrapKey)
+    "deriveKey" -> Ok(gose.DeriveKey)
+    "deriveBits" -> Ok(gose.DeriveBits)
     _ -> Error(gose.ParseError("invalid key_ops value: " <> s))
   }
 }
 
-fn key_use_from_string(s: String) -> Result(key.KeyUse, gose.GoseError) {
+fn key_use_from_string(s: String) -> Result(gose.KeyUse, gose.GoseError) {
   case s {
-    "sig" -> Ok(key.Signing)
-    "enc" -> Ok(key.Encrypting)
+    "sig" -> Ok(gose.Signing)
+    "enc" -> Ok(gose.Encrypting)
     _ -> Error(gose.ParseError("invalid use value: " <> s))
   }
 }
@@ -384,17 +383,17 @@ fn parse_key_metadata(
   key_ops_opt: Option(List(String)),
   alg_opt: Option(String),
 ) -> Result(
-  #(Option(key.KeyUse), Option(List(key.KeyOp)), Option(key.Alg)),
+  #(Option(gose.KeyUse), Option(List(gose.KeyOp)), Option(gose.Alg)),
   gose.GoseError,
 ) {
   use key_use <- result.try(parse_optional(use_opt, key_use_from_string))
   use key_ops <- result.try(parse_optional(key_ops_opt, parse_key_ops))
   use alg <- result.try(parse_optional(alg_opt, alg_from_string))
-  use _ <- result.try(key.validate_key_use_ops(key_use, key_ops))
+  use _ <- result.try(gose.validate_key_use_ops(key_use, key_ops))
   Ok(#(key_use, key_ops, alg))
 }
 
-fn parse_key_ops(ops: List(String)) -> Result(List(key.KeyOp), gose.GoseError) {
+fn parse_key_ops(ops: List(String)) -> Result(List(gose.KeyOp), gose.GoseError) {
   use <- bool.guard(
     when: list.is_empty(ops),
     return: Error(gose.ParseError("key_ops must not be empty")),
@@ -508,8 +507,8 @@ fn process_ec_decoded(decoded: EcDecoded) -> Result(Key, gose.GoseError) {
         when: !crypto.constant_time_equal(computed_point, raw_point),
         return: Error(gose.ParseError("x/y do not match computed public key")),
       )
-      Ok(key.build(
-        material: key.Ec(key.EcPrivate(key: private, public:, curve:)),
+      Ok(gose.build(
+        material: gose.Elliptic(gose.EcPrivate(key: private, public:, curve:)),
         kid:,
         key_use:,
         key_ops:,
@@ -523,8 +522,8 @@ fn process_ec_decoded(decoded: EcDecoded) -> Result(Key, gose.GoseError) {
           "invalid EC public key coordinates",
         )),
       )
-      Ok(key.build(
-        material: key.Ec(key.EcPublic(key: public, curve:)),
+      Ok(gose.build(
+        material: gose.Elliptic(gose.EcPublic(key: public, curve:)),
         kid:,
         key_use:,
         key_ops:,
@@ -588,8 +587,8 @@ fn process_oct_decoded(decoded: OctDecoded) -> Result(Key, gose.GoseError) {
   case bit_array.byte_size(secret) == 0 {
     True -> Error(gose.ParseError("oct key must not be empty"))
     False ->
-      Ok(key.build(
-        material: key.OctetKey(secret:),
+      Ok(gose.build(
+        material: gose.OctetKey(secret:),
         kid:,
         key_use:,
         key_ops:,
@@ -691,7 +690,7 @@ fn build_eddsa_material(
   curve: eddsa.Curve,
   x_bits: BitArray,
   d_opt: Option(String),
-) -> Result(key.KeyMaterial, gose.GoseError) {
+) -> Result(gose.KeyMaterial, gose.GoseError) {
   case d_opt {
     option.Some(d_b64) -> {
       use d_bits <- result.try(utils.decode_base64_url(d_b64, name: "d"))
@@ -704,14 +703,14 @@ fn build_eddsa_material(
         when: !crypto.constant_time_equal(computed_x, x_bits),
         return: Error(gose.ParseError("x does not match computed public key")),
       )
-      Ok(key.Eddsa(key.EddsaPrivate(key: private, public:, curve:)))
+      Ok(gose.Edwards(gose.EddsaPrivate(key: private, public:, curve:)))
     }
     option.None -> {
       use public <- result.try(
         eddsa.public_key_from_bytes(curve, x_bits)
         |> result.replace_error(gose.ParseError("invalid public key bytes")),
       )
-      Ok(key.Eddsa(key.EddsaPublic(key: public, curve:)))
+      Ok(gose.Edwards(gose.EddsaPublic(key: public, curve:)))
     }
   }
 }
@@ -721,20 +720,20 @@ fn parse_eddsa_okp_json(
   x_bits: BitArray,
   d_opt: Option(String),
   kid: Option(String),
-  key_use: Option(key.KeyUse),
-  key_ops: Option(List(key.KeyOp)),
-  alg: Option(key.Alg),
+  key_use: Option(gose.KeyUse),
+  key_ops: Option(List(gose.KeyOp)),
+  alg: Option(gose.Alg),
 ) -> Result(Key, gose.GoseError) {
   use material <- result.try(build_eddsa_material(curve, x_bits, d_opt))
-  use _ <- result.try(key.validate_rfc8037_key_use_public(material, key_use))
-  Ok(key.build(material:, kid:, key_use:, key_ops:, alg:))
+  use _ <- result.try(gose.validate_rfc8037_key_use_public(material, key_use))
+  Ok(gose.build(material:, kid:, key_use:, key_ops:, alg:))
 }
 
 fn build_xdh_material(
   curve: xdh.Curve,
   x_bits: BitArray,
   d_opt: Option(String),
-) -> Result(key.KeyMaterial, gose.GoseError) {
+) -> Result(gose.KeyMaterial, gose.GoseError) {
   case d_opt {
     option.Some(d_b64) -> {
       use d_bits <- result.try(utils.decode_base64_url(d_b64, name: "d"))
@@ -747,14 +746,14 @@ fn build_xdh_material(
         when: !crypto.constant_time_equal(computed_x, x_bits),
         return: Error(gose.ParseError("x does not match computed public key")),
       )
-      Ok(key.Xdh(key.XdhPrivate(key: private, public:, curve:)))
+      Ok(gose.Xdh(gose.XdhPrivate(key: private, public:, curve:)))
     }
     option.None -> {
       use public <- result.try(
         xdh.public_key_from_bytes(curve, x_bits)
         |> result.replace_error(gose.ParseError("invalid public key bytes")),
       )
-      Ok(key.Xdh(key.XdhPublic(key: public, curve:)))
+      Ok(gose.Xdh(gose.XdhPublic(key: public, curve:)))
     }
   }
 }
@@ -764,13 +763,13 @@ fn parse_xdh_okp_json(
   x_bits: BitArray,
   d_opt: Option(String),
   kid: Option(String),
-  key_use: Option(key.KeyUse),
-  key_ops: Option(List(key.KeyOp)),
-  alg: Option(key.Alg),
+  key_use: Option(gose.KeyUse),
+  key_ops: Option(List(gose.KeyOp)),
+  alg: Option(gose.Alg),
 ) -> Result(Key, gose.GoseError) {
   use material <- result.try(build_xdh_material(curve, x_bits, d_opt))
-  use _ <- result.try(key.validate_rfc8037_key_use_public(material, key_use))
-  Ok(key.build(material:, kid:, key_use:, key_ops:, alg:))
+  use _ <- result.try(gose.validate_rfc8037_key_use_public(material, key_use))
+  Ok(gose.build(material:, kid:, key_use:, key_ops:, alg:))
 }
 
 fn parse_rsa_private_key_components(
@@ -968,8 +967,8 @@ fn process_rsa_decoded(decoded: RsaDecoded) -> Result(Key, gose.GoseError) {
         dq_opt,
         qi_opt,
       ))
-      Ok(key.build(
-        material: key.Rsa(key.RsaPrivate(key: private, public:)),
+      Ok(gose.build(
+        material: gose.Rsa(gose.RsaPrivate(key: private, public:)),
         kid:,
         key_use:,
         key_ops:,
@@ -983,8 +982,8 @@ fn process_rsa_decoded(decoded: RsaDecoded) -> Result(Key, gose.GoseError) {
           "invalid RSA public key components",
         )),
       )
-      Ok(key.build(
-        material: key.Rsa(key.RsaPublic(key: public)),
+      Ok(gose.build(
+        material: gose.Rsa(gose.RsaPublic(key: public)),
         kid:,
         key_use:,
         key_ops:,
@@ -996,28 +995,25 @@ fn process_rsa_decoded(decoded: RsaDecoded) -> Result(Key, gose.GoseError) {
 
 /// Convert an algorithm (signing, key encryption, or content encryption)
 /// to its RFC string representation.
-pub fn alg_to_string(alg: key.Alg) -> String {
+pub fn alg_to_string(alg: gose.Alg) -> String {
   case alg {
-    key.SigningAlg(signing_alg) ->
-      jose_algorithm.signing_alg_to_string(signing_alg)
-    key.KeyEncryptionAlg(ke_alg) ->
-      jose_algorithm.key_encryption_alg_to_string(ke_alg)
-    key.ContentAlg(content_alg) ->
-      jose_algorithm.content_alg_to_string(content_alg)
+    gose.SigningAlg(signing_alg) -> jose.signing_alg_to_string(signing_alg)
+    gose.KeyEncryptionAlg(ke_alg) -> jose.key_encryption_alg_to_string(ke_alg)
+    gose.ContentAlg(content_alg) -> jose.content_alg_to_string(content_alg)
   }
 }
 
 /// Parse an algorithm from its RFC string representation.
-pub fn alg_from_string(s: String) -> Result(key.Alg, gose.GoseError) {
-  jose_algorithm.signing_alg_from_string(s)
-  |> result.map(key.SigningAlg)
+pub fn alg_from_string(s: String) -> Result(gose.Alg, gose.GoseError) {
+  jose.signing_alg_from_string(s)
+  |> result.map(gose.SigningAlg)
   |> result.lazy_or(fn() {
-    jose_algorithm.key_encryption_alg_from_string(s)
-    |> result.map(key.KeyEncryptionAlg)
+    jose.key_encryption_alg_from_string(s)
+    |> result.map(gose.KeyEncryptionAlg)
   })
   |> result.lazy_or(fn() {
-    jose_algorithm.content_alg_from_string(s)
-    |> result.map(key.ContentAlg)
+    jose.content_alg_from_string(s)
+    |> result.map(gose.ContentAlg)
   })
   |> result.replace_error(gose.ParseError("unknown algorithm: " <> s))
 }
@@ -1033,11 +1029,11 @@ pub fn alg_from_string(s: String) -> Result(key.Alg, gose.GoseError) {
 /// ## Example
 ///
 /// ```gleam
-/// let k = key.generate_ec(ec.P256)
+/// let k = gose.generate_ec(ec.P256)
 /// let assert Ok(thumbprint) = jwk.thumbprint(k, hash.Sha256)
 /// ```
 pub fn thumbprint(
-  key: key.Key(kid),
+  key: gose.Key(kid),
   algorithm: hash.HashAlgorithm,
 ) -> Result(String, gose.GoseError) {
   use json_str <- result.try(thumbprint_json(key))
@@ -1047,11 +1043,11 @@ pub fn thumbprint(
   |> result.map(utils.encode_base64_url)
 }
 
-fn thumbprint_json(k: key.Key(kid)) -> Result(String, gose.GoseError) {
-  case key.material(k) {
-    key.Ec(key.EcPrivate(public:, curve:, ..))
-    | key.Ec(key.EcPublic(key: public, curve:)) -> {
-      use #(x, y) <- result.try(utils.ec_public_key_coordinates(public, curve:))
+fn thumbprint_json(k: gose.Key(kid)) -> Result(String, gose.GoseError) {
+  case gose.material(k) {
+    gose.Elliptic(gose.EcPrivate(public:, curve:, ..))
+    | gose.Elliptic(gose.EcPublic(key: public, curve:)) -> {
+      use #(x, y) <- result.try(gose.ec_raw_coordinates(public, curve:))
       let crv = utils.ec_curve_to_string(curve)
       let x_b64 = utils.encode_base64_url(x)
       let y_b64 = utils.encode_base64_url(y)
@@ -1065,7 +1061,8 @@ fn thumbprint_json(k: key.Key(kid)) -> Result(String, gose.GoseError) {
         <> "\"}",
       )
     }
-    key.Rsa(key.RsaPrivate(public:, ..)) | key.Rsa(key.RsaPublic(key: public)) -> {
+    gose.Rsa(gose.RsaPrivate(public:, ..))
+    | gose.Rsa(gose.RsaPublic(key: public)) -> {
       let e =
         rsa.public_key_exponent_bytes(public)
         |> utils.strip_leading_zeros
@@ -1076,19 +1073,19 @@ fn thumbprint_json(k: key.Key(kid)) -> Result(String, gose.GoseError) {
         |> utils.encode_base64_url()
       Ok("{\"e\":\"" <> e <> "\",\"kty\":\"RSA\",\"n\":\"" <> n <> "\"}")
     }
-    key.Eddsa(key.EddsaPrivate(public:, curve:, ..))
-    | key.Eddsa(key.EddsaPublic(key: public, curve:)) -> {
+    gose.Edwards(gose.EddsaPrivate(public:, curve:, ..))
+    | gose.Edwards(gose.EddsaPublic(key: public, curve:)) -> {
       let crv = utils.eddsa_curve_to_string(curve)
       let x = eddsa.public_key_to_bytes(public) |> utils.encode_base64_url()
       Ok("{\"crv\":\"" <> crv <> "\",\"kty\":\"OKP\",\"x\":\"" <> x <> "\"}")
     }
-    key.Xdh(key.XdhPrivate(public:, curve:, ..))
-    | key.Xdh(key.XdhPublic(key: public, curve:)) -> {
+    gose.Xdh(gose.XdhPrivate(public:, curve:, ..))
+    | gose.Xdh(gose.XdhPublic(key: public, curve:)) -> {
       let crv = utils.xdh_curve_to_string(curve)
       let x = xdh.public_key_to_bytes(public) |> utils.encode_base64_url()
       Ok("{\"crv\":\"" <> crv <> "\",\"kty\":\"OKP\",\"x\":\"" <> x <> "\"}")
     }
-    key.OctetKey(secret:) -> {
+    gose.OctetKey(secret:) -> {
       let k = utils.encode_base64_url(secret)
       Ok("{\"k\":\"" <> k <> "\",\"kty\":\"oct\"}")
     }

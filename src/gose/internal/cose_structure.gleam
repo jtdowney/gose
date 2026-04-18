@@ -7,12 +7,9 @@ import gleam/pair
 import gleam/result
 import gleam/set
 import gose
-import gose/algorithm
 import gose/cbor
 import gose/cose
-import gose/cose/algorithm as cose_algorithm
 import gose/internal/signing
-import gose/key
 
 pub fn serialize_protected(headers: List(cose.Header)) -> BitArray {
   case headers {
@@ -160,21 +157,21 @@ fn validate_crit_labels(
 
 pub fn extract_signing_alg_from_headers(
   headers: List(cose.Header),
-) -> Result(algorithm.SigningAlg, gose.GoseError) {
+) -> Result(gose.SigningAlg, gose.GoseError) {
   use id <- result.try(cose.algorithm(headers))
-  cose_algorithm.signing_alg_from_int(id)
+  cose.signing_alg_from_int(id)
 }
 
 pub fn extract_signature_alg_from_headers(
   headers: List(cose.Header),
-) -> Result(algorithm.DigitalSignatureAlg, gose.GoseError) {
+) -> Result(gose.DigitalSignatureAlg, gose.GoseError) {
   use id <- result.try(cose.algorithm(headers))
-  cose_algorithm.signature_alg_from_int(id)
+  cose.signature_alg_from_int(id)
 }
 
 pub fn extract_signature_alg_from_serialized(
   protected_serialized: BitArray,
-) -> Result(algorithm.DigitalSignatureAlg, gose.GoseError) {
+) -> Result(gose.DigitalSignatureAlg, gose.GoseError) {
   with_decoded_protected(
     protected_serialized,
     extract_signature_alg_from_headers,
@@ -183,33 +180,33 @@ pub fn extract_signature_alg_from_serialized(
 
 pub fn extract_content_alg_from_headers(
   headers: List(cose.Header),
-) -> Result(algorithm.ContentAlg, gose.GoseError) {
+) -> Result(gose.ContentAlg, gose.GoseError) {
   use id <- result.try(cose.algorithm(headers))
-  cose_algorithm.content_alg_from_int(id)
+  cose.content_alg_from_int(id)
 }
 
 pub fn extract_signing_alg_from_serialized(
   protected_serialized: BitArray,
-) -> Result(algorithm.SigningAlg, gose.GoseError) {
+) -> Result(gose.SigningAlg, gose.GoseError) {
   with_decoded_protected(protected_serialized, extract_signing_alg_from_headers)
 }
 
 pub fn extract_content_alg_from_serialized(
   protected_serialized: BitArray,
-) -> Result(algorithm.ContentAlg, gose.GoseError) {
+) -> Result(gose.ContentAlg, gose.GoseError) {
   with_decoded_protected(protected_serialized, extract_content_alg_from_headers)
 }
 
 pub fn extract_key_encryption_alg_from_headers(
   headers: List(cose.Header),
-) -> Result(algorithm.KeyEncryptionAlg, gose.GoseError) {
+) -> Result(gose.KeyEncryptionAlg, gose.GoseError) {
   use id <- result.try(cose.algorithm(headers))
-  cose_algorithm.key_encryption_alg_from_int(id)
+  cose.key_encryption_alg_from_int(id)
 }
 
 pub fn extract_key_encryption_alg_from_serialized(
   protected_serialized: BitArray,
-) -> Result(algorithm.KeyEncryptionAlg, gose.GoseError) {
+) -> Result(gose.KeyEncryptionAlg, gose.GoseError) {
   with_decoded_protected(
     protected_serialized,
     extract_key_encryption_alg_from_headers,
@@ -240,8 +237,8 @@ pub fn decode_payload(
 }
 
 pub fn try_verify_keys(
-  alg: algorithm.SigningAlg,
-  keys keys: List(key.Key(kid)),
+  alg: gose.SigningAlg,
+  keys keys: List(gose.Key(kid)),
   message message: BitArray,
   signature signature: BitArray,
 ) -> Result(Nil, gose.GoseError) {

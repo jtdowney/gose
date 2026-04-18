@@ -4,19 +4,18 @@
 //// ## Example
 ////
 //// ```gleam
-//// import gose/algorithm
+//// import gose
 //// import gose/cose/encrypt0
-//// import gose/key
 ////
-//// let k = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes128))
+//// let k = gose.generate_enc_key(gose.AesGcm(gose.Aes128))
 //// let plaintext = <<"hello COSE":utf8>>
 ////
-//// let assert Ok(message) = encrypt0.new(algorithm.AesGcm(algorithm.Aes128))
+//// let assert Ok(message) = encrypt0.new(gose.AesGcm(gose.Aes128))
 //// let assert Ok(encrypted) = encrypt0.encrypt(message, k, plaintext)
 ////
 //// let data = encrypt0.serialize(encrypted)
 //// let assert Ok(parsed) = encrypt0.parse(data)
-//// let assert Ok(decryptor) = encrypt0.decryptor(algorithm.AesGcm(algorithm.Aes128), key: k)
+//// let assert Ok(decryptor) = encrypt0.decryptor(gose.AesGcm(gose.Aes128), key: k)
 //// let assert Ok(decrypted) = encrypt0.decrypt(decryptor, parsed)
 //// ```
 ////
@@ -30,14 +29,11 @@ import gleam/bit_array
 import gleam/list
 import gleam/result
 import gose
-import gose/algorithm
 import gose/cbor
 import gose/cose
-import gose/cose/algorithm as cose_algorithm
 import gose/internal/content_encryption
 import gose/internal/cose_structure
 import gose/internal/key_helpers
-import gose/key
 
 /// Phantom type for a COSE_Encrypt0 message that has not yet been encrypted.
 pub type Unencrypted
@@ -47,7 +43,7 @@ pub type Encrypted
 
 /// A decryptor pinned to a content encryption algorithm and a single symmetric key.
 pub opaque type Decryptor {
-  Decryptor(alg: algorithm.ContentAlg, key: key.Key(BitArray))
+  Decryptor(alg: gose.ContentAlg, key: gose.Key(BitArray))
 }
 
 /// A COSE_Encrypt0 message parameterized by encryption state.
@@ -67,9 +63,9 @@ pub opaque type Encrypt0(state) {
 
 /// Create a new unencrypted COSE_Encrypt0 message with the given content encryption algorithm.
 pub fn new(
-  alg: algorithm.ContentAlg,
+  alg: gose.ContentAlg,
 ) -> Result(Encrypt0(Unencrypted), gose.GoseError) {
-  use alg_id <- result.try(cose_algorithm.content_alg_to_int(alg))
+  use alg_id <- result.try(cose.content_alg_to_int(alg))
   Ok(
     UnencryptedEncrypt0(
       protected: [cose.Alg(alg_id)],
@@ -82,7 +78,7 @@ pub fn new(
 /// Encrypt the plaintext with the given symmetric key.
 pub fn encrypt(
   message: Encrypt0(Unencrypted),
-  key key: key.Key(BitArray),
+  key key: gose.Key(BitArray),
   plaintext plaintext: BitArray,
 ) -> Result(Encrypt0(Encrypted), gose.GoseError) {
   let assert UnencryptedEncrypt0(protected:, unprotected:, aad:) = message
@@ -123,8 +119,8 @@ pub fn encrypt(
 
 /// Build a decryptor pinned to a single algorithm and key.
 pub fn decryptor(
-  alg: algorithm.ContentAlg,
-  key key: key.Key(BitArray),
+  alg: gose.ContentAlg,
+  key key: gose.Key(BitArray),
 ) -> Result(Decryptor, gose.GoseError) {
   use _ <- result.try(key_helpers.validate_key_for_content_decryption(alg, key))
   Ok(Decryptor(alg:, key:))
@@ -287,8 +283,8 @@ pub fn unprotected_headers(message: Encrypt0(Encrypted)) -> List(cose.Header) {
   unprotected
 }
 
-fn extract_cek(key: key.Key(BitArray)) -> Result(BitArray, gose.GoseError) {
-  key.material_octet_secret(key.material(key))
+fn extract_cek(key: gose.Key(BitArray)) -> Result(BitArray, gose.GoseError) {
+  gose.material_octet_secret(gose.material(key))
 }
 
 fn parse_cbor_value(

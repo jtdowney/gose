@@ -7,32 +7,31 @@ import gleam/int
 import gleam/option.{type Option}
 import gleam/result
 import gose
-import gose/algorithm
 import gose/internal/utils
 import kryptos/aead
 import kryptos/block
 import kryptos/crypto
 import kryptos/hash
 
-pub fn iv_size(enc: algorithm.ContentAlg) -> Int {
+pub fn iv_size(enc: gose.ContentAlg) -> Int {
   case enc {
-    algorithm.AesGcm(_) -> 12
-    algorithm.AesCbcHmac(_) -> 16
-    algorithm.ChaCha20Poly1305 -> 12
-    algorithm.XChaCha20Poly1305 -> 24
+    gose.AesGcm(_) -> 12
+    gose.AesCbcHmac(_) -> 16
+    gose.ChaCha20Poly1305 -> 12
+    gose.XChaCha20Poly1305 -> 24
   }
 }
 
-pub fn tag_size(enc: algorithm.ContentAlg) -> Int {
+pub fn tag_size(enc: gose.ContentAlg) -> Int {
   case enc {
-    algorithm.AesGcm(_) -> 16
-    algorithm.AesCbcHmac(size) -> algorithm.aes_key_size(size)
-    algorithm.ChaCha20Poly1305 | algorithm.XChaCha20Poly1305 -> 16
+    gose.AesGcm(_) -> 16
+    gose.AesCbcHmac(size) -> gose.aes_key_size(size)
+    gose.ChaCha20Poly1305 | gose.XChaCha20Poly1305 -> 16
   }
 }
 
 pub fn validate_iv_tag_sizes(
-  enc: algorithm.ContentAlg,
+  enc: gose.ContentAlg,
   iv iv: BitArray,
   tag tag: BitArray,
 ) -> Result(Nil, gose.GoseError) {
@@ -63,11 +62,11 @@ pub fn validate_iv_tag_sizes(
   Ok(Nil)
 }
 
-pub fn generate_cek(enc: algorithm.ContentAlg) -> BitArray {
-  crypto.random_bytes(algorithm.content_alg_key_size(enc))
+pub fn generate_cek(enc: gose.ContentAlg) -> BitArray {
+  crypto.random_bytes(gose.content_alg_key_size(enc))
 }
 
-pub fn generate_iv(enc: algorithm.ContentAlg) -> BitArray {
+pub fn generate_iv(enc: gose.ContentAlg) -> BitArray {
   crypto.random_bytes(iv_size(enc))
 }
 
@@ -89,34 +88,34 @@ pub fn build_jwe_aad(
 }
 
 pub fn aes_block_for_size(
-  size: algorithm.AesKeySize,
+  size: gose.AesKeySize,
 ) -> fn(BitArray) -> Result(block.BlockCipher, Nil) {
   case size {
-    algorithm.Aes128 -> block.aes_128
-    algorithm.Aes192 -> block.aes_192
-    algorithm.Aes256 -> block.aes_256
+    gose.Aes128 -> block.aes_128
+    gose.Aes192 -> block.aes_192
+    gose.Aes256 -> block.aes_256
   }
 }
 
-pub fn hash_for_aes_size(size: algorithm.AesKeySize) -> hash.HashAlgorithm {
+pub fn hash_for_aes_size(size: gose.AesKeySize) -> hash.HashAlgorithm {
   case size {
-    algorithm.Aes128 -> hash.Sha256
-    algorithm.Aes192 -> hash.Sha384
-    algorithm.Aes256 -> hash.Sha512
+    gose.Aes128 -> hash.Sha256
+    gose.Aes192 -> hash.Sha384
+    gose.Aes256 -> hash.Sha512
   }
 }
 
 pub fn encrypt_content(
-  enc: algorithm.ContentAlg,
+  enc: gose.ContentAlg,
   cek cek: BitArray,
   iv iv: BitArray,
   aad aad: BitArray,
   plaintext plaintext: BitArray,
 ) -> Result(#(BitArray, BitArray), gose.GoseError) {
   case enc {
-    algorithm.AesGcm(size) ->
+    gose.AesGcm(size) ->
       encrypt_aes_gcm(cek, iv, aad, plaintext, aes_block_for_size(size))
-    algorithm.AesCbcHmac(size) ->
+    gose.AesCbcHmac(size) ->
       encrypt_aes_cbc_hmac(
         cek,
         iv,
@@ -125,7 +124,7 @@ pub fn encrypt_content(
         hash_for_aes_size(size),
         size,
       )
-    algorithm.ChaCha20Poly1305 ->
+    gose.ChaCha20Poly1305 ->
       encrypt_chacha20_variant(
         cek:,
         iv:,
@@ -134,7 +133,7 @@ pub fn encrypt_content(
         using: aead.chacha20_poly1305,
         variant: "ChaCha20-Poly1305",
       )
-    algorithm.XChaCha20Poly1305 ->
+    gose.XChaCha20Poly1305 ->
       encrypt_chacha20_variant(
         cek:,
         iv:,
@@ -147,7 +146,7 @@ pub fn encrypt_content(
 }
 
 pub fn decrypt_content(
-  enc: algorithm.ContentAlg,
+  enc: gose.ContentAlg,
   cek cek: BitArray,
   iv iv: BitArray,
   aad aad: BitArray,
@@ -155,9 +154,9 @@ pub fn decrypt_content(
   tag tag: BitArray,
 ) -> Result(BitArray, gose.GoseError) {
   case enc {
-    algorithm.AesGcm(size) ->
+    gose.AesGcm(size) ->
       decrypt_aes_gcm(cek, iv, aad, ciphertext, tag, aes_block_for_size(size))
-    algorithm.AesCbcHmac(size) ->
+    gose.AesCbcHmac(size) ->
       decrypt_aes_cbc_hmac(
         cek,
         iv,
@@ -167,7 +166,7 @@ pub fn decrypt_content(
         hash_for_aes_size(size),
         size,
       )
-    algorithm.ChaCha20Poly1305 ->
+    gose.ChaCha20Poly1305 ->
       decrypt_chacha20_variant(
         cek:,
         iv:,
@@ -177,7 +176,7 @@ pub fn decrypt_content(
         using: aead.chacha20_poly1305,
         variant: "ChaCha20-Poly1305",
       )
-    algorithm.XChaCha20Poly1305 ->
+    gose.XChaCha20Poly1305 ->
       decrypt_chacha20_variant(
         cek:,
         iv:,
@@ -261,7 +260,7 @@ fn decrypt_chacha20_variant(
 }
 
 pub fn aes_cipher(
-  size: algorithm.AesKeySize,
+  size: gose.AesKeySize,
   key: BitArray,
 ) -> Result(block.BlockCipher, gose.GoseError) {
   aes_block_for_size(size)(key)
@@ -290,9 +289,9 @@ fn encrypt_aes_cbc_hmac(
   aad: BitArray,
   plaintext: BitArray,
   hash_alg: hash.HashAlgorithm,
-  size: algorithm.AesKeySize,
+  size: gose.AesKeySize,
 ) -> Result(#(BitArray, BitArray), gose.GoseError) {
-  let half = algorithm.aes_key_size(size)
+  let half = gose.aes_key_size(size)
   use #(mac_key, enc_key) <- result.try(split_cek(cek, half))
 
   use cipher <- result.try(aes_cipher(size, enc_key))
@@ -328,9 +327,9 @@ fn decrypt_aes_cbc_hmac(
   ciphertext: BitArray,
   tag: BitArray,
   hash_alg: hash.HashAlgorithm,
-  size: algorithm.AesKeySize,
+  size: gose.AesKeySize,
 ) -> Result(BitArray, gose.GoseError) {
-  let half = algorithm.aes_key_size(size)
+  let half = gose.aes_key_size(size)
   use #(mac_key, enc_key) <- result.try(split_cek(cek, half))
 
   let aad_len = bit_array.byte_size(aad)

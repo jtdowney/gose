@@ -94,12 +94,11 @@ Browser JavaScript is not supported.
 import gleam/dynamic/decode
 import gleam/time/duration
 import gleam/time/timestamp
-import gose/algorithm
+import gose
 import gose/jose/jwt
-import gose/key
 
 pub fn main() {
-  let signing_key = key.generate_hmac_key(algorithm.HmacSha256)
+  let signing_key = gose.generate_hmac_key(gose.HmacSha256)
   let now = timestamp.system_time()
 
   let claims =
@@ -109,11 +108,11 @@ pub fn main() {
     |> jwt.with_expiration(timestamp.add(now, duration.hours(1)))
 
   let assert Ok(signed) =
-    jwt.sign(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), claims:, key: signing_key)
+    jwt.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), claims:, key: signing_key)
   let token = jwt.serialize(signed)
 
   let assert Ok(verifier) =
-    jwt.verifier(algorithm.Mac(algorithm.Hmac(algorithm.HmacSha256)), keys: [signing_key], options: jwt.default_validation())
+    jwt.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), keys: [signing_key], options: jwt.default_validation())
   let assert Ok(verified) = jwt.verify_and_validate(verifier, token, now)
 
   let decoder = decode.field("sub", decode.string, decode.success)
@@ -124,22 +123,21 @@ pub fn main() {
 ### JWE
 
 ```gleam
-import gose/algorithm
+import gose
 import gose/jose/jwe
-import gose/key
 
 pub fn main() {
-  let encryption_key = key.generate_enc_key(algorithm.AesGcm(algorithm.Aes256))
+  let encryption_key = gose.generate_enc_key(gose.AesGcm(gose.Aes256))
   let plaintext = <<"sensitive data":utf8>>
 
   let assert Ok(encrypted) =
-    jwe.new_direct(algorithm.AesGcm(algorithm.Aes256))
+    jwe.new_direct(gose.AesGcm(gose.Aes256))
     |> jwe.encrypt(key: encryption_key, plaintext:)
 
   let assert Ok(token) = jwe.serialize_compact(encrypted)
 
   let assert Ok(parsed) = jwe.parse_compact(token)
-  let assert Ok(decryptor) = jwe.key_decryptor(algorithm.Direct, algorithm.AesGcm(algorithm.Aes256), keys: [encryption_key])
+  let assert Ok(decryptor) = jwe.key_decryptor(gose.Direct, gose.AesGcm(gose.Aes256), keys: [encryption_key])
   let assert Ok(decrypted) = jwe.decrypt(decryptor, parsed)
   assert decrypted == <<"sensitive data":utf8>>
 }
@@ -148,23 +146,22 @@ pub fn main() {
 ### COSE_Sign1
 
 ```gleam
-import gose/algorithm
+import gose
 import gose/cose/sign1
-import gose/key
 import kryptos/ec
 
 pub fn main() {
-  let signing_key = key.generate_ec(ec.P256)
+  let signing_key = gose.generate_ec(ec.P256)
   let payload = <<"hello COSE":utf8>>
 
   let assert Ok(signed) =
-    sign1.new(algorithm.Ecdsa(algorithm.EcdsaP256))
+    sign1.new(gose.Ecdsa(gose.EcdsaP256))
     |> sign1.sign(signing_key, payload)
   let data = sign1.serialize(signed)
 
   let assert Ok(parsed) = sign1.parse(data)
   let assert Ok(verifier) =
-    sign1.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [signing_key])
+    sign1.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [signing_key])
   let assert Ok(Nil) = sign1.verify(verifier, parsed)
   assert sign1.payload(parsed) == Ok(payload)
 }
@@ -175,13 +172,12 @@ pub fn main() {
 ```gleam
 import gleam/time/duration
 import gleam/time/timestamp
-import gose/algorithm
+import gose
 import gose/cose/cwt
-import gose/key
 import kryptos/ec
 
 pub fn main() {
-  let signing_key = key.generate_ec(ec.P256)
+  let signing_key = gose.generate_ec(ec.P256)
   let now = timestamp.system_time()
 
   let claims =
@@ -191,10 +187,10 @@ pub fn main() {
     |> cwt.with_expiration(timestamp.add(now, duration.hours(1)))
 
   let assert Ok(token) =
-    cwt.sign(claims, alg: algorithm.Ecdsa(algorithm.EcdsaP256), key: signing_key)
+    cwt.sign(claims, alg: gose.Ecdsa(gose.EcdsaP256), key: signing_key)
 
   let assert Ok(verifier) =
-    cwt.verifier(algorithm.Ecdsa(algorithm.EcdsaP256), keys: [signing_key])
+    cwt.verifier(gose.Ecdsa(gose.EcdsaP256), keys: [signing_key])
   let assert Ok(verified) = cwt.verify_and_validate(verifier, token:, now:)
   let verified_claims = cwt.verified_claims(verified)
   let assert Ok(subject) = cwt.subject(verified_claims)
