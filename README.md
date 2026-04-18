@@ -33,6 +33,8 @@ A Gleam implementation of JOSE (JSON Object Signing and Encryption) and COSE (CB
 
 My professional opinion as a long-time security engineering practitioner is that you should basically never use these algorithms in a greenfield system. This library was created for the purpose of integrating with existing systems that already use these standards (like ACME or Webauthn).
 
+If you just need a simple encrypted token format (e.g. session cookies, short-lived capability tokens), consider [amaro](https://hex.pm/packages/amaro) instead. It provides Fernet and Branca tokens with far fewer footguns than JOSE/COSE.
+
 ## Installation
 
 ```sh
