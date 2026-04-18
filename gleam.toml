@@ -1,5 +1,5 @@
 name = "gose"
-version = "2.0.0"
+version = "2.1.0"
 description = "Gleam implementation of JOSE (JWS, JWE, JWK, JWT) and COSE (COSE_Sign, COSE_Encrypt, COSE_Mac0, CWT) standards"
 licences = ["Apache-2.0"]
 repository = { type = "github", user = "jtdowney", repo = "gose" }
