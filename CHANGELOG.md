@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+#### COSE (RFC 9052 / 9053)
+
+- COSE_Sign1 single-signer messages (`gose/cose/sign1`)
+- COSE_Sign multi-signer messages (`gose/cose/sign`)
+- COSE_Encrypt0 single-recipient messages (`gose/cose/encrypt0`)
+- COSE_Encrypt multi-recipient messages (`gose/cose/encrypt`)
+- COSE_Mac0 messages (`gose/cose/mac0`)
+- COSE_Key serialization (`gose/cose/key`)
+- COSE algorithm identifiers (`gose/cose/algorithm`)
+- CBOR Web Token, RFC 8392 (`gose/cose/cwt`)
+- Encrypt0-wrapped CWT (`gose/cose/encrypted_cwt`)
+- CBOR encoder/decoder used by the COSE stack (`gose/cbor`)
+
+#### JOSE
+
+- JWS JSON Serialization for multi-signer workflows (`gose/jose/jws_multi`)
+- JWE JSON Serialization for multi-recipient workflows (`gose/jose/jwe_multi`)
+
+### Changed
+
+This is a major release; every item in this section is a breaking change.
+
+- JOSE modules moved under the `gose/jose/` namespace (`gose/jws` to
+  `gose/jose/jws`, `gose/jwe` to `gose/jose/jwe`, `gose/jwt` to
+  `gose/jose/jwt`, `gose/encrypted_jwt` to `gose/jose/encrypted_jwt`)
+- `gose/jwa` split into `gose/algorithm` (shared algorithm identifiers)
+  and `gose/jose/algorithm` (JOSE string conversions)
+- `gose/jwk` split into `gose/key` (key material and generation) and
+  `gose/jose/jwk` (JWK JSON serialization, algorithm string conversion,
+  RFC 7638 thumbprints)
+- `gose/encrypted_jwk` renamed to `gose/jose/encrypted_key`
+- `gose/jwk_set` renamed to `gose/jose/key_set`
+- `gose.GoseError` gains a `VerificationFailed` variant. Signature and
+  MAC verification failures now return this variant instead of a
+  `CryptoError` with a descriptive string.
+- `jws.verify` and `jws.verify_detached` now return
+  `Result(Nil, GoseError)` instead of the previous verified-JWS value
+- `jwt.sign` and `cwt.sign` now take labeled arguments
+  (`alg:`, `key:`, `options:`)
+- `cose/cwt.CwtError` gains an `InvalidSignature` variant. Signature
+  verification failures on a structurally valid CWT now return
+  `InvalidSignature` instead of `MalformedToken("signature verification failed")`,
+  matching `jose/jwt.JwtError`.
+
+[Unreleased]: https://github.com/jtdowney/gose/compare/v1.2.0...HEAD
+
 ## [1.2.0] - 2026-03-08
 
 ### Added

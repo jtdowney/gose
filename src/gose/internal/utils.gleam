@@ -13,7 +13,7 @@ import kryptos/xdh
 /// Decode a base64url-encoded string, returning a descriptive parse error on failure.
 pub fn decode_base64_url(
   b64: String,
-  name: String,
+  name name: String,
 ) -> Result(BitArray, gose.GoseError) {
   bit_array.base64_url_decode(b64)
   |> result.replace_error(gose.ParseError("invalid " <> name <> " base64"))
@@ -43,7 +43,7 @@ pub fn ec_curve_to_string(curve: ec.Curve) -> String {
 /// Extract x,y coordinates from an EC public key as raw big-endian bytes.
 pub fn ec_public_key_coordinates(
   public: ec.PublicKey,
-  curve: ec.Curve,
+  curve curve: ec.Curve,
 ) -> Result(#(BitArray, BitArray), gose.GoseError) {
   let coord_size = ec.coordinate_size(curve)
   let raw_point = ec.public_key_to_raw_point(public)
@@ -68,8 +68,8 @@ pub fn ec_public_key_coordinates(
 /// Create an EC public key from curve and x,y coordinates (big-endian bytes).
 pub fn ec_public_key_from_coordinates(
   curve: ec.Curve,
-  x: BitArray,
-  y: BitArray,
+  x x: BitArray,
+  y y: BitArray,
 ) -> Result(ec.PublicKey, gose.GoseError) {
   let coord_size = ec.coordinate_size(curve)
   use <- bool.guard(
@@ -86,7 +86,9 @@ pub fn ec_public_key_from_coordinates(
 }
 
 /// Parse an EdDSA curve from its JWK string representation.
-pub fn eddsa_curve_from_string(s: String) -> Result(eddsa.Curve, gose.GoseError) {
+pub fn eddsa_curve_from_string(
+  s: String,
+) -> Result(eddsa.Curve, gose.GoseError) {
   case s {
     "Ed25519" -> Ok(eddsa.Ed25519)
     "Ed448" -> Ok(eddsa.Ed448)
@@ -125,8 +127,8 @@ pub fn strip_leading_zeros(data: BitArray) -> BitArray {
 /// headers, and only includes values present in `known_extensions`.
 pub fn validate_crit_headers(
   extensions: List(String),
-  standard_headers: List(String),
-  known_extensions: List(String),
+  standard_headers standard_headers: List(String),
+  known_extensions known_extensions: List(String),
 ) -> Result(Nil, gose.GoseError) {
   let standard = set.from_list(standard_headers)
   let known = set.from_list(known_extensions)

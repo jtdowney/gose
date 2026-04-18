@@ -1,0 +1,363 @@
+//// Content encryption and decryption for JWE payloads using AES-GCM,
+//// AES-CBC-HMAC, ChaCha20-Poly1305, and XChaCha20-Poly1305.
+
+import gleam/bit_array
+import gleam/bool
+import gleam/int
+import gleam/option.{type Option}
+import gleam/result
+import gose
+import gose/algorithm
+import gose/internal/utils
+import kryptos/aead
+import kryptos/block
+import kryptos/crypto
+import kryptos/hash
+
+pub fn iv_size(enc: algorithm.ContentAlg) -> Int {
+  case enc {
+    algorithm.AesGcm(_) -> 12
+    algorithm.AesCbcHmac(_) -> 16
+    algorithm.ChaCha20Poly1305 -> 12
+    algorithm.XChaCha20Poly1305 -> 24
+  }
+}
+
+pub fn tag_size(enc: algorithm.ContentAlg) -> Int {
+  case enc {
+    algorithm.AesGcm(_) -> 16
+    algorithm.AesCbcHmac(size) -> algorithm.aes_key_size(size)
+    algorithm.ChaCha20Poly1305 | algorithm.XChaCha20Poly1305 -> 16
+  }
+}
+
+pub fn validate_iv_tag_sizes(
+  enc: algorithm.ContentAlg,
+  iv iv: BitArray,
+  tag tag: BitArray,
+) -> Result(Nil, gose.GoseError) {
+  let expected_iv = iv_size(enc)
+  let actual_iv = bit_array.byte_size(iv)
+  use <- bool.guard(
+    when: actual_iv != expected_iv,
+    return: Error(gose.ParseError(
+      "invalid IV length: expected "
+      <> int.to_string(expected_iv)
+      <> " bytes, got "
+      <> int.to_string(actual_iv),
+    )),
+  )
+
+  let expected_tag = tag_size(enc)
+  let actual_tag = bit_array.byte_size(tag)
+  use <- bool.guard(
+    when: actual_tag != expected_tag,
+    return: Error(gose.ParseError(
+      "invalid tag length: expected "
+      <> int.to_string(expected_tag)
+      <> " bytes, got "
+      <> int.to_string(actual_tag),
+    )),
+  )
+
+  Ok(Nil)
+}
+
+pub fn generate_cek(enc: algorithm.ContentAlg) -> BitArray {
+  crypto.random_bytes(algorithm.content_alg_key_size(enc))
+}
+
+pub fn generate_iv(enc: algorithm.ContentAlg) -> BitArray {
+  crypto.random_bytes(iv_size(enc))
+}
+
+pub fn build_jwe_aad(
+  protected_b64: String,
+  user_aad user_aad: Option(BitArray),
+) -> BitArray {
+  case user_aad {
+    option.None -> bit_array.from_string(protected_b64)
+    option.Some(aad) -> {
+      let aad_b64 = utils.encode_base64_url(aad)
+      bit_array.concat([
+        bit_array.from_string(protected_b64),
+        <<".":utf8>>,
+        bit_array.from_string(aad_b64),
+      ])
+    }
+  }
+}
+
+pub fn aes_block_for_size(
+  size: algorithm.AesKeySize,
+) -> fn(BitArray) -> Result(block.BlockCipher, Nil) {
+  case size {
+    algorithm.Aes128 -> block.aes_128
+    algorithm.Aes192 -> block.aes_192
+    algorithm.Aes256 -> block.aes_256
+  }
+}
+
+pub fn hash_for_aes_size(size: algorithm.AesKeySize) -> hash.HashAlgorithm {
+  case size {
+    algorithm.Aes128 -> hash.Sha256
+    algorithm.Aes192 -> hash.Sha384
+    algorithm.Aes256 -> hash.Sha512
+  }
+}
+
+pub fn encrypt_content(
+  enc: algorithm.ContentAlg,
+  cek cek: BitArray,
+  iv iv: BitArray,
+  aad aad: BitArray,
+  plaintext plaintext: BitArray,
+) -> Result(#(BitArray, BitArray), gose.GoseError) {
+  case enc {
+    algorithm.AesGcm(size) ->
+      encrypt_aes_gcm(cek, iv, aad, plaintext, aes_block_for_size(size))
+    algorithm.AesCbcHmac(size) ->
+      encrypt_aes_cbc_hmac(
+        cek,
+        iv,
+        aad,
+        plaintext,
+        hash_for_aes_size(size),
+        size,
+      )
+    algorithm.ChaCha20Poly1305 ->
+      encrypt_chacha20_variant(
+        cek:,
+        iv:,
+        aad:,
+        plaintext:,
+        using: aead.chacha20_poly1305,
+        variant: "ChaCha20-Poly1305",
+      )
+    algorithm.XChaCha20Poly1305 ->
+      encrypt_chacha20_variant(
+        cek:,
+        iv:,
+        aad:,
+        plaintext:,
+        using: aead.xchacha20_poly1305,
+        variant: "XChaCha20-Poly1305",
+      )
+  }
+}
+
+pub fn decrypt_content(
+  enc: algorithm.ContentAlg,
+  cek cek: BitArray,
+  iv iv: BitArray,
+  aad aad: BitArray,
+  ciphertext ciphertext: BitArray,
+  tag tag: BitArray,
+) -> Result(BitArray, gose.GoseError) {
+  case enc {
+    algorithm.AesGcm(size) ->
+      decrypt_aes_gcm(cek, iv, aad, ciphertext, tag, aes_block_for_size(size))
+    algorithm.AesCbcHmac(size) ->
+      decrypt_aes_cbc_hmac(
+        cek,
+        iv,
+        aad,
+        ciphertext,
+        tag,
+        hash_for_aes_size(size),
+        size,
+      )
+    algorithm.ChaCha20Poly1305 ->
+      decrypt_chacha20_variant(
+        cek:,
+        iv:,
+        aad:,
+        ciphertext:,
+        tag:,
+        using: aead.chacha20_poly1305,
+        variant: "ChaCha20-Poly1305",
+      )
+    algorithm.XChaCha20Poly1305 ->
+      decrypt_chacha20_variant(
+        cek:,
+        iv:,
+        aad:,
+        ciphertext:,
+        tag:,
+        using: aead.xchacha20_poly1305,
+        variant: "XChaCha20-Poly1305",
+      )
+  }
+}
+
+fn encrypt_aes_gcm(
+  cek: BitArray,
+  iv: BitArray,
+  aad: BitArray,
+  plaintext: BitArray,
+  cipher_fn: fn(BitArray) -> Result(block.BlockCipher, Nil),
+) -> Result(#(BitArray, BitArray), gose.GoseError) {
+  use cipher <- result.try(
+    cipher_fn(cek)
+    |> result.replace_error(gose.CryptoError("invalid CEK size for AES-GCM")),
+  )
+  let ctx = aead.gcm(cipher)
+  aead.seal_with_aad(ctx, nonce: iv, plaintext:, additional_data: aad)
+  |> result.replace_error(gose.CryptoError("AES-GCM encryption failed"))
+}
+
+fn decrypt_aes_gcm(
+  cek: BitArray,
+  iv: BitArray,
+  aad: BitArray,
+  ciphertext: BitArray,
+  tag: BitArray,
+  cipher_fn: fn(BitArray) -> Result(block.BlockCipher, Nil),
+) -> Result(BitArray, gose.GoseError) {
+  use cipher <- result.try(
+    cipher_fn(cek)
+    |> result.replace_error(gose.CryptoError("invalid CEK size for AES-GCM")),
+  )
+  let ctx = aead.gcm(cipher)
+  aead.open_with_aad(ctx, nonce: iv, tag:, ciphertext:, additional_data: aad)
+  |> result.replace_error(gose.CryptoError("AES-GCM decryption failed"))
+}
+
+fn encrypt_chacha20_variant(
+  cek cek: BitArray,
+  iv iv: BitArray,
+  aad aad: BitArray,
+  plaintext plaintext: BitArray,
+  using cipher_fn: fn(BitArray) -> Result(aead.AeadContext, Nil),
+  variant variant_name: String,
+) -> Result(#(BitArray, BitArray), gose.GoseError) {
+  use ctx <- result.try(
+    cipher_fn(cek)
+    |> result.replace_error(gose.CryptoError(
+      "invalid key size for " <> variant_name,
+    )),
+  )
+  aead.seal_with_aad(ctx, nonce: iv, plaintext:, additional_data: aad)
+  |> result.replace_error(gose.CryptoError(variant_name <> " encryption failed"))
+}
+
+fn decrypt_chacha20_variant(
+  cek cek: BitArray,
+  iv iv: BitArray,
+  aad aad: BitArray,
+  ciphertext ciphertext: BitArray,
+  tag tag: BitArray,
+  using cipher_fn: fn(BitArray) -> Result(aead.AeadContext, Nil),
+  variant variant_name: String,
+) -> Result(BitArray, gose.GoseError) {
+  use ctx <- result.try(
+    cipher_fn(cek)
+    |> result.replace_error(gose.CryptoError(
+      "invalid key size for " <> variant_name,
+    )),
+  )
+  aead.open_with_aad(ctx, nonce: iv, tag:, ciphertext:, additional_data: aad)
+  |> result.replace_error(gose.CryptoError(variant_name <> " decryption failed"))
+}
+
+pub fn aes_cipher(
+  size: algorithm.AesKeySize,
+  key: BitArray,
+) -> Result(block.BlockCipher, gose.GoseError) {
+  aes_block_for_size(size)(key)
+  |> result.replace_error(gose.CryptoError("failed to create AES cipher"))
+}
+
+fn split_cek(
+  cek: BitArray,
+  key_size: Int,
+) -> Result(#(BitArray, BitArray), gose.GoseError) {
+  case cek {
+    <<mk:bytes-size(key_size), ek:bytes-size(key_size)>> -> Ok(#(mk, ek))
+    _ ->
+      Error(gose.CryptoError(
+        "invalid CEK size for AES-CBC-HMAC: expected "
+        <> int.to_string(key_size * 2)
+        <> " bytes, got "
+        <> int.to_string(bit_array.byte_size(cek)),
+      ))
+  }
+}
+
+fn encrypt_aes_cbc_hmac(
+  cek: BitArray,
+  iv: BitArray,
+  aad: BitArray,
+  plaintext: BitArray,
+  hash_alg: hash.HashAlgorithm,
+  size: algorithm.AesKeySize,
+) -> Result(#(BitArray, BitArray), gose.GoseError) {
+  let half = algorithm.aes_key_size(size)
+  use #(mac_key, enc_key) <- result.try(split_cek(cek, half))
+
+  use cipher <- result.try(aes_cipher(size, enc_key))
+  use ctx <- result.try(
+    block.cbc(cipher, iv:)
+    |> result.replace_error(gose.CryptoError("invalid IV for AES-CBC")),
+  )
+  use ciphertext <- result.try(
+    block.encrypt(ctx, plaintext)
+    |> result.replace_error(gose.CryptoError("AES-CBC encryption failed")),
+  )
+
+  let aad_len = bit_array.byte_size(aad)
+  let al = <<{ aad_len * 8 }:size(64)>>
+  let mac_input = bit_array.concat([aad, iv, ciphertext, al])
+
+  use full_mac <- result.try(
+    crypto.hmac(hash_alg, key: mac_key, data: mac_input)
+    |> result.replace_error(gose.CryptoError("HMAC computation failed")),
+  )
+
+  let tag_size = bit_array.byte_size(full_mac) / 2
+  case bit_array.slice(full_mac, 0, tag_size) {
+    Ok(tag) -> Ok(#(ciphertext, tag))
+    Error(_) -> Error(gose.CryptoError("tag extraction failed"))
+  }
+}
+
+fn decrypt_aes_cbc_hmac(
+  cek: BitArray,
+  iv: BitArray,
+  aad: BitArray,
+  ciphertext: BitArray,
+  tag: BitArray,
+  hash_alg: hash.HashAlgorithm,
+  size: algorithm.AesKeySize,
+) -> Result(BitArray, gose.GoseError) {
+  let half = algorithm.aes_key_size(size)
+  use #(mac_key, enc_key) <- result.try(split_cek(cek, half))
+
+  let aad_len = bit_array.byte_size(aad)
+  let al = <<{ aad_len * 8 }:size(64)>>
+  let mac_input = bit_array.concat([aad, iv, ciphertext, al])
+
+  use full_mac <- result.try(
+    crypto.hmac(hash_alg, key: mac_key, data: mac_input)
+    |> result.replace_error(gose.CryptoError("HMAC computation failed")),
+  )
+
+  let tag_size = bit_array.byte_size(full_mac) / 2
+  use expected_tag <- result.try(
+    bit_array.slice(full_mac, 0, tag_size)
+    |> result.replace_error(gose.CryptoError("tag extraction failed")),
+  )
+
+  use <- bool.guard(
+    when: !crypto.constant_time_equal(tag, expected_tag),
+    return: Error(gose.CryptoError("authentication tag mismatch")),
+  )
+
+  use cipher <- result.try(aes_cipher(size, enc_key))
+  case block.cbc(cipher, iv:) {
+    Ok(ctx) ->
+      block.decrypt(ctx, ciphertext)
+      |> result.replace_error(gose.CryptoError("AES-CBC decryption failed"))
+    Error(_) -> Error(gose.CryptoError("invalid IV for AES-CBC"))
+  }
+}
