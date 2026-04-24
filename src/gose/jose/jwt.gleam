@@ -544,7 +544,9 @@ pub fn verify_and_validate(
   Ok(jwt)
 }
 
-fn parse_jws(token: String) -> Result(jws.Jws(jws.Signed, jws.Parsed), JwtError) {
+fn parse_jws(
+  token: String,
+) -> Result(jws.Jws(jws.Signed, jws.Parsed), JwtError) {
   jws.parse_compact(token)
   |> result.map_error(gose_error_to_malformed_token_error)
 }

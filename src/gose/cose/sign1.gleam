@@ -280,13 +280,19 @@ pub fn with_detached(message: Sign1(Unsigned)) -> Sign1(Unsigned) {
 }
 
 /// Set external additional authenticated data (AAD) for the signing operation.
-pub fn with_aad(message: Sign1(Unsigned), aad aad: BitArray) -> Sign1(Unsigned) {
+pub fn with_aad(
+  message: Sign1(Unsigned),
+  aad aad: BitArray,
+) -> Sign1(Unsigned) {
   let assert UnsignedSign1(..) = message
   UnsignedSign1(..message, aad:)
 }
 
 /// Add a key ID to the unprotected headers.
-pub fn with_kid(message: Sign1(Unsigned), kid kid: BitArray) -> Sign1(Unsigned) {
+pub fn with_kid(
+  message: Sign1(Unsigned),
+  kid kid: BitArray,
+) -> Sign1(Unsigned) {
   let assert UnsignedSign1(unprotected:, ..) = message
   UnsignedSign1(..message, unprotected: [cose.Kid(kid), ..unprotected])
 }
@@ -359,7 +365,9 @@ fn build_sig_structure(
   )
 }
 
-fn parse_cbor_value(value: cbor.Value) -> Result(Sign1(Signed), gose.GoseError) {
+fn parse_cbor_value(
+  value: cbor.Value,
+) -> Result(Sign1(Signed), gose.GoseError) {
   use items <- result.try(cose_structure.parse_cose_array_value(
     value,
     expected_tag: 18,

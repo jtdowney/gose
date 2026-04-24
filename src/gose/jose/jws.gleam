@@ -263,7 +263,10 @@ pub fn verifier(
 }
 
 /// Set the content type (cty) header parameter.
-pub fn with_cty(jws: Jws(Unsigned, Built), cty: String) -> Jws(Unsigned, Built) {
+pub fn with_cty(
+  jws: Jws(Unsigned, Built),
+  cty: String,
+) -> Jws(Unsigned, Built) {
   map_unsigned_header(jws, fn(h) { JwsHeader(..h, cty: option.Some(cty)) })
 }
 
@@ -314,12 +317,18 @@ pub fn with_header(
 }
 
 /// Set the key ID (kid) header parameter.
-pub fn with_kid(jws: Jws(Unsigned, Built), kid: String) -> Jws(Unsigned, Built) {
+pub fn with_kid(
+  jws: Jws(Unsigned, Built),
+  kid: String,
+) -> Jws(Unsigned, Built) {
   map_unsigned_header(jws, fn(h) { JwsHeader(..h, kid: option.Some(kid)) })
 }
 
 /// Set the type (typ) header parameter (e.g., "JWT").
-pub fn with_typ(jws: Jws(Unsigned, Built), typ: String) -> Jws(Unsigned, Built) {
+pub fn with_typ(
+  jws: Jws(Unsigned, Built),
+  typ: String,
+) -> Jws(Unsigned, Built) {
   map_unsigned_header(jws, fn(h) { JwsHeader(..h, typ: option.Some(typ)) })
 }
 

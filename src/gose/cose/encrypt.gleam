@@ -127,7 +127,9 @@ pub opaque type Decryptor {
 }
 
 /// Create a new COSE_Encrypt message with the given content encryption algorithm.
-pub fn new(enc: gose.ContentAlg) -> Result(Encrypt(Unencrypted), gose.GoseError) {
+pub fn new(
+  enc: gose.ContentAlg,
+) -> Result(Encrypt(Unencrypted), gose.GoseError) {
   use alg_id <- result.try(cose.content_alg_to_int(enc))
   Ok(
     UnencryptedEncrypt(

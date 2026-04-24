@@ -169,7 +169,9 @@ fn resolve_ecdsa_params(alg: gose.EcdsaAlg) -> #(hash.HashAlgorithm, ec.Curve) {
   }
 }
 
-fn resolve_hmac_params(alg: gose.HmacAlg) -> #(hash.HashAlgorithm, Int, String) {
+fn resolve_hmac_params(
+  alg: gose.HmacAlg,
+) -> #(hash.HashAlgorithm, Int, String) {
   case alg {
     gose.HmacSha256 -> #(hash.Sha256, 32, "HS256")
     gose.HmacSha384 -> #(hash.Sha384, 48, "HS384")

@@ -176,7 +176,9 @@ pub fn ec_curve(key: gose.Key(kid)) -> Result(ec.Curve, gose.GoseError) {
 }
 
 @deprecated("use gose.ec_public_key")
-pub fn ec_public_key(key: gose.Key(kid)) -> Result(ec.PublicKey, gose.GoseError) {
+pub fn ec_public_key(
+  key: gose.Key(kid),
+) -> Result(ec.PublicKey, gose.GoseError) {
   gose.ec_public_key(key)
 }
 

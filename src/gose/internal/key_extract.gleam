@@ -13,7 +13,9 @@ pub fn rsa_private_key(
   }
 }
 
-pub fn rsa_public_key(material: gose.KeyMaterial) -> Result(rsa.PublicKey, Nil) {
+pub fn rsa_public_key(
+  material: gose.KeyMaterial,
+) -> Result(rsa.PublicKey, Nil) {
   case material {
     gose.Rsa(gose.RsaPrivate(public:, ..)) -> Ok(public)
     gose.Rsa(gose.RsaPublic(key: public)) -> Ok(public)

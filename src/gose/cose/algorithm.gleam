@@ -35,7 +35,9 @@ pub fn signing_alg_to_int(alg: gose.SigningAlg) -> Int {
 }
 
 @deprecated("use gose/cose.signing_alg_from_int")
-pub fn signing_alg_from_int(id: Int) -> Result(gose.SigningAlg, gose.GoseError) {
+pub fn signing_alg_from_int(
+  id: Int,
+) -> Result(gose.SigningAlg, gose.GoseError) {
   cose.signing_alg_from_int(id)
 }
 
@@ -59,6 +61,8 @@ pub fn content_alg_to_int(alg: gose.ContentAlg) -> Result(Int, gose.GoseError) {
 }
 
 @deprecated("use gose/cose.content_alg_from_int")
-pub fn content_alg_from_int(id: Int) -> Result(gose.ContentAlg, gose.GoseError) {
+pub fn content_alg_from_int(
+  id: Int,
+) -> Result(gose.ContentAlg, gose.GoseError) {
   cose.content_alg_from_int(id)
 }

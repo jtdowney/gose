@@ -165,7 +165,9 @@ pub fn headers_from_cbor(
 }
 
 @internal
-pub fn headers_to_cbor(headers: List(Header)) -> List(#(cbor.Value, cbor.Value)) {
+pub fn headers_to_cbor(
+  headers: List(Header),
+) -> List(#(cbor.Value, cbor.Value)) {
   list.map(headers, header_to_cbor)
 }
 
@@ -943,7 +945,9 @@ pub fn signing_alg_to_int(alg: gose.SigningAlg) -> Int {
 }
 
 /// Parse a signing algorithm from its COSE integer identifier.
-pub fn signing_alg_from_int(id: Int) -> Result(gose.SigningAlg, gose.GoseError) {
+pub fn signing_alg_from_int(
+  id: Int,
+) -> Result(gose.SigningAlg, gose.GoseError) {
   case signature_alg_from_int(id) {
     Ok(alg) -> Ok(gose.DigitalSignature(alg))
     Error(_) ->
@@ -1033,7 +1037,9 @@ pub fn content_alg_to_int(alg: gose.ContentAlg) -> Result(Int, gose.GoseError) {
 }
 
 /// Parse a content encryption algorithm from its COSE integer identifier.
-pub fn content_alg_from_int(id: Int) -> Result(gose.ContentAlg, gose.GoseError) {
+pub fn content_alg_from_int(
+  id: Int,
+) -> Result(gose.ContentAlg, gose.GoseError) {
   case id {
     1 -> Ok(gose.AesGcm(gose.Aes128))
     2 -> Ok(gose.AesGcm(gose.Aes192))

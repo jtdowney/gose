@@ -452,7 +452,9 @@ fn eddsa_public_key_internal(public: eddsa.PublicKey) -> Key(kid) {
   new_key(Edwards(EddsaPublic(key: public, curve:)))
 }
 
-fn rsa_private_key_internal(pair: #(rsa.PrivateKey, rsa.PublicKey)) -> Key(kid) {
+fn rsa_private_key_internal(
+  pair: #(rsa.PrivateKey, rsa.PublicKey),
+) -> Key(kid) {
   let #(private, public) = pair
   new_key(Rsa(RsaPrivate(key: private, public:)))
 }
@@ -819,7 +821,10 @@ pub fn with_key_ops(
 /// the specified use, or if the use is incompatible with the key type per RFC
 /// 8037 (EdDSA keys can only be used for signing, XDH keys can only be used for
 /// encryption).
-pub fn with_key_use(key: Key(kid), use_: KeyUse) -> Result(Key(kid), GoseError) {
+pub fn with_key_use(
+  key: Key(kid),
+  use_: KeyUse,
+) -> Result(Key(kid), GoseError) {
   use _ <- result.try(validate_key_use_ops(option.Some(use_), key.key_ops))
   use _ <- result.try(validate_rfc8037_key_use(key.material, option.Some(use_)))
   Ok(Key(..key, key_use: option.Some(use_)))

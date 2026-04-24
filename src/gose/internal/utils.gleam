@@ -41,7 +41,9 @@ pub fn ec_curve_to_string(curve: ec.Curve) -> String {
 }
 
 /// Parse an EdDSA curve from its JWK string representation.
-pub fn eddsa_curve_from_string(s: String) -> Result(eddsa.Curve, gose.GoseError) {
+pub fn eddsa_curve_from_string(
+  s: String,
+) -> Result(eddsa.Curve, gose.GoseError) {
   case s {
     "Ed25519" -> Ok(eddsa.Ed25519)
     "Ed448" -> Ok(eddsa.Ed448)

@@ -393,7 +393,9 @@ fn parse_key_metadata(
   Ok(#(key_use, key_ops, alg))
 }
 
-fn parse_key_ops(ops: List(String)) -> Result(List(gose.KeyOp), gose.GoseError) {
+fn parse_key_ops(
+  ops: List(String),
+) -> Result(List(gose.KeyOp), gose.GoseError) {
   use <- bool.guard(
     when: list.is_empty(ops),
     return: Error(gose.ParseError("key_ops must not be empty")),
