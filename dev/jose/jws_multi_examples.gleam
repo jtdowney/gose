@@ -15,6 +15,7 @@ pub fn main() {
 
   two_signers()
   single_signer_json()
+  unencoded_payload()
 
   io.println(string.repeat("=", 60))
   io.println("All JWS multi-signer examples completed!")
@@ -88,5 +89,36 @@ fn single_signer_json() {
     jws_multi.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), keys: [hmac_key])
   let assert Ok(Nil) = jws_multi.verify(verifier, parsed)
   io.println("HMAC signature verified")
+  io.println("")
+}
+
+fn unencoded_payload() {
+  io.println("--- Unencoded Payload (b64=false, RFC 7797) ---")
+
+  let hmac_key = gose.generate_hmac_key(gose.HmacSha256)
+  let ed_key = gose.generate_eddsa(eddsa.Ed25519)
+  let payload = <<"$.02":utf8>>
+
+  let assert Ok(body) =
+    jws_multi.new(payload:)
+    |> jws_multi.with_unencoded
+    |> jws_multi.sign(gose.Mac(gose.Hmac(gose.HmacSha256)), key: hmac_key)
+  let assert Ok(body) =
+    body
+    |> jws_multi.sign(gose.DigitalSignature(gose.Eddsa), key: ed_key)
+
+  let message = jws_multi.assemble(body)
+  let json_str = jws_multi.serialize_json(message) |> json.to_string
+  io.println("JWS JSON (payload appears literally):")
+  io.println(json_str)
+
+  let assert Ok(parsed) = jws_multi.parse_json(json_str)
+  let assert Ok(verifier) =
+    jws_multi.verifier(gose.Mac(gose.Hmac(gose.HmacSha256)), keys: [hmac_key])
+  let assert Ok(Nil) = jws_multi.verify(verifier, parsed)
+  io.println("HMAC signature verified over the unencoded payload")
+
+  let assert Ok(text) = bit_array.to_string(jws_multi.payload(parsed))
+  io.println("Payload: " <> text)
   io.println("")
 }

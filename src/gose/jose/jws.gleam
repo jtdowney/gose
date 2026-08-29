@@ -136,6 +136,7 @@ import gleam/result
 import gleam/set
 import gleam/string
 import gose
+import gose/internal/jws_payload
 import gose/internal/key_helpers
 import gose/internal/signing
 import gose/internal/utils
@@ -170,7 +171,7 @@ type JwsHeader {
 type ParsedHeader {
   ParsedHeader(
     header: JwsHeader,
-    unencoded_payload: Bool,
+    encoding: jws_payload.Encoding,
     header_raw: Option(decode.Dynamic),
     custom_keys: set.Set(String),
   )
@@ -187,7 +188,7 @@ pub opaque type Jws(state, origin) {
     header: JwsHeader,
     payload: BitArray,
     detached: Bool,
-    unencoded_payload: Bool,
+    encoding: jws_payload.Encoding,
     unprotected: dict.Dict(String, json.Json),
   )
   SignedJws(
@@ -195,7 +196,7 @@ pub opaque type Jws(state, origin) {
     header_raw: Option(decode.Dynamic),
     payload: BitArray,
     detached: Bool,
-    unencoded_payload: Bool,
+    encoding: jws_payload.Encoding,
     protected_b64: String,
     payload_segment: String,
     signature: BitArray,
@@ -234,7 +235,7 @@ pub fn new(alg: gose.SigningAlg) -> Jws(Unsigned, Built) {
     ),
     payload: <<>>,
     detached: False,
-    unencoded_payload: False,
+    encoding: jws_payload.Base64Url,
     unprotected: dict.new(),
   )
 }
@@ -275,20 +276,8 @@ pub fn with_cty(
 /// The payload will not be included in the serialized output, but is still
 /// provided at sign time and used for signature computation.
 pub fn with_detached(jws: Jws(Unsigned, Built)) -> Jws(Unsigned, Built) {
-  let assert UnsignedJws(
-    header:,
-    payload:,
-    unencoded_payload:,
-    unprotected:,
-    ..,
-  ) = jws
-  UnsignedJws(
-    header:,
-    payload:,
-    detached: True,
-    unencoded_payload:,
-    unprotected:,
-  )
+  let assert UnsignedJws(header:, payload:, encoding:, unprotected:, ..) = jws
+  UnsignedJws(header:, payload:, detached: True, encoding:, unprotected:)
 }
 
 /// Add a custom protected header field.
@@ -343,7 +332,7 @@ pub fn with_unencoded(jws: Jws(Unsigned, Built)) -> Jws(Unsigned, Built) {
     header:,
     payload:,
     detached:,
-    unencoded_payload: True,
+    encoding: jws_payload.Unencoded,
     unprotected:,
   )
 }
@@ -371,18 +360,13 @@ pub fn with_unprotected(
       "protected-only header cannot be in unprotected: " <> name,
     )),
   )
-  let assert UnsignedJws(
-    header:,
-    payload:,
-    detached:,
-    unencoded_payload:,
-    unprotected:,
-  ) = jws
+  let assert UnsignedJws(header:, payload:, detached:, encoding:, unprotected:) =
+    jws
   Ok(UnsignedJws(
     header:,
     payload:,
     detached:,
-    unencoded_payload:,
+    encoding:,
     unprotected: dict.insert(unprotected, name, value),
   ))
 }
@@ -391,20 +375,9 @@ fn map_unsigned_header(
   jws: Jws(Unsigned, Built),
   f: fn(JwsHeader) -> JwsHeader,
 ) -> Jws(Unsigned, Built) {
-  let assert UnsignedJws(
-    header:,
-    payload:,
-    detached:,
-    unencoded_payload:,
-    unprotected:,
-  ) = jws
-  UnsignedJws(
-    header: f(header),
-    payload:,
-    detached:,
-    unencoded_payload:,
-    unprotected:,
-  )
+  let assert UnsignedJws(header:, payload:, detached:, encoding:, unprotected:) =
+    jws
+  UnsignedJws(header: f(header), payload:, detached:, encoding:, unprotected:)
 }
 
 /// Get the algorithm (`alg`) from a JWS.
@@ -478,8 +451,8 @@ pub fn is_detached(jws: Jws(state, origin)) -> Bool {
 /// Check if the JWS uses an unencoded payload (b64=false per RFC 7797).
 pub fn has_unencoded_payload(jws: Jws(state, origin)) -> Bool {
   case jws {
-    UnsignedJws(unencoded_payload:, ..) -> unencoded_payload
-    SignedJws(unencoded_payload:, ..) -> unencoded_payload
+    UnsignedJws(encoding:, ..) -> encoding == jws_payload.Unencoded
+    SignedJws(encoding:, ..) -> encoding == jws_payload.Unencoded
   }
 }
 
@@ -518,13 +491,7 @@ pub fn sign(
   key key: gose.Key(String),
   payload payload: BitArray,
 ) -> Result(Jws(Signed, Built), gose.GoseError) {
-  let assert UnsignedJws(
-    header:,
-    detached:,
-    unencoded_payload:,
-    unprotected:,
-    ..,
-  ) = jws
+  let assert UnsignedJws(header:, detached:, encoding:, unprotected:, ..) = jws
 
   use _ <- result.try(key_helpers.validate_signing_key_type(header.alg, key))
   use _ <- result.try(key_helpers.validate_key_use(key, key_helpers.ForSigning))
@@ -534,15 +501,10 @@ pub fn sign(
     header.alg,
   ))
 
-  let protected_json = header_to_json(header, unencoded_payload)
+  let protected_json = header_to_json(header, encoding)
   let protected_b64 = utils.encode_base64_url(protected_json)
 
-  use payload_segment <- result.try(
-    encode_payload_segment(payload, unencoded_payload)
-    |> result.replace_error(gose.InvalidState(
-      "unencoded payload must be valid UTF-8",
-    )),
-  )
+  use payload_segment <- result.try(jws_payload.encode(payload:, encoding:))
   let signing_input = protected_b64 <> "." <> payload_segment
 
   use signature <- result.try(signing.compute_signature(
@@ -559,7 +521,7 @@ pub fn sign(
     payload_segment:,
     signature:,
     detached:,
-    unencoded_payload:,
+    encoding:,
     unprotected:,
     unprotected_raw: option.None,
   ))
@@ -612,13 +574,7 @@ fn do_verify_with_payload(
   payload: BitArray,
   key key: gose.Key(String),
 ) -> Result(Nil, gose.GoseError) {
-  let assert SignedJws(
-    header:,
-    protected_b64:,
-    signature:,
-    unencoded_payload:,
-    ..,
-  ) = jws
+  let assert SignedJws(header:, protected_b64:, signature:, encoding:, ..) = jws
 
   use _ <- result.try(key_helpers.validate_key_use(
     key,
@@ -633,12 +589,7 @@ fn do_verify_with_payload(
     header.alg,
   ))
 
-  use payload_segment <- result.try(
-    encode_payload_segment(payload, unencoded_payload)
-    |> result.replace_error(gose.InvalidState(
-      "unencoded payload must be valid UTF-8",
-    )),
-  )
+  use payload_segment <- result.try(jws_payload.encode(payload:, encoding:))
   let signing_input = protected_b64 <> "." <> payload_segment
   signing.verify_signature(
     header.alg,
@@ -646,36 +597,6 @@ fn do_verify_with_payload(
     message: bit_array.from_string(signing_input),
     signature:,
   )
-}
-
-fn encode_payload_segment(
-  payload: BitArray,
-  unencoded: Bool,
-) -> Result(String, Nil) {
-  case unencoded {
-    True -> bit_array.to_string(payload)
-    False -> Ok(utils.encode_base64_url(payload))
-  }
-}
-
-fn decode_payload_segment(
-  segment: String,
-  unencoded: Bool,
-) -> Result(BitArray, gose.GoseError) {
-  case unencoded {
-    True -> Ok(bit_array.from_string(segment))
-    False -> utils.decode_base64_url(segment, name: "payload")
-  }
-}
-
-fn validate_optional_crit(
-  crit: Option(List(String)),
-  b64: Option(Bool),
-) -> Result(Nil, gose.GoseError) {
-  case crit {
-    option.Some(crit_list) -> validate_crit(crit_list, b64)
-    option.None -> Ok(Nil)
-  }
 }
 
 /// Verify a JWS signature using the verifier.
@@ -776,7 +697,10 @@ fn try_verify_detached_keys(
   }
 }
 
-fn header_to_json(header: JwsHeader, unencoded_payload: Bool) -> BitArray {
+fn header_to_json(
+  header: JwsHeader,
+  encoding: jws_payload.Encoding,
+) -> BitArray {
   let alg_field = #("alg", json.string(jose.signing_alg_to_string(header.alg)))
   let optional_fields =
     option.values([
@@ -785,12 +709,12 @@ fn header_to_json(header: JwsHeader, unencoded_payload: Bool) -> BitArray {
       option.map(header.cty, fn(c) { #("cty", json.string(c)) }),
     ])
 
-  let b64_fields = case unencoded_payload {
-    True -> [
+  let b64_fields = case encoding {
+    jws_payload.Unencoded -> [
       #("b64", json.bool(False)),
       #("crit", json.array(["b64"], json.string)),
     ]
-    False -> []
+    jws_payload.Base64Url -> []
   }
 
   let custom_sorted =
@@ -850,7 +774,7 @@ pub fn serialize_compact(
     payload_segment:,
     signature:,
     detached:,
-    unencoded_payload:,
+    encoding:,
     unprotected:,
     ..,
   ) = jws
@@ -863,7 +787,7 @@ pub fn serialize_compact(
   )
 
   use <- bool.guard(
-    when: unencoded_payload
+    when: encoding == jws_payload.Unencoded
       && !detached
       && string.contains(payload_segment, "."),
     return: Error(gose.InvalidState(
@@ -999,7 +923,7 @@ fn build_signed_jws(
   sig_b64: String,
   detached: Bool,
 ) -> Result(Jws(Signed, Parsed), gose.GoseError) {
-  use ParsedHeader(header:, unencoded_payload:, header_raw:, custom_keys: _) <- result.try(
+  use ParsedHeader(header:, encoding:, header_raw:, custom_keys: _) <- result.try(
     parse_protected_header(protected_b64),
   )
   use signature <- result.try(utils.decode_base64_url(
@@ -1007,9 +931,9 @@ fn build_signed_jws(
     name: "signature",
   ))
 
-  use payload <- result.try(decode_payload_segment(
-    payload_segment,
-    unencoded_payload,
+  use payload <- result.try(jws_payload.decode(
+    segment: payload_segment,
+    encoding:,
   ))
 
   Ok(SignedJws(
@@ -1020,7 +944,7 @@ fn build_signed_jws(
     payload_segment:,
     signature:,
     detached:,
-    unencoded_payload:,
+    encoding:,
     unprotected: dict.new(),
     unprotected_raw: option.None,
   ))
@@ -1033,9 +957,6 @@ fn is_general_json_format(json_str: String) -> Bool {
   }
   json.parse(json_str, detector) |> result.is_ok
 }
-
-/// Known extensions that we support
-const known_extensions = ["b64"]
 
 fn parse_header_json(
   json_bits: BitArray,
@@ -1080,19 +1001,8 @@ fn parse_header_json(
     |> result.replace_error(gose.ParseError("invalid header JSON")),
   )
 
-  use _ <- result.try(validate_optional_crit(crit, b64))
-
-  let b64_in_crit =
-    option.map(crit, list.contains(_, "b64"))
-    |> option.unwrap(False)
-
-  use <- bool.guard(
-    when: option.is_some(b64) && !b64_in_crit,
-    return: Error(gose.ParseError("b64 header present but not in crit")),
-  )
-
+  use encoding <- result.try(jws_payload.encoding_from_headers(crit:, b64:))
   use alg <- result.try(jose.signing_alg_from_string(alg_str))
-  let unencoded_payload = b64 == option.Some(False)
 
   use all_keys <- result.try(
     decode.run(raw_dynamic, decode.dict(decode.string, decode.dynamic))
@@ -1105,7 +1015,7 @@ fn parse_header_json(
 
   Ok(ParsedHeader(
     header: JwsHeader(alg:, kid:, typ:, cty:, custom: dict.new()),
-    unencoded_payload:,
+    encoding:,
     header_raw: option.Some(raw_dynamic),
     custom_keys:,
   ))
@@ -1117,7 +1027,7 @@ fn build_signed_jws_json(
   protected_b64 protected_b64: String,
   signature signature: BitArray,
   payload_opt payload_opt: Option(String),
-  unencoded_payload unencoded_payload: Bool,
+  encoding encoding: jws_payload.Encoding,
   unprotected unprotected: dict.Dict(String, json.Json),
   unprotected_raw unprotected_raw: Option(decode.Dynamic),
 ) -> Result(Jws(Signed, Parsed), gose.GoseError) {
@@ -1125,10 +1035,7 @@ fn build_signed_jws_json(
     option.Some(p) -> #(p, False)
     option.None -> #("", True)
   }
-  use payload <- result.try(decode_payload_segment(
-    payload_b64,
-    unencoded_payload,
-  ))
+  use payload <- result.try(jws_payload.decode(segment: payload_b64, encoding:))
   Ok(SignedJws(
     header:,
     header_raw:,
@@ -1137,7 +1044,7 @@ fn build_signed_jws_json(
     payload_segment: payload_b64,
     signature:,
     detached:,
-    unencoded_payload:,
+    encoding:,
     unprotected:,
     unprotected_raw:,
   ))
@@ -1167,7 +1074,7 @@ fn parse_json_flattened(
     |> result.replace_error(gose.ParseError("invalid JWS JSON (flattened)")),
   )
 
-  use ParsedHeader(header:, unencoded_payload:, header_raw:, custom_keys:) <- result.try(
+  use ParsedHeader(header:, encoding:, header_raw:, custom_keys:) <- result.try(
     parse_protected_header(protected_b64),
   )
   use #(unprotected, unprotected_raw) <- result.try(parse_unprotected_header(
@@ -1186,7 +1093,7 @@ fn parse_json_flattened(
     protected_b64:,
     signature:,
     payload_opt:,
-    unencoded_payload:,
+    encoding:,
     unprotected:,
     unprotected_raw:,
   )
@@ -1219,7 +1126,7 @@ fn parse_json_general(
 
   case signatures {
     [#(protected_b64, sig_b64, unprotected_header_raw)] -> {
-      use ParsedHeader(header:, unencoded_payload:, header_raw:, custom_keys:) <- result.try(
+      use ParsedHeader(header:, encoding:, header_raw:, custom_keys:) <- result.try(
         parse_protected_header(protected_b64),
       )
       use #(unprotected, unprotected_raw) <- result.try(
@@ -1236,7 +1143,7 @@ fn parse_json_general(
         protected_b64:,
         signature:,
         payload_opt:,
-        unencoded_payload:,
+        encoding:,
         unprotected:,
         unprotected_raw:,
       )
@@ -1295,39 +1202,6 @@ fn signature_decoder() -> decode.Decoder(
     decode.optional(decode.dynamic),
   )
   decode.success(#(protected, signature, header_raw))
-}
-
-/// Standard JWS header parameters that must not appear in crit (RFC 7515 Section 4.1)
-const standard_headers = [
-  "alg",
-  "jku",
-  "jwk",
-  "kid",
-  "x5u",
-  "x5c",
-  "x5t",
-  "x5t#S256",
-  "typ",
-  "cty",
-  "crit",
-]
-
-fn validate_crit(
-  crit: List(String),
-  b64: Option(Bool),
-) -> Result(Nil, gose.GoseError) {
-  use _ <- result.try(utils.validate_crit_headers(
-    crit,
-    standard_headers:,
-    known_extensions:,
-  ))
-
-  let crit_set = set.from_list(crit)
-  case set.contains(crit_set, "b64") && option.is_none(b64) {
-    True ->
-      Error(gose.ParseError("b64 listed in crit but not present in header"))
-    False -> Ok(Nil)
-  }
 }
 
 /// Validate that unprotected header names don't overlap with protected header names.

@@ -55,6 +55,7 @@ import gleam/list
 import gleam/option
 import gleam/result
 import gose
+import gose/internal/jws_payload
 import gose/internal/key_helpers
 import gose/internal/signing
 import gose/internal/utils
@@ -70,14 +71,19 @@ pub type Signed
 pub opaque type Body(state) {
   Body(
     payload: BitArray,
-    payload_segment: String,
     detached: Bool,
+    encoding: jws_payload.Encoding,
     signatures: List(Signature),
   )
 }
 
 type Signature {
-  Signature(alg: gose.SigningAlg, protected_b64: String, signature: BitArray)
+  Signature(
+    alg: gose.SigningAlg,
+    protected_b64: String,
+    signature: BitArray,
+    encoding: jws_payload.Encoding,
+  )
 }
 
 /// A multi-signer JWS message (JSON General Serialization).
@@ -87,6 +93,7 @@ pub opaque type MultiJws {
     payload_segment: String,
     signatures: List(Signature),
     detached: Bool,
+    encoding: jws_payload.Encoding,
   )
 }
 
@@ -99,8 +106,8 @@ pub opaque type Verifier {
 pub fn new(payload payload: BitArray) -> Body(Building) {
   Body(
     payload:,
-    payload_segment: utils.encode_base64_url(payload),
     detached: False,
+    encoding: jws_payload.Base64Url,
     signatures: [],
   )
 }
@@ -111,6 +118,14 @@ pub fn new(payload payload: BitArray) -> Body(Building) {
 /// verify with `verify_detached`, supplying the payload separately.
 pub fn with_detached(body: Body(Building)) -> Body(Building) {
   Body(..body, detached: True)
+}
+
+/// Mark the body as using an unencoded payload (RFC 7797, b64=false).
+///
+/// Every signature carries `"crit":["b64"],"b64":false` and the serialized
+/// payload holds the literal text. Signing fails unless it is valid UTF-8.
+pub fn with_unencoded(body: Body(Building)) -> Body(Building) {
+  Body(..body, encoding: jws_payload.Unencoded)
 }
 
 /// Compute a per-signer JWS signature over the body's payload and append it
@@ -126,9 +141,14 @@ pub fn sign(
   use _ <- result.try(key_helpers.validate_key_ops(key, key_helpers.ForSigning))
   use _ <- result.try(key_helpers.validate_key_algorithm_signing(key, alg))
 
-  let protected_json = simple_header_json(alg)
+  use payload_segment <- result.try(jws_payload.encode(
+    payload: body.payload,
+    encoding: body.encoding,
+  ))
+
+  let protected_json = header_json(alg, body.encoding)
   let protected_b64 = utils.encode_base64_url(protected_json)
-  let signing_input = protected_b64 <> "." <> body.payload_segment
+  let signing_input = protected_b64 <> "." <> payload_segment
 
   use sig <- result.try(signing.compute_signature(
     alg,
@@ -136,12 +156,13 @@ pub fn sign(
     message: bit_array.from_string(signing_input),
   ))
 
-  let signature = Signature(alg:, protected_b64:, signature: sig)
+  let signature =
+    Signature(alg:, protected_b64:, signature: sig, encoding: body.encoding)
   Ok(
     Body(
       payload: body.payload,
-      payload_segment: body.payload_segment,
       detached: body.detached,
+      encoding: body.encoding,
       signatures: [signature, ..body.signatures],
     ),
   )
@@ -149,11 +170,15 @@ pub fn sign(
 
 /// Finalize a signed body into a serializable multi-signer JWS.
 pub fn assemble(body: Body(Signed)) -> MultiJws {
+  let assert Ok(payload_segment) =
+    jws_payload.encode(payload: body.payload, encoding: body.encoding)
+
   MultiJws(
     payload: body.payload,
-    payload_segment: body.payload_segment,
+    payload_segment:,
     signatures: list.reverse(body.signatures),
     detached: body.detached,
+    encoding: body.encoding,
   )
 }
 
@@ -166,6 +191,11 @@ pub fn payload(message: MultiJws) -> BitArray {
 /// Check whether the message was built or parsed with a detached payload.
 pub fn is_detached(message: MultiJws) -> Bool {
   message.detached
+}
+
+/// Check if the message uses an unencoded payload (b64=false per RFC 7797).
+pub fn has_unencoded_payload(message: MultiJws) -> Bool {
+  message.encoding == jws_payload.Unencoded
 }
 
 /// Serialize as JWS JSON General Serialization. For messages built with
@@ -213,18 +243,20 @@ pub fn parse_json(json_str: String) -> Result(MultiJws, gose.GoseError) {
   )
 
   use signatures <- result.try(list.try_map(raw_sigs, parse_raw_signature))
+  use encoding <- result.try(agreed_encoding(signatures))
 
   case payload_b64_opt {
-    option.Some(payload_b64) -> {
-      use payload <- result.try(utils.decode_base64_url(
-        payload_b64,
-        name: "payload",
+    option.Some(payload_segment) -> {
+      use payload <- result.try(jws_payload.decode(
+        segment: payload_segment,
+        encoding:,
       ))
       Ok(MultiJws(
         payload:,
-        payload_segment: payload_b64,
+        payload_segment:,
         signatures:,
         detached: False,
+        encoding:,
       ))
     }
     option.None ->
@@ -233,7 +265,24 @@ pub fn parse_json(json_str: String) -> Result(MultiJws, gose.GoseError) {
         payload_segment: "",
         signatures:,
         detached: True,
+        encoding:,
       ))
+  }
+}
+
+fn agreed_encoding(
+  signatures: List(Signature),
+) -> Result(jws_payload.Encoding, gose.GoseError) {
+  case signatures {
+    [] -> Error(gose.ParseError("JWS JSON (general) has no signatures"))
+    [first, ..rest] ->
+      case list.all(rest, fn(sig) { sig.encoding == first.encoding }) {
+        True -> Ok(first.encoding)
+        False ->
+          Error(gose.ParseError(
+            "signatures disagree on b64; RFC 7797 requires a single value",
+          ))
+      }
   }
 }
 
@@ -281,7 +330,11 @@ pub fn verify_detached(
       "JWS payload is not detached; use verify instead",
     )),
   )
-  do_verify(verifier, message, utils.encode_base64_url(payload))
+  use payload_segment <- result.try(jws_payload.encode(
+    payload:,
+    encoding: message.encoding,
+  ))
+  do_verify(verifier, message, payload_segment)
 }
 
 fn do_verify(
@@ -308,8 +361,20 @@ fn do_verify(
   }
 }
 
-fn simple_header_json(alg: gose.SigningAlg) -> BitArray {
-  json.object([#("alg", json.string(jose.signing_alg_to_string(alg)))])
+fn header_json(
+  alg: gose.SigningAlg,
+  encoding: jws_payload.Encoding,
+) -> BitArray {
+  let b64_fields = case encoding {
+    jws_payload.Unencoded -> [
+      #("b64", json.bool(False)),
+      #("crit", json.array(["b64"], json.string)),
+    ]
+    jws_payload.Base64Url -> []
+  }
+
+  [#("alg", json.string(jose.signing_alg_to_string(alg))), ..b64_fields]
+  |> json.object
   |> json.to_string
   |> bit_array.from_string
 }
@@ -322,26 +387,39 @@ fn parse_raw_signature(
     protected_b64,
     name: "protected header",
   ))
-  use alg <- result.try(parse_alg_from_header(protected_bytes))
+  use #(alg, encoding) <- result.try(parse_protected_header(protected_bytes))
   use signature <- result.try(utils.decode_base64_url(
     sig_b64,
     name: "signature",
   ))
-  Ok(Signature(alg:, protected_b64:, signature:))
+  Ok(Signature(alg:, protected_b64:, signature:, encoding:))
 }
 
-fn parse_alg_from_header(
+fn parse_protected_header(
   header_bytes: BitArray,
-) -> Result(gose.SigningAlg, gose.GoseError) {
+) -> Result(#(gose.SigningAlg, jws_payload.Encoding), gose.GoseError) {
   let decoder = {
     use alg_str <- decode.field("alg", decode.string)
-    decode.success(alg_str)
+    use crit <- decode.optional_field(
+      "crit",
+      option.None,
+      decode.optional(decode.list(decode.string)),
+    )
+    use b64 <- decode.optional_field(
+      "b64",
+      option.None,
+      decode.optional(decode.bool),
+    )
+    decode.success(#(alg_str, crit, b64))
   }
-  use alg_str <- result.try(
+  use #(alg_str, crit, b64) <- result.try(
     json.parse_bits(header_bytes, decoder)
     |> result.replace_error(gose.ParseError("missing alg in protected header")),
   )
+  use encoding <- result.try(jws_payload.encoding_from_headers(crit:, b64:))
+
   jose.signing_alg_from_string(alg_str)
+  |> result.map(fn(alg) { #(alg, encoding) })
 }
 
 fn do_verify_keys(
