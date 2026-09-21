@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-09-20
+
+### Added
+
+- `gose/jose/jws_multi.with_unencoded` for signing an unencoded
+  (RFC 7797 `b64:false`) payload with multiple signatures.
+
+### Fixed
+
+- Multi-signer JWS parsing ignored the per-signature `b64` header and
+  always base64url-decoded the payload segment, while verification used
+  that segment verbatim. A `b64:false` message failed to parse, or, when
+  its literal payload was itself valid base64url, returned different
+  bytes than the signatures covered. Parsing now reads `b64` and `crit`
+  from each protected header, returns the authenticated bytes, and
+  rejects unsupported `crit` parameters, a `b64` header and `crit` list
+  that do not match, and signature sets that disagree on `b64`.
+- Compact parsing split tokens by grapheme cluster, so a `.` followed by
+  a combining mark did not register as a separator. An unencoded payload
+  beginning with a combining mark produced a token gose could not parse
+  back, and the serialization guard rejecting `.` inside such a payload
+  missed the same case. Both now work on the separator byte.
+
 ## [2.1.0] - 2026-04-18
 
 ### Added
@@ -101,6 +124,7 @@ This is a major release; every item in this section is a breaking change.
   `InvalidSignature` instead of `MalformedToken("signature verification failed")`,
   matching `jose/jwt.JwtError`.
 
+[2.2.0]: https://github.com/jtdowney/gose/releases/tag/v2.2.0
 [2.1.0]: https://github.com/jtdowney/gose/releases/tag/v2.1.0
 [2.0.0]: https://github.com/jtdowney/gose/releases/tag/v2.0.0
 
