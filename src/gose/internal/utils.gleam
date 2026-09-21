@@ -9,6 +9,7 @@ import gose
 import kryptos/ec
 import kryptos/eddsa
 import kryptos/xdh
+import splitter
 
 /// Decode a base64url-encoded string, returning a descriptive parse error on failure.
 pub fn decode_base64_url(
@@ -17,6 +18,20 @@ pub fn decode_base64_url(
 ) -> Result(BitArray, gose.GoseError) {
   bit_array.base64_url_decode(b64)
   |> result.replace_error(gose.ParseError("invalid " <> name <> " base64"))
+}
+
+/// Split a compact serialization on the `.` separator byte.
+pub fn split_on_period(token: String) -> List(String) {
+  splitter.split_all(period_splitter(), token)
+}
+
+/// Whether a string contains a literal `.` byte.
+pub fn contains_period(s: String) -> Bool {
+  splitter.would_split(period_splitter(), s)
+}
+
+fn period_splitter() -> splitter.Splitter {
+  splitter.new(["."])
 }
 
 /// Parse an EC curve from its JWK string representation.

@@ -739,7 +739,7 @@ fn header_to_json(
 pub fn parse_compact(
   token: String,
 ) -> Result(Jws(Signed, Parsed), gose.GoseError) {
-  case string.split(token, ".") {
+  case utils.split_on_period(token) {
     [protected_b64, payload_b64, sig_b64] -> {
       let detached = payload_b64 == ""
       build_signed_jws(protected_b64, payload_b64, sig_b64, detached)
@@ -789,7 +789,7 @@ pub fn serialize_compact(
   use <- bool.guard(
     when: encoding == jws_payload.Unencoded
       && !detached
-      && string.contains(payload_segment, "."),
+      && utils.contains_period(payload_segment),
     return: Error(gose.InvalidState(
       "unencoded payload cannot contain '.' for compact serialization",
     )),

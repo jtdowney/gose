@@ -756,6 +756,34 @@ pub fn jws_b64_false_rejects_period_in_payload_for_compact_test() {
     ))
 }
 
+pub fn jws_b64_false_payload_starting_with_combining_mark_test() {
+  let key = jwt_helpers.hmac_key()
+  let payload = bit_array.from_string("\u{0300}abc")
+  let unsigned =
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
+    |> jws.with_unencoded()
+
+  let assert Ok(signed) = jws.sign(unsigned, key, payload)
+  let assert Ok(token) = jws.serialize_compact(signed)
+  let assert Ok(parsed) = jws.parse_compact(token)
+  assert jws.payload(parsed) == payload
+}
+
+pub fn jws_b64_false_rejects_period_followed_by_combining_mark_test() {
+  let key = jwt_helpers.hmac_key()
+  let unsigned =
+    jws.new(gose.Mac(gose.Hmac(gose.HmacSha256)))
+    |> jws.with_unencoded()
+
+  let assert Ok(signed) =
+    jws.sign(unsigned, key, bit_array.from_string("ab.\u{0300}cd"))
+
+  assert jws.serialize_compact(signed)
+    == Error(gose.InvalidState(
+      "unencoded payload cannot contain '.' for compact serialization",
+    ))
+}
+
 pub fn jws_b64_false_allows_period_in_payload_for_json_test() {
   let key = jwt_helpers.hmac_key()
   let unsigned =

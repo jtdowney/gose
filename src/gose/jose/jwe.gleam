@@ -1713,7 +1713,7 @@ pub fn serialize_compact(
 pub fn parse_compact(
   token: String,
 ) -> Result(Jwe(Encrypted, Nil, Parsed), gose.GoseError) {
-  case string.split(token, ".") {
+  case utils.split_on_period(token) {
     [protected_b64, ek_b64, iv_b64, ct_b64, tag_b64] -> {
       use ParsedHeader(header:, alg_fields:) <- result.try(
         parse_protected_header(protected_b64),
