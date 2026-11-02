@@ -14,6 +14,7 @@ import gose/test_helpers/generators
 import gose/test_helpers/jwt_helpers
 import kryptos/crypto
 import qcheck
+import splitter
 
 fn json_object_keys_decoder() -> decode.Decoder(List(String)) {
   decode.dict(decode.string, decode.dynamic)
@@ -713,8 +714,7 @@ pub fn jws_b64_false_payload_roundtrip_test() {
   // RFC 7797: period characters MUST NOT be used in unencoded payloads
   // with compact serialization (they conflict with the segment separator)
   let payload =
-    payload_str
-    |> string.replace(".", "_")
+    replace_periods(splitter.new(["."]), payload_str)
     |> bit_array.from_string
   let unsigned =
     jws.new(alg)
@@ -1479,4 +1479,11 @@ pub fn general_json_empty_signatures_test() {
 
   let assert Error(gose.ParseError(msg)) = jws.parse_json(json_str)
   assert msg == "JWS JSON (general) has no signatures"
+}
+
+fn replace_periods(periods: splitter.Splitter, s: String) -> String {
+  case splitter.split(periods, s) {
+    #(before, "", _) -> before
+    #(before, _, after) -> before <> "_" <> replace_periods(periods, after)
+  }
 }
